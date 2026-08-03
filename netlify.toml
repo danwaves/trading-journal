@@ -1,0 +1,10 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Your HTML file isn't named index.html, so without this, visiting your bare
+# .netlify.app URL would show a directory listing instead of the app.
+[[redirects]]
+  from = "/"
+  to = "/full-design-preview-branded.html"
+  status = 200
