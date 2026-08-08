@@ -87,60 +87,6 @@
   }
   .theme-toggle-btn:hover { color: var(--light); }
 
-  /* "More" tab (item #5) — groups Compare/Strategies/Settings, the
-     less-frequently-used screens, behind a single dropdown so the sticky
-     tab bar reads at a glance on a phone instead of scrolling through 8
-     tabs. The three grouped buttons are the *same* nav buttons as before
-     (same onclick, same ids where present) — just relocated into a closed-
-     by-default panel, so every existing lookup that finds them by id or by
-     onclick text (see showScreen()'s back-navigation, applyAuthGate()'s
-     is-hidden toggle) keeps working unchanged. */
-  .more-tab-wrapper { position: relative; flex: 1; min-width: 90px; }
-  .more-tab-wrapper.is-hidden { display: none; }
-  .more-tab-wrapper > button { width: 100%; }
-  .more-menu {
-    /* position:fixed (not absolute) — .preview-tabs has overflow-x:auto for
-       its horizontal scroll, which per spec forces overflow-y to 'auto' too,
-       silently clipping any absolutely-positioned child that overflows
-       below it. That clipped the dropdown invisible even though the 'open'
-       class was toggling correctly. Fixed positioning escapes that
-       clipping ancestor entirely; toggleMoreMenu() sets top/right in JS
-       from the trigger button's real screen position. */
-    display: none; position: fixed; z-index: 60;
-    min-width: 160px; background: var(--surface); border: 1px solid var(--border);
-    border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.35); overflow: hidden;
-  }
-  .more-menu.open { display: block; }
-  .more-menu button {
-    display: block; width: 100%; text-align: left; padding: 12px 14px;
-    background: none; border: none; border-bottom: 1px solid var(--border);
-    color: var(--muted); font-family: 'Inter'; font-size: 13px; cursor: pointer;
-  }
-  .more-menu button:last-child { border-bottom: none; }
-  .more-menu button:hover { background: var(--surface2); color: var(--light); }
-  .more-menu button.active { color: var(--brand); }
-
-  /* Sync/connectivity indicator (item #6) — a small always-visible signal in
-     the sticky tab bar showing whether the last Supabase write landed. Wired
-     into the app's core save functions (persistTrade, saveConfluenceList,
-     saveTimeframeList, saveStrategyList, saveTrade, deleteTradeRecord) via
-     setSyncState() — not a network ping, so it reflects real save outcomes
-     rather than just browser connectivity (though it also listens for
-     online/offline directly, which overrides everything else). */
-  .sync-indicator {
-    flex: none; display: flex; align-items: center; gap: 5px;
-    padding: 0 10px; font-size: 11px; color: var(--muted);
-    border-left: 1px solid var(--border); white-space: nowrap;
-  }
-  .sync-indicator.is-hidden { display: none; }
-  .sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
-  .sync-indicator.sync-ok .sync-dot { background: #2ecc71; }
-  .sync-indicator.sync-saving .sync-dot { background: #f5a623; animation: syncPulse 1s infinite; }
-  .sync-indicator.sync-error .sync-dot { background: #e74c3c; }
-  .sync-indicator.sync-offline .sync-dot { background: #888; }
-  @keyframes syncPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
-  @media (max-width: 480px) { .sync-indicator .sync-label { display: none; } }
-
   .screen { display: none; max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
   .screen.active { display: block; }
 
@@ -684,20 +630,11 @@
   <button id="tabLogin" class="active" onclick="showScreen('login', this)">Login</button>
   <button class="app-tab is-hidden" onclick="showScreen('dashboard', this); refreshDashboardTradeSummary();">Dashboard</button>
   <button class="app-tab is-hidden" onclick="showScreen('trades', this); renderTradeList();">Trades</button>
-  <button class="app-tab is-hidden" onclick="showScreen('entry', this); resetEntryForm();" id="tabEntry">New Trade</button>
+  <button class="app-tab is-hidden" onclick="showScreen('entry', this); resetEntryForm();">New Trade</button>
   <button class="app-tab is-hidden" onclick="showScreen('insights', this); inheritDashboardFiltersToInsights();">Insights</button>
   <button class="app-tab is-hidden" onclick="showScreen('history', this); inheritDashboardFiltersToHistory(); restoreHistoryCardCollapseState(); refreshDashboardTradeSummary();">History</button>
-  <div class="more-tab-wrapper is-hidden" id="moreTabWrapper">
-    <button id="tabMore" class="app-tab is-hidden" onclick="toggleMoreMenu(event)">More ▾</button>
-    <div id="moreMenu" class="more-menu">
-      <button onclick="closeMoreMenu(); showScreen('compare', this); renderCompareTable();">Compare</button>
-      <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
-      <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
-    </div>
-  </div>
-  <div class="sync-indicator is-hidden" id="syncIndicator" title="Data sync status">
-    <span class="sync-dot"></span><span class="sync-label" id="syncLabel">Synced</span>
-  </div>
+  <button class="app-tab is-hidden" onclick="showScreen('compare', this); renderCompareTable();">Compare</button>
+  <button class="app-tab is-hidden" onclick="showScreen('settings', this)">Settings</button>
   <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle light/dark theme">🌙</button>
 </div>
 
@@ -748,17 +685,6 @@
 <div id="dashboard" class="screen">
   <div class="screen" style="display:block; padding:0;">
     <h1 style="margin-bottom:16px;">Dashboard</h1>
-
-    <!-- ONBOARDING BANNER: shown only while the account has no strategies yet,
-         or has a strategy but no trades yet — the two things needed before any
-         other card on this page has anything to show. Hidden automatically
-         (updateOnboardingBanner()) the moment both exist; never shown again
-         after that, so it doesn't linger for an established account. -->
-    <div id="onboardingBanner" class="card" style="display:none; border-color:var(--brand); margin-bottom:16px;">
-      <h2 id="onboardingBannerTitle" style="margin-bottom:4px;"></h2>
-      <p class="sub" id="onboardingBannerText" style="margin-bottom:12px;"></p>
-      <button class="btn-primary" id="onboardingBannerBtn" style="width:auto; padding:8px 16px;"></button>
-    </div>
 
     <!-- STICKY TOOLBAR: Filters, Strategy, Risk (Standard/Conservative) & Share
          together in one row, pinned under the tab bar for the whole page —
@@ -1087,39 +1013,14 @@
 
     <div id="historyRiskBody" class="history-standard">
 
-      <!-- RECOVERY ANALYTICS: Standard (1%) -->
-      <div class="card d-std" id="recoveryAnalyticsStandardCard">
-        <div class="mini-card-header" onclick="toggleHistoryCard(this, 'recoveryAnalyticsStandard')">
-          <h2 style="margin-bottom:2px;">Recovery Analytics — Standard (1%)</h2>
-          <span class="chevron">▾</span>
-        </div>
-        <div class="mini-card-body">
-          <p class="sub" style="margin-bottom:16px;">Each drawdown period from its lowest point back to a new balance peak.</p>
-          <div id="recoveryAnalyticsStandardBody" class="history-scroll-body"></div>
-        </div>
-      </div>
-
-      <!-- RECOVERY ANALYTICS: Conservative (0.5%) -->
-      <div class="card d-con" id="recoveryAnalyticsConservativeCard">
-        <div class="mini-card-header" onclick="toggleHistoryCard(this, 'recoveryAnalyticsConservative')">
-          <h2 style="margin-bottom:2px;">Recovery Analytics — Conservative (0.5%)</h2>
-          <span class="chevron">▾</span>
-        </div>
-        <div class="mini-card-body">
-          <p class="sub" style="margin-bottom:16px;">Each drawdown period from its lowest point back to a new balance peak.</p>
-          <div id="recoveryAnalyticsConservativeBody" class="history-scroll-body"></div>
-        </div>
-      </div>
-
       <!-- SEASONAL ANALYTICS: Standard (1%) — moved from Dashboard: this is a
            calendar-bucketed history view (same job as Growth History/Recovery
            Analytics, sliced by month/quarter instead of milestone/drawdown),
            and RISK_PROFILE_CONFIG.seasonalContainerId already sat next to
            growthHistoryContainerId/recoveryContainerId under the hood.
-           No longer the first card on the page (Recovery Analytics is), but
-           still the one open by default — it's the shortest, quickest-to-scan
-           card here, so it front-loads a fast win even though it now sits
-           second in scroll order. -->
+           Placed first: it's the shortest, quickest-to-scan card on this
+           page, so it front-loads a fast win before the longer
+           Timeline/Growth History/Recovery Analytics tables below. -->
       <div class="card d-std" id="seasonalAnalyticsStandardCard">
         <div class="mini-card-header open" onclick="toggleHistoryCard(this, 'seasonalStandard')">
           <h2 style="margin-bottom:2px;">Seasonal Analytics — Standard (1%)</h2>
@@ -1199,8 +1100,29 @@
         </div>
       </div>
 
-      <!-- RECOVERY ANALYTICS now lives at the top of this page — see its cards
-           right after the STICKY TOOLBAR above. -->
+      <!-- RECOVERY ANALYTICS: Standard (1%) -->
+      <div class="card d-std" id="recoveryAnalyticsStandardCard">
+        <div class="mini-card-header" onclick="toggleHistoryCard(this, 'recoveryAnalyticsStandard')">
+          <h2 style="margin-bottom:2px;">Recovery Analytics — Standard (1%)</h2>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="mini-card-body">
+          <p class="sub" style="margin-bottom:16px;">Each drawdown period from its lowest point back to a new balance peak.</p>
+          <div id="recoveryAnalyticsStandardBody" class="history-scroll-body"></div>
+        </div>
+      </div>
+
+      <!-- RECOVERY ANALYTICS: Conservative (0.5%) -->
+      <div class="card d-con" id="recoveryAnalyticsConservativeCard">
+        <div class="mini-card-header" onclick="toggleHistoryCard(this, 'recoveryAnalyticsConservative')">
+          <h2 style="margin-bottom:2px;">Recovery Analytics — Conservative (0.5%)</h2>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="mini-card-body">
+          <p class="sub" style="margin-bottom:16px;">Each drawdown period from its lowest point back to a new balance peak.</p>
+          <div id="recoveryAnalyticsConservativeBody" class="history-scroll-body"></div>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -1761,7 +1683,7 @@
     </div>
   </div>
   <div id="viewerStage" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:grab;">
-    <img id="viewerImg" src="" style="max-width:100%; max-height:100%; user-select:none; -webkit-user-drag:none; transform-origin:center center;" draggable="false" />
+    <img id="viewerImg" src="" style="max-width:none; max-height:none; user-select:none; -webkit-user-drag:none; transform-origin:center center;" draggable="false" />
   </div>
   <div class="icon-btn" onclick="viewerNav(-1)" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); z-index:5; width:42px; height:42px; font-size:18px;">‹</div>
   <div class="icon-btn" onclick="viewerNav(1)" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); z-index:5; width:42px; height:42px; font-size:18px;">›</div>
@@ -1843,30 +1765,31 @@
       </div>
     </div>
 
-    <!-- DATA & BACKUP -->
+    <!-- STRATEGIES -->
     <div class="card">
       <div class="mini-card-header" onclick="toggleCard(this)">
-        <h2 style="margin:0;">Data &amp; Backup</h2>
+        <h2 style="margin:0;">Strategies</h2>
         <span class="chevron">▾</span>
       </div>
       <div class="mini-card-body">
-        <h3 style="margin:0 0 4px; font-size:14px;">Export Trades (CSV)</h3>
-        <p class="sub" style="margin-bottom:12px;">A spreadsheet of your trades — for taxes, or to share with a mentor. This is a readable snapshot, not a backup: it won't include strategies, confluences, or timeframes, and can't be loaded back in.</p>
-        <button class="btn-primary" style="width:auto; padding:8px 14px;" onclick="exportTradesCsv()">Export CSV</button>
-
-        <h3 style="margin:24px 0 4px; font-size:14px;">Export Report (PDF)</h3>
-        <p class="sub" style="margin-bottom:12px;">A formatted summary — win rate, net R, per-strategy breakdown — followed by the trade log, ready to print or save as a PDF. Opens in a new tab; use your browser's Print → Save as PDF.</p>
-        <button class="btn-primary" style="width:auto; padding:8px 14px;" onclick="exportPdfReport()">Open Report</button>
-
-        <h3 style="margin:24px 0 4px; font-size:14px;">Backup All Data (JSON)</h3>
-        <p class="sub" style="margin-bottom:12px;">Everything in this account — trades, strategies, confluences, and timeframes — in a file you can restore from later. Keep this somewhere safe as an independent copy of your data.</p>
-        <button class="btn-primary" style="width:auto; padding:8px 14px;" onclick="exportJsonBackup()">Download Backup</button>
-
-        <h3 style="margin:24px 0 4px; font-size:14px;">Restore from Backup</h3>
-        <p class="sub" style="margin-bottom:12px;">Load a backup file created above. Trades are matched by ID: anything in the file updates or adds to what's already here — nothing already in this account gets deleted. Strategies, confluences, and timeframes are merged the same way, by name.</p>
-        <input id="restoreBackupInput" type="file" accept="application/json" style="display:block; margin-bottom:10px; font-size:12.5px;" />
-        <button class="btn-primary" style="width:auto; padding:8px 14px; background:var(--surface2); color:var(--light); border:1px solid var(--border);" onclick="restoreJsonBackup()">Restore</button>
-        <div id="restoreBackupStatus" class="extract-status"></div>
+        <p class="sub">Create a strategy — risk profiles seed automatically.</p>
+        <div class="nested-card">
+          <h2 style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom:12px;">Create New Strategy</h2>
+          <div class="field"><label>Strategy Name</label><input id="newStrategyNameInput" placeholder="e.g. FVG Confluence Test — v1" onkeydown="if(event.key==='Enter'){event.preventDefault(); createStrategy();}" /></div>
+          <div class="grid2" style="margin-bottom:14px;">
+            <div class="field" style="margin-bottom:0;"><label>Starting Balance ($)</label><input id="newStrategyBalanceInput" value="10000" /></div>
+            <div class="field" style="margin-bottom:0;"><label>Max Drawdown %</label><input id="newStrategyMaxDDInput" value="10" /></div>
+          </div>
+          <p class="sub" style="background:var(--surface); padding:10px; border-radius:8px; font-size:11px;">
+            Every strategy is created with two risk profiles by default — <b style="color:var(--light);">Standard (1%)</b> and <b style="color:var(--light);">Conservative (0.5%)</b> — each running all six R:R targets. That's 12 lanes total. Add more custom profiles anytime.
+          </p>
+          <button class="btn-primary" style="margin-top:12px;" onclick="createStrategy()">Create Strategy</button>
+          <div id="newStrategyStatus" class="extract-status"></div>
+        </div>
+        <div class="nested-card">
+          <h2 style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom:12px;">Your Strategies</h2>
+          <div id="strategyManagerList" class="mono muted" style="font-size:12.5px;">Loading…</div>
+        </div>
       </div>
     </div>
 
@@ -1925,46 +1848,16 @@
   </div>
 </div>
 
-<!-- STRATEGIES (full page) — every strategy you save lives here. Create New
-     Strategy at the top; every saved strategy below as a card, with Edit
-     opening the full Strategy Detail page (see openStrategyEditModal()). -->
-<div id="strategies" class="screen">
-  <h1>Strategies</h1>
-  <p class="sub" style="margin-bottom:20px;">Create a strategy — risk profiles seed automatically.</p>
-  <div class="card">
-    <div style="padding-top:0;">
-      <div class="nested-card">
-        <h2 style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom:12px;">Create New Strategy</h2>
-        <div class="field"><label>Strategy Name</label><input id="newStrategyNameInput" placeholder="e.g. FVG Confluence Test — v1" onkeydown="if(event.key==='Enter'){event.preventDefault(); createStrategy();}" /></div>
-        <div class="grid2" style="margin-bottom:14px;">
-          <div class="field" style="margin-bottom:0;"><label>Starting Balance ($)</label><input id="newStrategyBalanceInput" value="10000" /></div>
-          <div class="field" style="margin-bottom:0;"><label>Max Drawdown %</label><input id="newStrategyMaxDDInput" value="10" /></div>
-        </div>
-        <p class="sub" style="background:var(--surface); padding:10px; border-radius:8px; font-size:11px;">
-          Every strategy is created with two risk profiles by default — <b style="color:var(--light);">Standard (1%)</b> and <b style="color:var(--light);">Conservative (0.5%)</b> — each running all six R:R targets. That's 12 lanes total. Add more custom profiles anytime.
-        </p>
-        <button class="btn-primary" style="margin-top:12px;" onclick="createStrategy()">Create Strategy</button>
-        <div id="newStrategyStatus" class="extract-status"></div>
-      </div>
-      <div class="nested-card">
-        <h2 style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom:12px;">Your Strategies</h2>
-        <div id="strategyManagerList" class="mono muted" style="font-size:12.5px;">Loading…</div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- STRATEGY DETAIL (full page) — Notes, Confluences, Chart Gallery, Risk Profiles for
+<!-- EDIT STRATEGY (modal) — Notes, Confluences, Chart Gallery, Risk Profiles for
      one strategy. Opened from the compact card in Settings > Strategies via
-     openStrategyEditModal() as its own page (not a modal) so nothing about it — in
-     particular the Notes save — depends on a background overlay's timing/lifecycle;
-     it now works exactly like every other screen in the app (Back navigates away,
-     the bottom button explicitly saves, same as Save Trade on the New Trade page). -->
-<div id="strategyDetail" class="screen">
-  <a id="strategyDetailBackLink" class="muted" style="display:inline-block; margin-bottom:14px; cursor:pointer; font-size:13px;" onclick="closeStrategyEditModal()">← Back</a>
-  <div id="strategyEditModalBody"></div>
-  <div style="display:flex; gap:8px; margin-top:20px;">
-    <button id="strategyDetailSaveBtn" class="btn-primary" style="flex:1;" onclick="closeStrategyEditModal()">Save &amp; Back</button>
+     openStrategyEditModal() so that list doesn't have to show every strategy's
+     full editor stacked inline at once. -->
+<div id="strategyEditModal" class="modal-overlay" onclick="if(event.target===this) closeStrategyEditModal();">
+  <div class="modal-card" style="max-height:85vh; overflow-y:auto;">
+    <div id="strategyEditModalBody"></div>
+    <div style="display:flex; gap:8px; margin-top:20px;">
+      <button style="flex:1; padding:12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--light); cursor:pointer;" onclick="closeStrategyEditModal()">Done</button>
+    </div>
   </div>
 </div>
 
@@ -2053,88 +1946,8 @@ function showScreen(id, btn) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.preview-tabs button').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
-  if (btn) btn.classList.add('active');
-  // "More" tab (item #5): Compare/Strategies/Settings live inside the
-  // dropdown now, so highlight the "More" trigger itself whenever one of
-  // them is the active screen — otherwise nothing in the visible tab bar
-  // would show where you are.
-  const moreBtn = document.getElementById('tabMore');
-  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'settings'].includes(id));
+  btn.classList.add('active');
 }
-
-// Opens/closes the "More" dropdown (Compare/Strategies/Settings). A
-// document-level click listener (below) closes it on any click outside the
-// wrapper; each item's own onclick also calls closeMoreMenu() directly so
-// picking an item closes the menu immediately rather than waiting on the
-// outside-click handler.
-function toggleMoreMenu(event) {
-  event.stopPropagation();
-  const menu = document.getElementById('moreMenu');
-  if (!menu) return;
-  const opening = !menu.classList.contains('open');
-  if (opening) {
-    // .more-menu is position:fixed now (see CSS comment), so it needs its
-    // screen position set from the trigger button's real rendered rect —
-    // CSS alone can't place a fixed element relative to its trigger.
-    const btn = document.getElementById('tabMore');
-    if (btn) {
-      const rect = btn.getBoundingClientRect();
-      menu.style.top = rect.bottom + 4 + 'px';
-      menu.style.right = (window.innerWidth - rect.right) + 'px';
-    }
-  }
-  menu.classList.toggle('open', opening);
-}
-
-function closeMoreMenu() {
-  const menu = document.getElementById('moreMenu');
-  if (menu) menu.classList.remove('open');
-}
-
-// The dropdown's position is computed once, at open time, from the trigger
-// button's rect (see toggleMoreMenu()). A resize/orientation-change while
-// it's open would leave it stranded at the old coordinates, so just close
-// it — the same behavior most native dropdowns fall back to.
-window.addEventListener('resize', closeMoreMenu);
-
-document.addEventListener('click', (e) => {
-  const wrapper = document.getElementById('moreTabWrapper');
-  if (wrapper && !wrapper.contains(e.target)) closeMoreMenu();
-});
-
-// ================= SYNC INDICATOR (item #6) =================
-// Global, always-visible signal of whether data is actually reaching
-// Supabase — not just a network ping, but reflecting the outcome of the
-// app's actual save calls (see setSyncState() call sites below). Browser
-// online/offline events take priority over whatever the last save said,
-// since a save can't be attempted at all without a connection.
-let syncState = 'idle';
-
-function setSyncState(state) {
-  syncState = navigator.onLine ? state : 'offline';
-  renderSyncIndicator();
-}
-
-function renderSyncIndicator() {
-  const el = document.getElementById('syncIndicator');
-  const label = document.getElementById('syncLabel');
-  if (!el || !label) return;
-  const map = {
-    idle: { text: 'Synced', cls: 'sync-ok', title: 'Data sync status' },
-    saving: { text: 'Saving…', cls: 'sync-saving', title: 'Saving to Supabase…' },
-    synced: { text: 'Synced', cls: 'sync-ok', title: 'All changes saved' },
-    error: { text: 'Sync issue', cls: 'sync-error', title: 'Last save failed — check your connection and try again.' },
-    offline: { text: 'Offline', cls: 'sync-offline', title: 'No network connection — changes will fail to save.' },
-  };
-  const m = map[syncState] || map.idle;
-  el.classList.remove('sync-ok', 'sync-saving', 'sync-error', 'sync-offline');
-  el.classList.add(m.cls);
-  label.textContent = m.text;
-  el.title = m.title;
-}
-
-window.addEventListener('online', () => setSyncState(syncState === 'offline' ? 'synced' : syncState));
-window.addEventListener('offline', () => setSyncState('offline'));
 
 // Currency Pair filter (Dashboard) — real as of item #5: re-slices Race
 // tables, Race Bars, Growth History, Recovery Analytics, Seasonal
@@ -2634,11 +2447,13 @@ async function applyPairModal() {
       ' trade(s) tagged "' + originalPair + '" will be moved to "' + mergeTarget + '". This can\'t be undone.')) return;
   }
 
-  let failedCount = 0;
   for (const t of affected) {
     t.pair = targetPair;
-    const ok = await persistTrade(t);
-    if (!ok) failedCount++;
+    try {
+      await persistTrade(t);
+    } catch (e) {
+      console.error('Failed to update trade ' + t.id + ' during pair ' + (mergeTarget ? 'merge' : 'rename') + ':', e);
+    }
   }
 
   closePairModal();
@@ -2646,9 +2461,6 @@ async function applyPairModal() {
   populateFilterOptions();
   renderPairSelectOptions();
   if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
-  if (failedCount > 0) {
-    alert(failedCount + ' of ' + affected.length + ' trade(s) failed to update — check your connection and try again for those.');
-  }
 }
 
 // Multi-select outcome tags (New Trade) — any number of tags can be active per target
@@ -2927,36 +2739,25 @@ async function handleStrategyImageSelect(event, strategyId) {
   }
   if (!accepted.length) return;
 
-  const newIds = [];
   for (let i = 0; i < accepted.length; i++) {
     try {
       const result = await compressToTarget(accepted[i]);
-      const newImg = {
+      strategy.images.push({
         id: 'simg_' + Date.now() + '_' + i,
         source: 'file',
         base64: result.base64,
         mediaType: result.mediaType,
         sizeKB: result.sizeKB,
         name: accepted[i].name,
-      };
-      strategy.images.push(newImg);
-      newIds.push(newImg.id);
+      });
     } catch (err) {
       console.error('Strategy image compression failed:', err);
       const reason = (err && err.message) ? err.message : 'unknown error';
       setStrategyImageStatus(strategyId, 'Couldn\'t process "' + accepted[i].name + '" — ' + reason + '.', 'error');
     }
   }
-  if (!newIds.length) return;
 
-  const ok = await saveStrategyList();
-  if (!ok) {
-    strategy.images = strategy.images.filter((img) => !newIds.includes(img.id)); // revert — don't show images as added when they never actually saved
-    setStrategyImageStatus(strategyId, 'Failed to save — check your connection and try again', 'error');
-    renderStrategyManagerList();
-    renderStrategyEditModal();
-    return;
-  }
+  await saveStrategyList();
   renderStrategyManagerList(); // keeps the compact card's image count in sync
   renderStrategyEditModal(); // re-render shows the new thumbnail(s) in the gallery — the input only exists while this strategy's modal is open, so it's always the right one to refresh
 }
@@ -2966,16 +2767,8 @@ async function handleStrategyImageSelect(event, strategyId) {
 async function removeStrategyImage(strategyId, imageId) {
   const strategy = strategyList.find((s) => s.id === strategyId);
   if (!strategy) return;
-  const removed = (strategy.images || []).find((img) => img.id === imageId);
   strategy.images = (strategy.images || []).filter((img) => img.id !== imageId);
-  const ok = await saveStrategyList();
-  if (!ok) {
-    if (removed) strategy.images.push(removed); // revert — don't let the UI show it gone when it's still saved remotely
-    setStrategyImageStatus(strategyId, 'Failed to remove — check your connection and try again', 'error');
-    renderStrategyManagerList();
-    renderStrategyEditModal();
-    return;
-  }
+  await saveStrategyList();
   renderStrategyManagerList();
   renderStrategyEditModal();
 }
@@ -3315,11 +3108,8 @@ function rowToTrade(r) {
 }
 
 async function persistTrade(trade) {
-  setSyncState('saving');
   const { error } = await supabaseClient.from('trades').upsert(tradeToRow(trade));
-  if (error) { console.error('Failed to save trade ' + trade.id + ':', error); setSyncState('error'); return false; }
-  setSyncState('synced');
-  return true;
+  if (error) console.error('Failed to save trade ' + trade.id + ':', error);
 }
 
 async function loadAllTrades() {
@@ -3356,6 +3146,10 @@ async function loadAllTrades() {
 const CONFLUENCE_LIST_ROW_ID = 'list';
 const DEFAULT_CONFLUENCES = ['MSS', 'BOS', 'Liquidity Sweep'];
 let confluenceList = [];
+// See strategyListLoaded above — same guard, same reason: prevents adding to an
+// in-memory list that's empty only because the initial load failed, then saving
+// that over the real remote data.
+let confluenceListLoaded = false;
 
 async function loadConfluenceList() {
   try {
@@ -3364,11 +3158,13 @@ async function loadConfluenceList() {
     if (error) throw error;
     if (data && data.name) {
       confluenceList = JSON.parse(data.name);
+      confluenceListLoaded = true;
       return confluenceList;
     }
     // No error, but genuinely no row yet — first real use, safe to seed.
     confluenceList = DEFAULT_CONFLUENCES.slice();
     await saveConfluenceList();
+    confluenceListLoaded = true;
     return confluenceList;
   } catch (e) {
     // A real fetch error (network/auth hiccup) — do NOT save here, or we'd
@@ -3376,22 +3172,18 @@ async function loadConfluenceList() {
     // untouched; the next successful load will recover it.
     console.error('Failed to load confluence list — not overwriting saved data:', e);
     confluenceList = [];
+    confluenceListLoaded = false;
     return confluenceList;
   }
 }
 
 async function saveConfluenceList() {
-  setSyncState('saving');
   try {
     const { error } = await supabaseClient.from('confluences')
       .upsert({ id: CONFLUENCE_LIST_ROW_ID, name: JSON.stringify(confluenceList) });
     if (error) throw error;
-    setSyncState('synced');
-    return true;
   } catch (e) {
     console.error('Failed to save confluence list:', e);
-    setSyncState('error');
-    return false;
   }
 }
 
@@ -3428,15 +3220,14 @@ async function addConfluenceToManager() {
   const input = document.getElementById('newConfluenceInput');
   const name = (input.value || '').trim();
   if (!name) return;
+  if (!confluenceListLoaded) {
+    alert('Confluences haven\'t finished loading — refresh the page and try again so we don\'t overwrite your existing list.');
+    return;
+  }
   const exists = confluenceList.some((c) => c.toLowerCase() === name.toLowerCase());
   if (exists) { input.value = ''; return; }
   confluenceList.push(name);
-  const ok = await saveConfluenceList();
-  if (!ok) {
-    confluenceList = confluenceList.filter((c) => c !== name); // revert — never claim "added" for something that didn't actually save
-    alert('Failed to save — check your connection and try again.');
-    return;
-  }
+  await saveConfluenceList();
   input.value = '';
   renderConfluenceManagerList();
   renderConfluenceSuggestions();
@@ -3451,25 +3242,18 @@ async function editConfluence(oldName) {
   const dup = confluenceList.some((c) => c.toLowerCase() === newName.toLowerCase() && c !== oldName);
   if (dup) { alert('"' + newName + '" already exists.'); return; }
 
-  const previousList = confluenceList.slice();
   confluenceList = confluenceList.map((c) => (c === oldName ? newName : c));
-  const ok = await saveConfluenceList();
-  if (!ok) {
-    confluenceList = previousList; // revert — don't cascade a rename onto trades that never actually saved on the list itself
-    alert('Failed to save — check your connection and try again.');
-    renderConfluenceManagerList();
-    renderConfluenceSuggestions();
-    renderConfluencePicker();
-    return;
-  }
+  await saveConfluenceList();
 
   await loadAllTrades();
   const affected = allTrades.filter((t) => (t.confluences || []).includes(oldName));
-  let failedCount = 0;
   for (const t of affected) {
     t.confluences = t.confluences.map((c) => (c === oldName ? newName : c));
-    const ok = await persistTrade(t);
-    if (!ok) failedCount++;
+    try {
+      await persistTrade(t);
+    } catch (e) {
+      console.error('Failed to update trade ' + t.id + ' during confluence rename:', e);
+    }
   }
 
   renderConfluenceManagerList();
@@ -3478,24 +3262,14 @@ async function editConfluence(oldName) {
   await loadAllTrades();
   populateFilterOptions();
   if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
-  if (failedCount > 0) {
-    alert(failedCount + ' of ' + affected.length + ' trade(s) failed to update with the new confluence name — check your connection and try again for those.');
-  }
 }
 
 // Retiring only removes the suggestion — trades already tagged with it keep
 // that tag untouched.
 async function deleteConfluence(name) {
   if (!confirm('Retire "' + name + '"? Existing trades keep this tag; it just stops being suggested for new ones.')) return;
-  const idx = confluenceList.indexOf(name);
   confluenceList = confluenceList.filter((c) => c !== name);
-  const ok = await saveConfluenceList();
-  if (!ok) {
-    confluenceList.splice(idx, 0, name); // revert — it's still saved remotely, so it can't disappear from the list
-    alert('Failed to retire — check your connection and try again.');
-    renderConfluenceManagerList();
-    return;
-  }
+  await saveConfluenceList();
   renderConfluenceManagerList();
   renderConfluenceSuggestions();
   renderConfluencePicker();
@@ -3524,6 +3298,8 @@ const DEFAULT_TIMEFRAMES = [
   { name: 'M5', type: 'ltf' },
 ];
 let timeframeList = [];
+// See strategyListLoaded above — same guard, same reason.
+let timeframeListLoaded = false;
 
 async function loadTimeframeList() {
   try {
@@ -3532,11 +3308,13 @@ async function loadTimeframeList() {
     if (error) throw error;
     if (data && data.name) {
       timeframeList = JSON.parse(data.name);
+      timeframeListLoaded = true;
       return timeframeList;
     }
     // No error, but genuinely no row yet — first real use, safe to seed.
     timeframeList = DEFAULT_TIMEFRAMES.slice();
     await saveTimeframeList();
+    timeframeListLoaded = true;
     return timeframeList;
   } catch (e) {
     // A real fetch error (network/auth hiccup) — do NOT save here, or we'd
@@ -3544,22 +3322,18 @@ async function loadTimeframeList() {
     // untouched; the next successful load will recover it.
     console.error('Failed to load timeframe list — not overwriting saved data:', e);
     timeframeList = [];
+    timeframeListLoaded = false;
     return timeframeList;
   }
 }
 
 async function saveTimeframeList() {
-  setSyncState('saving');
   try {
     const { error } = await supabaseClient.from('timeframes')
       .upsert({ id: TIMEFRAME_LIST_ROW_ID, name: JSON.stringify(timeframeList) });
     if (error) throw error;
-    setSyncState('synced');
-    return true;
   } catch (e) {
     console.error('Failed to save timeframe list:', e);
-    setSyncState('error');
-    return false;
   }
 }
 
@@ -3622,15 +3396,14 @@ async function addTimeframeToManager() {
   const name = (input.value || '').trim();
   const type = typeSel.value;
   if (!name) return;
+  if (!timeframeListLoaded) {
+    alert('Timeframes haven\'t finished loading — refresh the page and try again so we don\'t overwrite your existing list.');
+    return;
+  }
   const exists = timeframeList.some((t) => t.type === type && t.name.toLowerCase() === name.toLowerCase());
   if (exists) { input.value = ''; return; }
   timeframeList.push({ name, type });
-  const ok = await saveTimeframeList();
-  if (!ok) {
-    timeframeList = timeframeList.filter((t) => !(t.type === type && t.name === name)); // revert — never claim "added" for something that didn't actually save
-    alert('Failed to save — check your connection and try again.');
-    return;
-  }
+  await saveTimeframeList();
   input.value = '';
   renderTimeframeManagerList();
   renderTimeframeSelects();
@@ -3644,25 +3417,19 @@ async function editTimeframe(oldName, type) {
   const dup = timeframeList.some((t) => t.type === type && t.name.toLowerCase() === newName.toLowerCase() && t.name !== oldName);
   if (dup) { alert('"' + newName + '" already exists.'); return; }
 
-  const previousList = timeframeList.slice();
   timeframeList = timeframeList.map((t) => (t.type === type && t.name === oldName ? { name: newName, type } : t));
-  const ok = await saveTimeframeList();
-  if (!ok) {
-    timeframeList = previousList; // revert — don't cascade a rename onto trades that never actually saved on the list itself
-    alert('Failed to save — check your connection and try again.');
-    renderTimeframeManagerList();
-    renderTimeframeSelects();
-    return;
-  }
+  await saveTimeframeList();
 
   await loadAllTrades();
   const field = type === 'htf' ? 'htf' : 'ltf';
   const affected = allTrades.filter((t) => t[field] === oldName);
-  let failedCount = 0;
   for (const t of affected) {
     t[field] = newName;
-    const ok = await persistTrade(t);
-    if (!ok) failedCount++;
+    try {
+      await persistTrade(t);
+    } catch (e) {
+      console.error('Failed to update trade ' + t.id + ' during timeframe rename:', e);
+    }
   }
 
   renderTimeframeManagerList();
@@ -3670,25 +3437,14 @@ async function editTimeframe(oldName, type) {
   await loadAllTrades();
   populateFilterOptions();
   if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
-  if (failedCount > 0) {
-    alert(failedCount + ' of ' + affected.length + ' trade(s) failed to update with the new timeframe name — check your connection and try again for those.');
-  }
 }
 
 // Retiring only removes it from the dropdown for new trades — trades
 // already using it keep that value untouched.
 async function deleteTimeframe(name, type) {
   if (!confirm('Retire "' + name + '"? Existing trades keep this value; it just stops appearing in the dropdown for new ones.')) return;
-  const idx = timeframeList.findIndex((t) => t.type === type && t.name === name);
-  const removed = timeframeList[idx];
   timeframeList = timeframeList.filter((t) => !(t.type === type && t.name === name));
-  const ok = await saveTimeframeList();
-  if (!ok) {
-    timeframeList.splice(idx, 0, removed); // revert — it's still saved remotely, so it can't disappear from the list
-    alert('Failed to retire — check your connection and try again.');
-    renderTimeframeManagerList();
-    return;
-  }
+  await saveTimeframeList();
   renderTimeframeManagerList();
   renderTimeframeSelects();
 }
@@ -3720,6 +3476,14 @@ const STRATEGY_LIST_ROW_ID = 'list';
 // user creates their own via the Settings > Strategy Manager card.
 const DEFAULT_STRATEGIES = [];
 let strategyList = [];
+// True only once loadStrategyList() has confirmed it has the real remote list (or
+// genuinely seeded a first-time empty one). False after a failed fetch. Guards
+// createStrategy()/etc. from pushing onto an incomplete in-memory list and saving
+// that over the real data — the actual cause of strategies vanishing after a
+// flaky load: the loader itself stopped overwriting on error, but nothing stopped
+// a *subsequent create* from saving an in-memory list that was empty because the
+// load never completed.
+let strategyListLoaded = false;
 
 async function loadStrategyList() {
   try {
@@ -3728,11 +3492,13 @@ async function loadStrategyList() {
     if (error) throw error;
     if (data && data.config) {
       strategyList = normalizeStrategyList(data.config);
+      strategyListLoaded = true;
       return strategyList;
     }
     // No error, but genuinely no row yet — first real use, safe to seed.
     strategyList = DEFAULT_STRATEGIES.slice();
     await saveStrategyList();
+    strategyListLoaded = true;
     return strategyList;
   } catch (e) {
     // A real fetch error (network/auth hiccup) — do NOT save here, or we'd
@@ -3740,6 +3506,7 @@ async function loadStrategyList() {
     // untouched; the next successful load will recover it.
     console.error('Failed to load strategy list — not overwriting saved data:', e);
     strategyList = [];
+    strategyListLoaded = false;
     return strategyList;
   }
 }
@@ -3760,16 +3527,13 @@ function normalizeStrategyList(list) {
 }
 
 async function saveStrategyList() {
-  setSyncState('saving');
   try {
     const { error } = await supabaseClient.from('strategies')
       .upsert({ id: STRATEGY_LIST_ROW_ID, name: 'strategy_list', config: strategyList });
     if (error) throw error;
-    setSyncState('synced');
     return true;
   } catch (e) {
     console.error('Failed to save strategy list:', e);
-    setSyncState('error');
     return false;
   }
 }
@@ -3811,12 +3575,11 @@ function renderStrategyManagerList() {
     const idArg = escapeHtml(JSON.stringify(s.id));
     const profileCount = (s.riskProfiles || []).length;
     const imageCount = (s.images || []).length;
-    // Compact summary row only, same as before — but the whole card now opens
-    // the read-only Strategy View (openStrategyView), matching how a Trade row
-    // opens its side panel. Edit and Retire both live inside that view now,
-    // instead of sitting on the card itself, so browsing the list never puts
-    // you one accidental tap away from editing something.
-    return '<div style="background:var(--surface2); border-radius:8px; padding:14px; margin-bottom:12px; cursor:pointer;" onclick="openStrategyView(' + idArg + ')">' +
+    // Compact summary row only — Notes, Confluences, Chart Gallery, and Risk
+    // Profiles all moved into strategyEditModal (opened via "Edit") so this
+    // list stays scannable instead of stacking every strategy's full editor
+    // inline (which is what made the Settings page balloon with 2+ strategies).
+    return '<div style="background:var(--surface2); border-radius:8px; padding:14px; margin-bottom:12px;">' +
       '<div style="display:flex; justify-content:space-between; align-items:center;">' +
         '<span style="font-size:13px; font-weight:600;">' + escapeHtml(s.name) + '</span>' +
         '<span class="mono muted" style="font-size:11px;">$' + s.startingBalance.toLocaleString('en-US') + ' · ' + s.maxDrawdownPercent + '% max DD</span>' +
@@ -3824,118 +3587,27 @@ function renderStrategyManagerList() {
       '<div class="mono muted" style="font-size:11px; margin-top:6px;">' +
         profileCount + ' risk profile' + (profileCount === 1 ? '' : 's') + ' · ' + imageCount + ' image' + (imageCount === 1 ? '' : 's') +
       '</div>' +
+      '<div style="margin-top:10px; display:flex; gap:12px; font-size:11px;">' +
+        '<span class="muted" style="cursor:pointer;" onclick="openStrategyEditModal(' + idArg + ')">✎ Edit</span>' +
+        '<span class="muted" style="cursor:pointer;" onclick="deleteStrategy(' + idArg + ')">🗑 Retire</span>' +
+      '</div>' +
     '</div>';
   }).join('');
 }
 
-// Read-only Strategy View — the "view" half of the view/edit split (mirrors
-// openSidePanel() for Trades exactly, and reuses the same #sidePanel overlay
-// rather than a second copy of the markup). Nothing here is editable: tapping
-// a card shows the strategy as it stands, with Edit/Retire as explicit
-// actions at the bottom instead of dropping straight into edit fields.
-function openStrategyView(strategyId) {
-  const s = strategyList.find((s) => s.id === strategyId);
-  if (!s) return;
-  const idArg = escapeHtml(JSON.stringify(s.id));
-  const panel = document.getElementById('sidePanel');
-  const profileRows = (s.riskProfiles || []).map((p) =>
-    '<div style="display:flex; justify-content:space-between; background:var(--bg); border-radius:6px; padding:6px 10px; margin-bottom:6px;">' +
-      '<span style="font-size:12px;">' + escapeHtml(p.label) + '</span>' +
-      '<span class="mono muted" style="font-size:11.5px;">' + p.riskPercent + '%</span>' +
-    '</div>'
-  ).join('');
-  const confluenceChips = (s.confluenceIds && s.confluenceIds.length)
-    ? s.confluenceIds.map((name) => '<span class="chip-pill active" style="cursor:default;">' + escapeHtml(name) + '</span>').join('')
-    : '<span class="muted" style="font-size:11px;">No confluences tagged.</span>';
-  const images = s.images || [];
-  const gallery = images.length
-    ? '<div class="trade-img-grid" style="margin-top:8px;">' +
-        images.map((img, idx) =>
-          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', false)"><img src="data:' + img.mediaType + ';base64,' + img.base64 + '" alt="' + escapeHtml(s.name) + ' reference" /></div>'
-        ).join('') +
-      '</div>'
-    : '<p class="sub" style="font-size:11px; margin:0;">No reference charts yet.</p>';
-  panel.innerHTML =
-    '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">' +
-      '<h2 style="margin:0;">' + escapeHtml(s.name) + '</h2>' +
-      '<div class="icon-btn" onclick="closeSidePanel()">✕</div>' +
-    '</div>' +
-    '<p class="sub mono" style="margin:-8px 0 14px;">$' + s.startingBalance.toLocaleString('en-US') + ' · ' + s.maxDrawdownPercent + '% max DD</p>' +
-    '<div style="margin-top:4px;">' +
-      '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Risk Profiles</label>' +
-      (profileRows || '<span class="muted" style="font-size:11px;">No risk profiles yet.</span>') +
-    '</div>' +
-    '<div style="margin-top:16px;">' +
-      '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Confluences</label>' +
-      confluenceChips +
-    '</div>' +
-    '<div style="margin-top:16px;">' +
-      '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Notes</label>' +
-      '<p class="sub" style="white-space:pre-wrap; margin:0;">' + (s.notes ? escapeHtml(s.notes) : '<span class="muted">No notes yet.</span>') + '</p>' +
-    '</div>' +
-    '<div style="margin-top:16px;">' +
-      '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Chart Gallery</label>' +
-      gallery +
-    '</div>' +
-    '<div style="display:flex; gap:8px; margin-top:20px;">' +
-      '<button class="btn-primary" style="flex:1;" onclick="closeSidePanel(); openStrategyEditModal(' + idArg + ')">✎ Edit</button>' +
-      '<button style="flex:1; padding:12px; background:rgba(255,92,92,0.1); border:1px solid var(--loss); border-radius:8px; color:var(--loss); font-weight:600; cursor:pointer;" onclick="closeSidePanel(); deleteStrategy(' + idArg + ')">🗑 Retire</button>' +
-    '</div>';
-  document.getElementById('sidePanelOverlay').classList.add('show');
-}
-
 // Opens the per-strategy editor (Rename, Risk Profiles, Notes, Confluences,
-// Chart Gallery) as its own full page — see renderStrategyManagerList() above
-// for why it's not shown inline in the Settings list. previousScreenBeforeStrategyDetail
-// remembers which tab was active so "Back" can return there even if it wasn't Settings.
-let previousScreenBeforeStrategyDetail = 'settings';
+// Chart Gallery) in a modal instead of inline in the Settings list — see
+// renderStrategyManagerList() above for why. Mirrors the openPairModal()/
+// closePairModal() pattern already used elsewhere in this file.
 function openStrategyEditModal(strategyId) {
-  const activeScreen = document.querySelector('.screen.active');
-  if (activeScreen && activeScreen.id !== 'strategyDetail') previousScreenBeforeStrategyDetail = activeScreen.id;
-  strategyNotesEditingId = null;
-  const page = document.getElementById('strategyDetail');
-  page.dataset.strategyId = strategyId;
-  const originLabel = previousScreenBeforeStrategyDetail.charAt(0).toUpperCase() + previousScreenBeforeStrategyDetail.slice(1);
-  const backLink = document.getElementById('strategyDetailBackLink');
-  const saveBtn = document.getElementById('strategyDetailSaveBtn');
-  if (backLink) backLink.textContent = '← Back to ' + originLabel;
-  if (saveBtn) saveBtn.textContent = 'Save & Back to ' + originLabel;
+  const modal = document.getElementById('strategyEditModal');
+  modal.dataset.strategyId = strategyId;
   renderStrategyEditModal();
-  showScreen('strategyDetail', null);
+  modal.classList.add('show');
 }
 
-// Saves the notepad and closes the modal — this is the ONE point where Strategy notes
-// actually persist to Supabase, matching how Trade notes only save when Save Trade is
-// tapped (not on every blur/keystroke). If the save fails, the modal stays open and
-// shows an error rather than closing and silently losing the edit.
-async function closeStrategyEditModal() {
-  const page = document.getElementById('strategyDetail');
-  const strategyId = page.dataset.strategyId;
-  const strategy = strategyList.find((s) => String(s.id) === String(strategyId));
-  if (strategy) {
-    const notesEl = document.getElementById('strategyNotesInput_' + strategy.id);
-    if (notesEl) strategy.notes = notesEl.value;
-    const ok = await saveStrategyList();
-    if (!ok) {
-      setStrategyNotesStatus(strategy.id, 'Failed to save — check your connection and try again', 'error');
-      return;
-    }
-  }
-  renderStrategyManagerList();
-  strategyNotesEditingId = null;
-  const backBtn = document.getElementById('tab' + previousScreenBeforeStrategyDetail.charAt(0).toUpperCase() + previousScreenBeforeStrategyDetail.slice(1))
-    || document.querySelector('.preview-tabs button[onclick*="\'' + previousScreenBeforeStrategyDetail + '\'"]');
-  showScreen(previousScreenBeforeStrategyDetail, backBtn);
-}
-
-// Shows status text under a strategy's notepad — currently only used to surface a save
-// failure from closeStrategyEditModal() above, reusing the same .extract-status styling
-// used elsewhere in the app.
-function setStrategyNotesStatus(strategyId, msg, cls) {
-  const el = document.getElementById('strategyNotesStatus_' + strategyId);
-  if (!el) return;
-  el.textContent = msg;
-  el.className = 'extract-status' + (cls ? ' ' + cls : '');
+function closeStrategyEditModal() {
+  document.getElementById('strategyEditModal').classList.remove('show');
 }
 
 // Renders the modal's contents from strategyList for the id stashed on the
@@ -3945,8 +3617,8 @@ function setStrategyNotesStatus(strategyId, msg, cls) {
 // change immediately — renderStrategyManagerList() is also re-run by those
 // same actions so the compact card's counts stay in sync underneath it.
 function renderStrategyEditModal() {
-  const page = document.getElementById('strategyDetail');
-  const strategyId = page.dataset.strategyId;
+  const modal = document.getElementById('strategyEditModal');
+  const strategyId = modal.dataset.strategyId;
   const s = strategyList.find((s) => String(s.id) === String(strategyId));
   const body = document.getElementById('strategyEditModalBody');
   if (!s) { body.innerHTML = '<p class="sub">This strategy was retired.</p>'; return; }
@@ -3970,19 +3642,9 @@ function renderStrategyEditModal() {
       '<div style="margin-top:4px; font-size:11px; color:var(--muted); cursor:pointer;" onclick="addRiskProfile(' + idArg + ')">+ Add another risk profile</div>' +
     '</div>' +
     '<div style="margin-top:16px;">' +
-      '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">' +
-        '<label style="font-size:11px; color:var(--muted); font-weight:600;">Notes</label>' +
-        (strategyNotesEditingId === s.id ? '' :
-          '<span class="muted" style="cursor:pointer; font-size:12px;" onclick="startEditStrategyNotes(' + idArg + ')">✎ Edit</span>') +
-      '</div>' +
-      (strategyNotesEditingId === s.id
-        ? '<textarea id="strategyNotesInput_' + s.id + '" class="mono" style="width:100%; min-height:60px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; color:var(--light); font-size:12px; resize:vertical;" placeholder="Rules, reminders, anything about this strategy…">' + escapeHtml(s.notes || '') + '</textarea>' +
-          '<div id="strategyNotesStatus_' + s.id + '" class="extract-status"></div>' +
-          '<div style="display:flex; gap:8px; margin-top:8px;">' +
-            '<button class="btn-primary" style="flex:1; padding:8px; font-size:12.5px;" onclick="saveStrategyNotesEdit(' + idArg + ')">Save</button>' +
-            '<button style="flex:1; padding:8px; font-size:12.5px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--light); cursor:pointer;" onclick="cancelEditStrategyNotes()">Cancel</button>' +
-          '</div>'
-        : '<p class="sub" style="white-space:pre-wrap; margin:0;">' + (s.notes ? escapeHtml(s.notes) : '<span class="muted">No notes yet — tap Edit to add some.</span>') + '</p>') +
+      '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Notes</label>' +
+      '<textarea class="mono" style="width:100%; min-height:60px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; color:var(--light); font-size:12px; resize:vertical;" placeholder="Rules, reminders, anything about this strategy…" onchange="saveStrategyNotes(' + idArg + ', this.value)">' + escapeHtml(s.notes || '') + '</textarea>' +
+      '<div id="strategyNotesStatus_' + s.id + '" class="extract-status"></div>' +
     '</div>' +
     '<div style="margin-top:16px;">' +
       '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Confluences</label>' +
@@ -4009,8 +3671,9 @@ function renderStrategyEditModal() {
         : '<span class="muted" style="font-size:11px;">' + MAX_STRATEGY_IMAGES + '/' + MAX_STRATEGY_IMAGES + ' — remove one to add another.</span>') +
       '<div id="strategyImageStatus_' + s.id + '" class="extract-status"></div>' +
       '<div class="trade-img-grid" style="margin-top:8px;">' +
-        (s.images || []).map((img, idx) =>
-          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', true)"><img src="data:' + img.mediaType + ';base64,' + img.base64 + '" alt="' + escapeHtml(s.name) + ' reference" />' +
+        (s.images || []).map((img) =>
+          '<div class="trade-thumb"><img src="data:' + img.mediaType + ';base64,' + img.base64 + '" alt="' + escapeHtml(s.name) + ' reference" />' +
+            '<div class="trade-thumb-remove" onclick="removeStrategyImage(' + idArg + ', ' + escapeHtml(JSON.stringify(img.id)) + ')">✕</div>' +
             '<div class="trade-thumb-size">' + img.sizeKB + ' KB</div>' +
           '</div>'
         ).join('') +
@@ -4018,42 +3681,35 @@ function renderStrategyEditModal() {
     '</div>';
 }
 
-// Grows a textarea to fit its full content instead of scrolling inside a fixed-height
-// box — height resets to 'auto' first so shrinking (e.g. after deleting a paragraph)
-// works too, not just growing.
-// Notes render as plain read-only text by default (matching how a saved Trade's notes
-// display), switching to an editable textarea only while strategyNotesEditingId matches
-// the strategy currently open — set null whenever nothing is being edited.
-let strategyNotesEditingId = null;
-
-function startEditStrategyNotes(strategyId) {
-  strategyNotesEditingId = strategyId;
-  renderStrategyEditModal();
+// Shows transient save-status text under a strategy's notepad (Saving… / Saved ✓ /
+// error), reusing the same .extract-status styling used elsewhere in the app.
+const strategyNotesStatusTimers = {};
+function setStrategyNotesStatus(strategyId, msg, cls) {
+  const el = document.getElementById('strategyNotesStatus_' + strategyId);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'extract-status' + (cls ? ' ' + cls : '');
 }
 
-function cancelEditStrategyNotes() {
-  strategyNotesEditingId = null;
-  renderStrategyEditModal();
-}
-
-// Explicit Save for the Notes editor — the ONE point where Strategy notes persist to
-// Supabase, matching Trade notes only saving when Save Trade is tapped. Stays in edit
-// mode and shows an error if the save fails, rather than switching back to the
-// read-only view and silently losing the edit.
-async function saveStrategyNotesEdit(strategyId) {
+// Persists the Strategy Manager notepad — Phase 3. Fires on blur/change only (not
+// per-keystroke) so this never fights the user mid-sentence, and deliberately does not
+// call renderStrategyManagerList() afterward, since re-rendering the textarea it's
+// inside of would drop focus/cursor position while the user might still be editing.
+// Shows "Saving…" then "Saved ✓" (or an error) next to the textarea so it's never
+// unclear whether an edit actually persisted, since it's easy to lose track on mobile.
+async function saveStrategyNotes(strategyId, value) {
   const strategy = strategyList.find((s) => s.id === strategyId);
   if (!strategy) return;
-  const notesEl = document.getElementById('strategyNotesInput_' + strategy.id);
-  if (!notesEl) return;
-  strategy.notes = notesEl.value;
-  setStrategyNotesStatus(strategy.id, 'Saving…', '');
+  strategy.notes = value;
+  clearTimeout(strategyNotesStatusTimers[strategyId]);
+  setStrategyNotesStatus(strategyId, 'Saving…', '');
   const ok = await saveStrategyList();
-  if (!ok) {
-    setStrategyNotesStatus(strategy.id, 'Failed to save — check your connection and try again', 'error');
-    return;
+  if (ok) {
+    setStrategyNotesStatus(strategyId, 'Saved ✓', 'success');
+    strategyNotesStatusTimers[strategyId] = setTimeout(() => setStrategyNotesStatus(strategyId, '', ''), 2000);
+  } else {
+    setStrategyNotesStatus(strategyId, 'Failed to save — check your connection and try again', 'error');
   }
-  strategyNotesEditingId = null;
-  renderStrategyEditModal();
 }
 
 // Confluence checklist toggle — Phase 3. Reuses confluenceList (the same managed list
@@ -4067,17 +3723,7 @@ async function toggleStrategyConfluence(strategyId, name) {
   const idx = strategy.confluenceIds.indexOf(name);
   if (idx >= 0) strategy.confluenceIds.splice(idx, 1);
   else strategy.confluenceIds.push(name);
-  const ok = await saveStrategyList();
-  if (!ok) {
-    // revert — flip it back so the checklist matches what's actually saved remotely
-    const revertIdx = strategy.confluenceIds.indexOf(name);
-    if (revertIdx >= 0) strategy.confluenceIds.splice(revertIdx, 1);
-    else strategy.confluenceIds.push(name);
-    alert('Failed to save — check your connection and try again.');
-    renderStrategyManagerList();
-    renderStrategyEditModal();
-    return;
-  }
+  await saveStrategyList();
   renderStrategyManagerList();
   renderStrategyEditModal();
 }
@@ -4087,6 +3733,11 @@ async function createStrategy() {
   const balanceInput = document.getElementById('newStrategyBalanceInput');
   const maxDDInput = document.getElementById('newStrategyMaxDDInput');
   const statusEl = document.getElementById('newStrategyStatus');
+  if (!strategyListLoaded) {
+    statusEl.textContent = 'Strategies haven\'t finished loading — refresh the page and try again so we don\'t overwrite your existing list.';
+    statusEl.className = 'extract-status error';
+    return;
+  }
   const name = (nameInput.value || '').trim();
   if (!name) {
     statusEl.textContent = 'Strategy name is required.';
@@ -4102,9 +3753,8 @@ async function createStrategy() {
   const startingBalance = parseOptionalNumber(balanceInput.value) ?? 10000;
   const maxDrawdownPercent = parseOptionalNumber(maxDDInput.value) ?? 10;
 
-  const newId = 'strategy_' + Date.now();
   strategyList.push({
-    id: newId,
+    id: 'strategy_' + Date.now(),
     name,
     startingBalance,
     maxDrawdownPercent,
@@ -4118,13 +3768,7 @@ async function createStrategy() {
     images: [],
     confluenceIds: [],
   });
-  const ok = await saveStrategyList();
-  if (!ok) {
-    strategyList = strategyList.filter((s) => s.id !== newId); // revert — never claim "created" for something that didn't actually save
-    statusEl.textContent = 'Failed to save — check your connection and try again.';
-    statusEl.className = 'extract-status error';
-    return;
-  }
+  await saveStrategyList();
   nameInput.value = '';
   balanceInput.value = '10000';
   maxDDInput.value = '10';
@@ -4150,22 +3794,17 @@ async function renameStrategy(id) {
   if (dup) { alert('"' + newName + '" already exists.'); return; }
 
   strategy.name = newName;
-  const ok = await saveStrategyList();
-  if (!ok) {
-    strategy.name = oldName; // revert — don't cascade a rename onto trades that never actually saved on the strategy itself
-    alert('Failed to save — check your connection and try again.');
-    renderStrategyManagerList();
-    renderStrategyEditModal();
-    return;
-  }
+  await saveStrategyList();
 
   await loadAllTrades();
   const affected = allTrades.filter((t) => t.strategy === oldName);
-  let failedCount = 0;
   for (const t of affected) {
     t.strategy = newName;
-    const ok = await persistTrade(t);
-    if (!ok) failedCount++;
+    try {
+      await persistTrade(t);
+    } catch (e) {
+      console.error('Failed to update trade ' + t.id + ' during strategy rename:', e);
+    }
   }
 
   renderStrategyManagerList();
@@ -4175,9 +3814,6 @@ async function renameStrategy(id) {
   renderDashboardStrategySelectOptions();
   renderCompareTable();
   if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
-  if (failedCount > 0) {
-    alert(failedCount + ' of ' + affected.length + ' trade(s) failed to update with the new strategy name — check your connection and try again for those.');
-  }
 }
 
 // Deleting only removes the strategy from the New Trade dropdown — trades already
@@ -4187,19 +3823,12 @@ async function deleteStrategy(id) {
   const strategy = strategyList.find((s) => s.id === id);
   if (!strategy) return;
   if (!confirm('Retire "' + strategy.name + '"? Existing trades keep this value; it just stops appearing in the New Trade dropdown.')) return;
-  const idx = strategyList.findIndex((s) => s.id === id);
   strategyList = strategyList.filter((s) => s.id !== id);
-  const ok = await saveStrategyList();
-  if (!ok) {
-    strategyList.splice(idx, 0, strategy); // revert — it's still saved remotely, so it can't disappear from the list
-    alert('Failed to retire — check your connection and try again.');
-    renderStrategyManagerList();
-    return;
-  }
+  await saveStrategyList();
   renderStrategyManagerList();
-  // Navigate away rather than re-render — the strategy this page was showing no longer exists.
-  const page = document.getElementById('strategyDetail');
-  if (page && page.classList.contains('active') && String(page.dataset.strategyId) === String(id)) closeStrategyEditModal();
+  // Close rather than re-render — the strategy this modal was showing no longer exists.
+  const modal = document.getElementById('strategyEditModal');
+  if (modal && modal.dataset.strategyId === id) closeStrategyEditModal();
   renderInsightsStrategySelectOptions();
   renderStrategySelectOptions();
   renderDashboardStrategySelectOptions();
@@ -4214,16 +3843,8 @@ async function addRiskProfile(strategyId) {
   const riskPercent = parseOptionalNumber(prompt('Risk % per trade (e.g. "2"):', '1'));
   if (riskPercent == null || riskPercent <= 0) { alert('Enter a risk % greater than 0.'); return; }
   strategy.riskProfiles = strategy.riskProfiles || [];
-  const newProfile = { id: 'risk_' + Date.now(), label, riskPercent };
-  strategy.riskProfiles.push(newProfile);
-  const ok = await saveStrategyList();
-  if (!ok) {
-    strategy.riskProfiles = strategy.riskProfiles.filter((p) => p.id !== newProfile.id); // revert
-    alert('Failed to save — check your connection and try again.');
-    renderStrategyManagerList();
-    renderStrategyEditModal();
-    return;
-  }
+  strategy.riskProfiles.push({ id: 'risk_' + Date.now(), label, riskPercent });
+  await saveStrategyList();
   renderStrategyManagerList();
   renderStrategyEditModal();
   renderInsightsStrategySelectOptions();
@@ -4240,276 +3861,11 @@ async function deleteRiskProfile(strategyId, profileId) {
   const profile = strategy.riskProfiles.find((p) => p.id === profileId);
   if (!profile || !confirm('Remove risk profile "' + profile.label + '"?')) return;
   strategy.riskProfiles = strategy.riskProfiles.filter((p) => p.id !== profileId);
-  const ok = await saveStrategyList();
-  if (!ok) {
-    strategy.riskProfiles.push(profile); // revert
-    alert('Failed to save — check your connection and try again.');
-    renderStrategyManagerList();
-    renderStrategyEditModal();
-    return;
-  }
+  await saveStrategyList();
   renderStrategyManagerList();
   renderStrategyEditModal();
   renderInsightsStrategySelectOptions();
   renderCompareTable();
-}
-
-// ================= DATA & BACKUP (Settings > Data & Backup) =================
-// Two distinct things, kept separate on purpose:
-//   - exportTradesCsv(): a human-readable snapshot for taxes/sharing. One-way,
-//     not meant to be loaded back in.
-//   - exportJsonBackup() / restoreJsonBackup(): a true backup in the app's own
-//     data shape (trades + strategies + confluences + timeframes), round-trippable.
-// Restore merges rather than replaces — trades upsert by id, and
-// strategies/confluences/timeframes upsert by name — so loading an old backup
-// can never delete something newer that's already in the account.
-
-function triggerFileDownload(filename, mimeType, content) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-function csvEscape(value) {
-  const s = value == null ? '' : String(value);
-  // Formula-injection guard (OWASP CSV Injection): a field that starts with
-  // =, +, -, @, or a tab/CR is interpreted as a formula by Excel/Sheets when
-  // the file is opened there — dangerous for a field like "notes" that's
-  // free text the person typed themselves. Prefixing with a bare apostrophe
-  // neutralizes it (Excel/Sheets hide the apostrophe and show the text as
-  // plain content) without changing what's visibly exported. This does mean
-  // stopPips/targetRR/highestRR show as left-aligned text rather than
-  // native numbers on the rare trade with a negative value — an acceptable
-  // trade-off for a CSV meant for reading/sharing, not recalculating in.
-  const guarded = /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
-  if (/[",\n]/.test(guarded)) return '"' + guarded.replace(/"/g, '""') + '"';
-  return guarded;
-}
-
-async function exportTradesCsv() {
-  await loadAllTrades();
-  const columns = ['date', 'strategy', 'pair', 'direction', 'session', 'htf', 'ltf', 'model',
-    'stopPips', 'confluences', 'targetRR', 'highestRR', 'result', 'rrOutcome', 'notes'];
-  const header = columns.join(',');
-  const rows = allTrades.map((t) => columns.map((c) => {
-    const v = c === 'confluences' ? (t.confluences || []).join('; ') : t[c];
-    return csvEscape(v);
-  }).join(','));
-  const csv = [header, ...rows].join('\n');
-  const stamp = new Date().toISOString().slice(0, 10);
-  triggerFileDownload('trades_' + stamp + '.csv', 'text/csv', csv);
-}
-
-async function exportJsonBackup() {
-  await loadAllTrades();
-  const backup = {
-    format: 'trading-journal-backup',
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    trades: allTrades,
-    strategies: strategyList,
-    confluences: confluenceList,
-    timeframes: timeframeList,
-  };
-  const stamp = new Date().toISOString().slice(0, 10);
-  triggerFileDownload('backup_' + stamp + '.json', 'application/json', JSON.stringify(backup, null, 2));
-}
-
-// Opens a print-formatted report in a new tab: overall stats, then a
-// per-strategy breakdown, then the full trade log grouped by strategy.
-// Reuses computeLiveStats() — the same stats engine the Dashboard uses — so
-// the numbers here always match what's shown elsewhere in the app. This is
-// a print-to-PDF flow (window.print()) rather than a PDF library, so the
-// output is real selectable text with no added dependency.
-function reportStatRow(stats) {
-  return '<div class="report-stats">' +
-    '<div><span class="report-stat-val">' + stats.totalResolved + '</span><span class="report-stat-label">Trades</span></div>' +
-    '<div><span class="report-stat-val">' + stats.winRate.toFixed(1) + '%</span><span class="report-stat-label">Win Rate</span></div>' +
-    '<div><span class="report-stat-val ' + (stats.netPnl >= 0 ? 'pos' : 'neg') + '">' + (stats.netPnl >= 0 ? '+' : '−') + '$' + Math.abs(Math.round(stats.netPnl)).toLocaleString('en-US') + '</span><span class="report-stat-label">Net P/L</span></div>' +
-    '<div><span class="report-stat-val">' + stats.wins + 'W / ' + stats.losses + 'L / ' + stats.bes + 'BE</span><span class="report-stat-label">Record</span></div>' +
-  '</div>';
-}
-
-function reportTradeTable(trades) {
-  const rows = trades.map((t) => (
-    '<tr>' +
-      '<td>' + escapeHtml(t.date || '') + '</td>' +
-      '<td>' + escapeHtml(t.pair || '') + '</td>' +
-      '<td>' + escapeHtml(t.direction || '') + '</td>' +
-      '<td>' + escapeHtml((t.confluences || []).join(', ')) + '</td>' +
-      '<td>' + escapeHtml(t.targetRR != null ? String(t.targetRR) : '') + '</td>' +
-      '<td class="' + (t.result === 'win' ? 'pos' : t.result === 'loss' ? 'neg' : '') + '">' + escapeHtml(t.result || '') + '</td>' +
-      '<td>' + escapeHtml(t.notes || '') + '</td>' +
-    '</tr>'
-  )).join('');
-  return '<table class="report-table"><thead><tr>' +
-    '<th>Date</th><th>Pair</th><th>Dir</th><th>Confluences</th><th>Target R:R</th><th>Result</th><th>Notes</th>' +
-    '</tr></thead><tbody>' + rows + '</tbody></table>';
-}
-
-async function exportPdfReport() {
-  await loadAllTrades();
-  const generatedAt = new Date().toLocaleString('en-US');
-  const overall = computeLiveStats(allTrades);
-
-  const byStrategy = {};
-  allTrades.forEach((t) => {
-    const key = t.strategy || 'Unassigned';
-    (byStrategy[key] = byStrategy[key] || []).push(t);
-  });
-  const strategyNames = Object.keys(byStrategy).sort((a, b) => byStrategy[b].length - byStrategy[a].length);
-
-  const strategySections = strategyNames.map((name) => {
-    const trades = byStrategy[name];
-    const stats = computeLiveStats(trades);
-    return '<div class="report-section">' +
-      '<h2>' + escapeHtml(name) + '</h2>' +
-      reportStatRow(stats) +
-      reportTradeTable(trades) +
-      '</div>';
-  }).join('');
-
-  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Trading Journal Report</title><style>' +
-    'body{font-family:Arial,Helvetica,sans-serif; color:#1a1a1a; margin:32px; max-width:960px;}' +
-    'h1{font-size:22px; margin-bottom:2px;} h2{font-size:16px; margin:28px 0 8px; border-bottom:1px solid #ccc; padding-bottom:4px;}' +
-    '.report-meta{color:#666; font-size:12px; margin-bottom:20px;}' +
-    '.report-stats{display:flex; gap:24px; margin:10px 0 14px; flex-wrap:wrap;}' +
-    '.report-stats > div{display:flex; flex-direction:column;}' +
-    '.report-stat-val{font-size:18px; font-weight:bold;} .report-stat-label{font-size:11px; color:#666; text-transform:uppercase; letter-spacing:0.04em;}' +
-    '.pos{color:#0a7a3d;} .neg{color:#b3251f;}' +
-    '.report-table{width:100%; border-collapse:collapse; font-size:11px; margin-top:6px;}' +
-    '.report-table th, .report-table td{border:1px solid #ddd; padding:4px 6px; text-align:left;}' +
-    '.report-table th{background:#f2f2f2;}' +
-    '.print-bar{margin-bottom:20px;} .print-bar button{padding:8px 16px; font-size:13px; cursor:pointer;}' +
-    '@media print { .print-bar{display:none;} body{margin:12mm;} }' +
-    '</style></head><body>' +
-    '<div class="print-bar"><button onclick="window.print()">Print / Save as PDF</button></div>' +
-    '<h1>Trading Journal Report</h1>' +
-    '<div class="report-meta">Generated ' + escapeHtml(generatedAt) + '</div>' +
-    '<h2>Overall</h2>' +
-    reportStatRow(overall) +
-    strategySections +
-    '</body></html>';
-
-  const win = window.open('', '_blank');
-  if (!win) {
-    alert('Your browser blocked the new tab — allow pop-ups for this site and try again.');
-    return;
-  }
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
-}
-
-async function restoreJsonBackup() {
-  const input = document.getElementById('restoreBackupInput');
-  const statusEl = document.getElementById('restoreBackupStatus');
-  const file = input.files && input.files[0];
-  if (!file) {
-    statusEl.textContent = 'Choose a backup file first.';
-    statusEl.className = 'extract-status error';
-    return;
-  }
-
-  let backup;
-  try {
-    backup = JSON.parse(await file.text());
-  } catch (e) {
-    statusEl.textContent = 'That file isn\'t valid JSON.';
-    statusEl.className = 'extract-status error';
-    return;
-  }
-  if (backup.format !== 'trading-journal-backup' || !Array.isArray(backup.trades)) {
-    statusEl.textContent = 'That doesn\'t look like a backup file from this app.';
-    statusEl.className = 'extract-status error';
-    return;
-  }
-
-  const tradeCount = backup.trades.length;
-  const strategyCount = (backup.strategies || []).length;
-  if (!confirm('Restore ' + tradeCount + ' trade(s) and ' + strategyCount + ' strategy(ies) from this backup?\n\n' +
-    'Trades merge by ID, and strategies/confluences/timeframes merge by name — nothing already in this account will be deleted.')) {
-    return;
-  }
-
-  statusEl.textContent = 'Restoring…';
-  statusEl.className = 'extract-status';
-
-  let failedTrades = 0;
-  try {
-    // Confluences and timeframes: merge by name, keep anything already saved.
-    if (Array.isArray(backup.confluences)) {
-      const existing = new Set(confluenceList.map((c) => c.toLowerCase()));
-      const merged = confluenceList.concat(backup.confluences.filter((c) => !existing.has(String(c).toLowerCase())));
-      confluenceList = merged;
-      const ok = await saveConfluenceList();
-      if (!ok) throw new Error('Failed to save confluences.');
-    }
-    if (Array.isArray(backup.timeframes)) {
-      const existing = new Set(timeframeList.map((t) => t.type + '::' + t.name.toLowerCase()));
-      const merged = timeframeList.concat(backup.timeframes.filter((t) => !existing.has(t.type + '::' + String(t.name).toLowerCase())));
-      timeframeList = merged;
-      const ok = await saveTimeframeList();
-      if (!ok) throw new Error('Failed to save timeframes.');
-    }
-    // Strategies: merge by name — update fields on a match, otherwise append.
-    if (Array.isArray(backup.strategies)) {
-      for (const incoming of backup.strategies) {
-        const existingStrategy = strategyList.find((s) => s.name.toLowerCase() === incoming.name.toLowerCase());
-        if (existingStrategy) {
-          Object.assign(existingStrategy, incoming, { id: existingStrategy.id });
-        } else {
-          strategyList.push(incoming);
-        }
-      }
-      strategyList = normalizeStrategyList(strategyList);
-      const ok = await saveStrategyList();
-      if (!ok) throw new Error('Failed to save strategies.');
-    }
-    // Trades: upsert by id, straight to Supabase — same call the rest of the app uses.
-    // persistTrade() reports failure via its return value (not a thrown
-    // error — it never throws), so a failed upsert has to be counted here
-    // explicitly, or a mid-restore network blip would finish the loop,
-    // reach the code below, and claim "✓ Restored N trade(s)" for trades
-    // that never actually saved.
-    for (const t of backup.trades) {
-      const ok = await persistTrade(t);
-      if (!ok) failedTrades++;
-    }
-    await loadAllTrades();
-  } catch (e) {
-    console.error('Restore failed:', e);
-    statusEl.textContent = 'Restore failed partway through — check your connection and try again. (' + e.message + ')';
-    statusEl.className = 'extract-status error';
-    return;
-  }
-
-  if (failedTrades > 0) {
-    statusEl.textContent = '⚠ Restored ' + (tradeCount - failedTrades) + ' of ' + tradeCount + ' trade(s) — ' +
-      failedTrades + ' failed to save. Check your connection and try restoring again to pick up the rest.';
-    statusEl.className = 'extract-status error';
-  } else {
-    statusEl.textContent = '✓ Restored ' + tradeCount + ' trade(s).';
-    statusEl.className = 'extract-status success';
-  }
-  input.value = '';
-  renderConfluenceManagerList();
-  renderConfluenceSuggestions();
-  renderConfluencePicker();
-  renderTimeframeManagerList();
-  renderTimeframeSelects();
-  renderStrategyManagerList();
-  renderInsightsStrategySelectOptions();
-  renderStrategySelectOptions();
-  renderDashboardStrategySelectOptions();
-  renderCompareTable();
-  if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
 }
 
 function confluencesFromForm() {
@@ -4757,7 +4113,7 @@ async function saveTrade() {
   const statusEl = document.getElementById('saveTradeStatus');
   const strategy = document.getElementById('strategySelect').value;
   if (!strategy) {
-    statusEl.textContent = 'Strategy is required — create one in the Strategies tab first if the list is empty.';
+    statusEl.textContent = 'Strategy is required — create one in Settings first if the list is empty.';
     statusEl.className = 'extract-status error';
     return;
   }
@@ -4822,10 +4178,8 @@ async function saveTrade() {
   try {
     // Overwriting the same key means any screenshot removed/replaced in this edit
     // is simply not written back — nothing lingers in storage.
-    setSyncState('saving');
     const { error } = await supabaseClient.from('trades').upsert(tradeToRow(trade));
     if (error) throw error;
-    setSyncState('synced');
     statusEl.textContent = '✓ Trade saved.';
     statusEl.className = 'extract-status success';
     await loadAllTrades();
@@ -4835,7 +4189,6 @@ async function saveTrade() {
     resetEntryForm();
   } catch (e) {
     console.error('Save failed:', e);
-    setSyncState('error');
     statusEl.textContent = 'Could not save the trade — please try again.';
     statusEl.className = 'extract-status error';
   }
@@ -4928,14 +4281,8 @@ async function loadTradeIntoForm(id) {
 }
 
 async function deleteTradeRecord(id) {
-  setSyncState('saving');
   const { error } = await supabaseClient.from('trades').delete().eq('id', id);
-  if (error) {
-    console.error('Failed to delete trade:', error);
-    setSyncState('error');
-    return false; // never claim "deleted" for something that didn't actually delete
-  }
-  setSyncState('synced');
+  if (error) console.error('Failed to delete trade:', error);
   await loadAllTrades();
   // Without this, the live Dashboard cards (Net P/L, Win Rate, streaks, By
   // Direction/Pair/Model, Win + Partial cells) go stale immediately after a
@@ -4946,17 +4293,12 @@ async function deleteTradeRecord(id) {
   if (document.getElementById('statTotalTrades')) {
     await refreshDashboardTradeSummary();
   }
-  return true;
 }
 
 async function deleteTradeFromEntry() {
   if (!editingTradeId) return;
   if (!confirm('Delete this trade permanently? This also removes its screenshots.')) return;
-  const ok = await deleteTradeRecord(editingTradeId);
-  if (!ok) {
-    alert('Failed to delete — check your connection and try again.');
-    return;
-  }
+  await deleteTradeRecord(editingTradeId);
   resetEntryForm();
   renderTradeList();
 }
@@ -4964,11 +4306,7 @@ async function deleteTradeFromEntry() {
 async function deleteTradeFromList(id, evt) {
   if (evt) evt.stopPropagation();
   if (!confirm('Delete this trade permanently? This also removes its screenshots.')) return;
-  const ok = await deleteTradeRecord(id);
-  if (!ok) {
-    alert('Failed to delete — check your connection and try again.');
-    return;
-  }
+  await deleteTradeRecord(id);
   closeSidePanel();
   renderTradeList();
 }
@@ -5377,48 +4715,16 @@ function openViewerForTrade(tradeId, index) {
     editable: true,
     onDelete: async (imgIndex) => {
       trade.images.splice(imgIndex, 1);
-      const ok = await persistTrade(trade);
+      await persistTrade(trade);
       await loadAllTrades();
       openSidePanel(trade.id);
-      if (!ok) alert('Failed to delete the screenshot — check your connection and try again.');
     },
     onReplace: async (imgIndex, newImg) => {
       trade.images[imgIndex] = newImg; // overwrite in place — old base64 is discarded, nothing orphaned
-      const ok = await persistTrade(trade);
+      await persistTrade(trade);
       await loadAllTrades();
       openSidePanel(trade.id);
-      if (!ok) alert('Failed to save the replacement screenshot — check your connection and try again.');
     },
-  });
-}
-
-// Opens a strategy's Chart Gallery in the same fullscreen zoom/pan/pinch viewer
-// Trade screenshots use. editable=true (from the Edit Strategy page) shows
-// Replace/Delete in the viewer itself, matching openViewerForTrade — editable=false
-// (from the read-only Strategy View) just lets you browse and zoom.
-function openViewerForStrategy(strategyId, index, editable) {
-  const strategy = strategyList.find((s) => s.id === strategyId);
-  if (!strategy) return;
-  openViewer(strategy.images || [], index, {
-    editable: !!editable,
-    onDelete: editable ? async (imgIndex) => {
-      const img = strategy.images[imgIndex];
-      if (img) await removeStrategyImage(strategyId, img.id); // reuses the one place this already saves + re-renders
-    } : undefined,
-    onReplace: editable ? async (imgIndex, newImg) => {
-      const oldImg = strategy.images[imgIndex];
-      strategy.images[imgIndex] = newImg;
-      const ok = await saveStrategyList();
-      if (!ok) {
-        strategy.images[imgIndex] = oldImg; // revert — the viewer's own copy already shows newImg, but the saved data (and next reload) reflects this instead
-        alert('Failed to save the replacement — check your connection and try again.');
-        renderStrategyManagerList();
-        renderStrategyEditModal();
-        return;
-      }
-      renderStrategyManagerList();
-      renderStrategyEditModal();
-    } : undefined,
   });
 }
 
@@ -5719,38 +5025,8 @@ function computeLiveStats(trades) {
 // stand-in for "is the Dashboard screen currently mounted" now checks
 // `statTotalTrades` instead, which is still on the page for as long as
 // Dashboard is.
-// Shows a nudge on an empty Dashboard toward the two things every account
-// needs before anything else here has data to show: a strategy, then a
-// logged trade. Runs after both loadAllTrades() and loadStrategyList()
-// resolve (they load in parallel at boot, so either can finish first) —
-// safe to call from both, since it just reflects current state each time.
-function updateOnboardingBanner() {
-  const banner = document.getElementById('onboardingBanner');
-  if (!banner) return;
-  const titleEl = document.getElementById('onboardingBannerTitle');
-  const textEl = document.getElementById('onboardingBannerText');
-  const btnEl = document.getElementById('onboardingBannerBtn');
-
-  if (!strategyList.length) {
-    titleEl.textContent = '👋 Welcome — let\'s set up your first strategy';
-    textEl.textContent = 'Everything here — Race, Insights, Compare — is scoped to a strategy. Create one to get started; it only takes a name.';
-    btnEl.textContent = 'Create a Strategy';
-    btnEl.onclick = () => showScreen('strategies', document.getElementById('tabStrategies'));
-    banner.style.display = 'block';
-  } else if (!allTrades.length) {
-    titleEl.textContent = '📝 Log your first trade';
-    textEl.textContent = 'Your strategy is set up — now log a trade against it and this Dashboard fills in with real stats.';
-    btnEl.textContent = 'Log a Trade';
-    btnEl.onclick = () => showScreen('entry', document.getElementById('tabEntry'));
-    banner.style.display = 'block';
-  } else {
-    banner.style.display = 'none';
-  }
-}
-
 async function refreshDashboardTradeSummary() {
   await loadAllTrades();
-  updateOnboardingBanner();
   renderDashboardStrategySelectOptions();
   renderTPModelRankingLive();
   refreshPipEdgeCard();
@@ -6111,16 +5387,7 @@ function applyAuthGate() {
   document.querySelectorAll('.preview-tabs button.app-tab').forEach((b) => {
     b.classList.toggle('is-hidden', !isAuthenticated);
   });
-  // The "More" wrapper div itself isn't a button, so it isn't covered by the
-  // loop above — without this, its flex slot would sit there empty (taking
-  // up space, showing nothing) while every other tab is fully display:none
-  // pre-auth.
-  const moreWrapper = document.getElementById('moreTabWrapper');
-  if (moreWrapper) moreWrapper.classList.toggle('is-hidden', !isAuthenticated);
-  const syncEl = document.getElementById('syncIndicator');
-  if (syncEl) syncEl.classList.toggle('is-hidden', !isAuthenticated);
   if (isAuthenticated) {
-    setSyncState('idle');
     const email = currentAccount ? currentAccount.email : '';
     const emailEl = document.getElementById('settingsAccountEmail');
     if (emailEl) emailEl.textContent = email;
@@ -6354,7 +5621,7 @@ document.addEventListener('DOMContentLoaded', () => {
   loadAllTrades().then(() => { populateFilterOptions(); renderPairSelectOptions(); refreshDashboardTradeSummary(); });
   loadConfluenceList().then(() => { renderConfluenceManagerList(); renderConfluenceSuggestions(); renderConfluencePicker(); renderAdvancedFilterOptions(); });
   loadTimeframeList().then(() => { renderTimeframeManagerList(); renderTimeframeSelects(); renderAdvancedFilterOptions(); });
-  loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); updateOnboardingBanner(); });
+  loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); });
 });
 
 // Insights page: R:R target selector. selectedInsightsTarget is null until the
@@ -6855,7 +6122,7 @@ function renderCompareTable() {
   if (!rows.length) {
     tbody.innerHTML = compareStrategyFilter
       ? '<tr><td colspan="9" class="muted" style="font-size:12px;">No data for "' + compareStrategyFilter + '" — clear the Dashboard strategy filter to see every strategy.</td></tr>'
-      : '<tr><td colspan="9" class="muted" style="font-size:12px;">Create a strategy in the Strategies tab and log a few trades under it to see a comparison here.</td></tr>';
+      : '<tr><td colspan="9" class="muted" style="font-size:12px;">Create a strategy in Settings and log a few trades under it to see a comparison here.</td></tr>';
     return;
   }
 
