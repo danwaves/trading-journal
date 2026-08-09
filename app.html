@@ -1280,7 +1280,7 @@
       <select id="targetSelect" class="target-select" onchange="setInsightsTarget(this.value)">
         <option value="1:1">R:R 1:1</option>
         <option value="1:1.5">R:R 1:1.5</option>
-        <option value="1:2" selected>R:R 1:2 🏆</option>
+        <option value="1:2" selected>R:R 1:2</option>
         <option value="1:2.5">R:R 1:2.5</option>
         <option value="1:3">R:R 1:3</option>
         <option value="1:4">R:R 1:4</option>
@@ -1295,7 +1295,7 @@
       <span></span>
       <a onclick="clearInsightsFilters()">Clear</a>
     </div>
-    <p class="sub" style="margin:0 0 16px;">Best periods, days, confluences, POI, sessions, direction &amp; streaks — all for the <span id="targetSelectEcho" class="target-tag" style="margin-left:0;">R:R 1:2 🏆</span> target selected above (defaults to your leading target). These figures are in R, not $ — a hypothetical R:R target doesn't have one true dollar outcome. The risk toggle now only affects the $ figures in Confluence Performance's "Top Combinations" table below, which stays real-outcome-based.</p>
+    <p class="sub" style="margin:0 0 16px;">Best periods, days, confluences, POI, sessions, direction &amp; streaks — all for the <span id="targetSelectEcho" class="target-tag" style="margin-left:0;">R:R 1:2</span> target selected above (defaults to your leading target). These figures are in R, not $ — a hypothetical R:R target doesn't have one true dollar outcome. The risk toggle now only affects the $ figures in Confluence Performance's "Top Combinations" table below, which stays real-outcome-based.</p>
 
     <div id="insightsBody" class="risk-standard">
       <!-- BEST PERIODS -->
@@ -1369,6 +1369,33 @@
           <table style="min-width:420px;">
             <thead><tr><th>Year</th><th>Total Trades</th><th>Win Rate</th><th>Net R</th></tr></thead>
             <tbody id="weeklyYoYBody">
+              <tr><td colspan="4" class="muted mono" style="font-size:12px;">Loading…</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="mini-card-header" onclick="toggleCard(this)">
+          <h2 style="margin-bottom:2px;">Weekly &amp; Timeframe Comparison</h2>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="mini-card-body">
+          <p class="sub" style="margin:0 0 10px;">Same ISO-week comparison as above, narrowed to a specific HTF → LTF combination — e.g. "how did my 4H → 15M setups do in W22–W24, across 2024 vs 2025 vs 2026?" HTF and LTF both default to "All" (no filtering); set either or both to narrow it down. A trade's HTF and LTF are matched together as one setup, not counted separately.</p>
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+            <select id="weeklyTfFromWeek" class="target-select" onchange="onWeeklyTimeframeChange()" title="Starting ISO week"></select>
+            <span class="muted" style="font-size:12px;">to</span>
+            <select id="weeklyTfToWeek" class="target-select" onchange="onWeeklyTimeframeChange()" title="Ending ISO week"></select>
+            <span class="muted" style="font-size:12px; margin-left:6px;">HTF</span>
+            <select id="weeklyTfHtfSelect" class="target-select" onchange="onWeeklyTimeframeChange()" title="Higher timeframe filter"></select>
+            <span class="muted" style="font-size:12px;">LTF</span>
+            <select id="weeklyTfLtfSelect" class="target-select" onchange="onWeeklyTimeframeChange()" title="Lower timeframe filter"></select>
+          </div>
+          <div style="overflow-x:auto;">
+          <table style="min-width:420px;">
+            <thead><tr><th>Year</th><th>Total Trades</th><th>Win Rate</th><th>Net R</th></tr></thead>
+            <tbody id="weeklyTfBody">
               <tr><td colspan="4" class="muted mono" style="font-size:12px;">Loading…</td></tr>
             </tbody>
           </table>
@@ -1612,7 +1639,7 @@
         <p class="sub" style="margin-bottom:16px;">Fill in the setup, risk, and outcome for this trade.</p>
 
         <p class="field-section-label">Trade Info</p>
-        <div class="field"><label>Strategy</label><select id="strategySelect" onchange="updateEntryStrategySub()"></select></div>
+        <div class="field"><label>Strategy</label><select id="strategySelect" onchange="onStrategySelectChanged()"></select></div>
         <div class="grid2" style="margin-bottom:14px;">
           <div class="field" style="margin-bottom:0;"><label>Trade Opened</label><input type="datetime-local" id="openedAtInput" /></div>
           <div class="field" style="margin-bottom:0;"><label>Time of Highest R <span class="muted" style="font-weight:400;">(optional)</span></label><input type="datetime-local" id="highestRAtInput" /></div>
@@ -1667,14 +1694,14 @@
           <input type="number" id="stopPipsInput" placeholder="e.g. 18" step="0.1" min="0" />
         </div>
 
-        <p class="field-section-label">Confluences</p>
+        <p class="field-section-label">Confluences <span id="confluenceCounter" class="muted" style="font-weight:400; text-transform:none; letter-spacing:normal;"></span></p>
         <div class="field">
-          <div id="confluenceChips" style="margin-bottom:8px;">
-            <span class="chip">MSS <span class="chip-x" onclick="this.parentElement.remove(); renderConfluencePicker();">✕</span></span><span class="chip">FVG <span class="chip-x" onclick="this.parentElement.remove(); renderConfluencePicker();">✕</span></span><span class="chip">Liquidity Sweep <span class="chip-x" onclick="this.parentElement.remove(); renderConfluencePicker();">✕</span></span>
-          </div>
-          <div id="confluencePicker" style="margin-bottom:8px;"></div>
-          <input id="confluenceInput" list="confluenceSuggestions" placeholder="Search confluences… (press Enter to add)" onkeydown="if(event.key==='Enter'){event.preventDefault(); addConfluenceChip(this.value); this.value='';}" />
-          <datalist id="confluenceSuggestions"></datalist>
+          <!-- Internal selection state only — kept out of view; the pills below are
+               the only thing the user sees/taps. confluencesFromForm()/applyConfluencesToForm()
+               still read/write this list, so nothing else downstream needs to change. -->
+          <div id="confluenceChips" style="display:none;"></div>
+          <div id="confluencePicker" style="margin-bottom:4px;"></div>
+          <div id="confluenceEmptyState" class="muted" style="font-size:12px; display:none;"></div>
         </div>
 
         <p class="field-section-label">Notes</p>
@@ -2001,6 +2028,9 @@
         <div class="grid2" style="margin-bottom:14px;">
           <div class="field" style="margin-bottom:0;"><label>Starting Balance ($)</label><input id="newStrategyBalanceInput" value="10000" /></div>
           <div class="field" style="margin-bottom:0;"><label>Max Drawdown %</label><input id="newStrategyMaxDDInput" value="10" /></div>
+        </div>
+        <div class="field"><label>Confluences <span class="muted" style="font-weight:400;">(optional — can add or change later)</span></label>
+          <div id="newStrategyConfluencePicker" style="margin-bottom:0;"></div>
         </div>
         <p class="sub" style="background:var(--surface); padding:10px; border-radius:8px; font-size:11px;">
           Every strategy is created with two risk profiles by default — <b style="color:var(--light);">Standard (1%)</b> and <b style="color:var(--light);">Conservative (0.5%)</b> — each running all six R:R targets. That's 12 lanes total. Add more custom profiles anytime.
@@ -2565,13 +2595,19 @@ function inheritDashboardFiltersToInsights() {
   // Reset the R:R Target to whatever's leading for this freshly-inherited
   // scope, discarding any manual override left over from a prior visit —
   // same "resets on re-entry" contract as the Pair/Strategy selects above.
+  // Same real-leader-vs-placeholder distinction as initInsightsTargetIfNeeded():
+  // computeInsightsLeadingTarget() returns null until 10+ trades qualify on
+  // some target, so fall back to a plain '1:2' selection with no trophy
+  // rather than falsely claiming a winner off zero/insufficient data.
   const scoped = getInsightsScopedTrades();
   const leadingTarget = computeInsightsLeadingTarget(scoped);
-  selectedInsightsTarget = leadingTarget;
+  const displayTarget = leadingTarget || '1:2';
+  selectedInsightsTarget = displayTarget;
+  insightsTargetIsAutoFallback = !leadingTarget;
   const targetSel = document.getElementById('targetSelect');
-  if (targetSel) targetSel.value = leadingTarget;
+  if (targetSel) targetSel.value = displayTarget;
   applyInsightsLeadingTargetBadge(leadingTarget);
-  const label = 'R:R ' + leadingTarget + ' 🏆';
+  const label = 'R:R ' + displayTarget + (leadingTarget ? ' 🏆' : '');
   document.querySelectorAll('.target-tag').forEach(el => el.textContent = label);
 
   // Phase 3.2: Best Days of the Week's own lookback window resets to "All
@@ -2990,6 +3026,7 @@ async function handleStrategyImageSelect(event, strategyId) {
   if (!accepted.length) return;
 
   const newIds = [];
+  const newImgs = [];
   for (let i = 0; i < accepted.length; i++) {
     try {
       const result = await compressToTarget(accepted[i]);
@@ -3001,7 +3038,7 @@ async function handleStrategyImageSelect(event, strategyId) {
         sizeKB: result.sizeKB,
         name: accepted[i].name,
       };
-      strategy.images.push(newImg);
+      newImgs.push(newImg);
       newIds.push(newImg.id);
     } catch (err) {
       console.error('Strategy image compression failed:', err);
@@ -3011,9 +3048,27 @@ async function handleStrategyImageSelect(event, strategyId) {
   }
   if (!newIds.length) return;
 
+  // Re-fetch the real list right after compression (which can take a moment)
+  // but right before writing — see createStrategy for the full explanation.
+  // Re-find the strategy in the FRESH list, since compression may have taken
+  // long enough for another tab/browser to have saved something in between.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    setStrategyImageStatus(strategyId, 'Could not confirm the latest strategy list — check your connection and try again.', 'error');
+    return;
+  }
+  const freshStrategy = strategyList.find((s) => s.id === strategyId);
+  if (!freshStrategy) {
+    setStrategyImageStatus(strategyId, 'This strategy no longer exists — it may have been retired elsewhere.', 'error');
+    renderStrategyManagerList();
+    return;
+  }
+  if (!Array.isArray(freshStrategy.images)) freshStrategy.images = [];
+  freshStrategy.images.push(...newImgs);
+
   const ok = await saveStrategyList();
   if (!ok) {
-    strategy.images = strategy.images.filter((img) => !newIds.includes(img.id)); // revert — don't show images as added when they never actually saved
+    freshStrategy.images = freshStrategy.images.filter((img) => !newIds.includes(img.id)); // revert — don't show images as added when they never actually saved
     setStrategyImageStatus(strategyId, 'Failed to save — check your connection and try again', 'error');
     renderStrategyManagerList();
     renderStrategyEditModal();
@@ -3026,8 +3081,19 @@ async function handleStrategyImageSelect(event, strategyId) {
 // Same "retire" semantics elsewhere in this file — removing here only drops
 // the image from the strategy's own gallery, never touches any trade.
 async function removeStrategyImage(strategyId, imageId) {
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    setStrategyImageStatus(strategyId, 'Could not confirm the latest strategy list — check your connection and try again.', 'error');
+    return;
+  }
   const strategy = strategyList.find((s) => s.id === strategyId);
-  if (!strategy) return;
+  if (!strategy) {
+    setStrategyImageStatus(strategyId, 'This strategy no longer exists — it may have been retired elsewhere.', 'error');
+    renderStrategyManagerList();
+    return;
+  }
   const removed = (strategy.images || []).find((img) => img.id === imageId);
   strategy.images = (strategy.images || []).filter((img) => img.id !== imageId);
   const ok = await saveStrategyList();
@@ -3276,24 +3342,61 @@ function addConfluenceChip(name) {
   renderConfluencePicker();
 }
 
-// Tappable multi-select alternative to typing + Enter: every confluence in
-// the managed list (confluenceList) renders as a pill; tapping toggles it
-// on/off, reusing addConfluenceChip()/the same #confluenceChips chips the
-// rest of the form already reads (confluencesFromForm(), saveTrade(), the
-// AI extraction flow) — so no other code needs to know this picker exists.
+// Tappable multi-select: pills are scoped to the *selected strategy's*
+// confluenceIds (not the full global confluenceList) — each strategy only
+// shows its own checklist. Tapping toggles a pill on/off, reusing
+// addConfluenceChip()/the same hidden #confluenceChips chips the rest of
+// the form already reads (confluencesFromForm(), saveTrade(), the AI
+// extraction flow) — so no other code needs to know this picker exists.
+// Also drives the "X of Y confirmed" counter and the empty-state message
+// for a strategy with no confluences defined yet.
+// NOTE: any chip already selected that ISN'T in the current strategy's set
+// (e.g. left over from a different strategy on Edit Trade, or a name the
+// strategy no longer has) is intentionally NOT removed here — it just
+// renders as no pill. This avoids silently dropping data from the trade on
+// save; see loadTradeIntoForm()/applyConfluencesToForm().
 function renderConfluencePicker() {
   const picker = document.getElementById('confluencePicker');
+  const counterEl = document.getElementById('confluenceCounter');
+  const emptyEl = document.getElementById('confluenceEmptyState');
   if (!picker) return;
+  const sel = document.getElementById('strategySelect');
+  const strategy = sel ? strategyList.find((s) => s.name === sel.value) : null;
+  const names = (strategy && Array.isArray(strategy.confluenceIds)) ? strategy.confluenceIds : [];
   const selected = new Set(
     Array.from(document.querySelectorAll('#confluenceChips .chip')).map(
       c => c.textContent.trim().replace(/✕$/, '').trim().toLowerCase()
     )
   );
-  picker.innerHTML = confluenceList.map((name) => {
+  if (!names.length) {
+    picker.innerHTML = '';
+    if (counterEl) counterEl.textContent = '';
+    if (emptyEl) {
+      emptyEl.style.display = 'block';
+      emptyEl.innerHTML = strategy
+        ? 'This strategy has no confluences defined yet. <a onclick="openStrategyEditModal(' + escapeHtml(JSON.stringify(strategy.id)) + ')" style="cursor:pointer; text-decoration:underline;">Add some in Strategy settings</a>.'
+        : '';
+    }
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+  const confirmedCount = names.filter((n) => selected.has(n.toLowerCase())).length;
+  if (counterEl) counterEl.textContent = '(' + confirmedCount + ' of ' + names.length + ' confirmed)';
+  picker.innerHTML = names.map((name) => {
     const jsArg = escapeHtml(JSON.stringify(name));
     const active = selected.has(name.toLowerCase());
     return '<span class="chip-pill' + (active ? ' active' : '') + '" onclick="toggleConfluencePill(' + jsArg + ')">' + escapeHtml(name) + '</span>';
   }).join('');
+}
+
+// Fires only on a user-driven Strategy dropdown change on New Trade — full
+// swap per the confirmed spec: new strategy's pills render in, whatever was
+// checked for the old strategy is discarded (no partial carry-over even for
+// confluence names that happen to exist in both strategies' sets).
+function onStrategySelectChanged() {
+  updateEntryStrategySub();
+  document.getElementById('confluenceChips').innerHTML = '';
+  renderConfluencePicker();
 }
 
 function toggleConfluencePill(name) {
@@ -3402,11 +3505,11 @@ async function loadAllTrades() {
 }
 
 // ================= CONFLUENCE MANAGER (persists in Supabase — table: confluences) =================
-// The managed list of confluence names — shown as <datalist> suggestions on
-// New Trade's confluence input and as the editable chip list on the
-// Confluence Manager screen. This list only controls suggestions; it does
-// not gate what a trade can be tagged with (confluenceInput stays free
-// text, same as before), and retiring a name here never touches trades
+// The global managed list of confluence names — the source strategies pick
+// from (see confluenceIds on each strategy) and the editable chip list on
+// the Confluence Manager screen. New Trade no longer reads this list
+// directly; its pills are scoped to the selected strategy's own subset (see
+// renderConfluencePicker()). Retiring a name here never touches trades
 // already tagged with it. Renaming, however, cascades onto every existing
 // trade tagged with the old name — the same promise the Manage Currency
 // Pair modal already makes for pair renames.
@@ -3495,8 +3598,11 @@ async function addConfluenceToManager() {
   const input = document.getElementById('newConfluenceInput');
   const name = (input.value || '').trim();
   if (!name) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadConfluenceList();
   if (!confluenceListLoaded) {
-    alert('Confluences haven\'t finished loading — refresh the page and try again so we don\'t overwrite your existing list.');
+    alert('Could not confirm the latest confluence list — check your connection and try again.');
     return;
   }
   const exists = confluenceList.some((c) => c.toLowerCase() === name.toLowerCase());
@@ -3512,6 +3618,7 @@ async function addConfluenceToManager() {
   renderConfluenceManagerList();
   renderConfluenceSuggestions();
   renderConfluencePicker();
+  renderNewStrategyConfluencePicker();
 }
 
 // Rename cascades onto every existing trade tagged with the old name, so
@@ -3519,6 +3626,18 @@ async function addConfluenceToManager() {
 async function editConfluence(oldName) {
   const newName = (prompt('Rename "' + oldName + '" to:', oldName) || '').trim();
   if (!newName || newName === oldName) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadConfluenceList();
+  if (!confluenceListLoaded) {
+    alert('Could not confirm the latest confluence list — check your connection and try again.');
+    return;
+  }
+  if (!confluenceList.includes(oldName)) {
+    alert('"' + oldName + '" no longer exists — someone (maybe you, in another tab) may have already renamed or retired it. Refreshing the list.');
+    renderConfluenceManagerList();
+    return;
+  }
   const dup = confluenceList.some((c) => c.toLowerCase() === newName.toLowerCase() && c !== oldName);
   if (dup) { alert('"' + newName + '" already exists.'); return; }
 
@@ -3531,6 +3650,7 @@ async function editConfluence(oldName) {
     renderConfluenceManagerList();
     renderConfluenceSuggestions();
     renderConfluencePicker();
+    renderNewStrategyConfluencePicker();
     return;
   }
 
@@ -3546,6 +3666,7 @@ async function editConfluence(oldName) {
   renderConfluenceManagerList();
   renderConfluenceSuggestions();
   renderConfluencePicker();
+  renderNewStrategyConfluencePicker();
   await loadAllTrades();
   populateFilterOptions();
   if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
@@ -3558,7 +3679,19 @@ async function editConfluence(oldName) {
 // that tag untouched.
 async function deleteConfluence(name) {
   if (!confirm('Retire "' + name + '"? Existing trades keep this tag; it just stops being suggested for new ones.')) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadConfluenceList();
+  if (!confluenceListLoaded) {
+    alert('Could not confirm the latest confluence list — check your connection and try again.');
+    return;
+  }
   const idx = confluenceList.indexOf(name);
+  if (idx === -1) {
+    alert('"' + name + '" is already gone from the list.');
+    renderConfluenceManagerList();
+    return;
+  }
   confluenceList = confluenceList.filter((c) => c !== name);
   const ok = await saveConfluenceList();
   if (!ok) {
@@ -3570,6 +3703,7 @@ async function deleteConfluence(name) {
   renderConfluenceManagerList();
   renderConfluenceSuggestions();
   renderConfluencePicker();
+  renderNewStrategyConfluencePicker();
 }
 
 // ================= TIMEFRAME MANAGER (persists in Supabase — table: timeframes) =================
@@ -3698,8 +3832,11 @@ async function addTimeframeToManager() {
   const name = (input.value || '').trim();
   const type = typeSel.value;
   if (!name) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadTimeframeList();
   if (!timeframeListLoaded) {
-    alert('Timeframes haven\'t finished loading — refresh the page and try again so we don\'t overwrite your existing list.');
+    alert('Could not confirm the latest timeframe list — check your connection and try again.');
     return;
   }
   const exists = timeframeList.some((t) => t.type === type && t.name.toLowerCase() === name.toLowerCase());
@@ -3714,6 +3851,8 @@ async function addTimeframeToManager() {
   input.value = '';
   renderTimeframeManagerList();
   renderTimeframeSelects();
+  populateWeeklyTimeframeHtfLtfSelects();
+  refreshWeeklyTimeframe();
 }
 
 // Rename cascades onto every existing trade using the old value in the
@@ -3721,6 +3860,18 @@ async function addTimeframeToManager() {
 async function editTimeframe(oldName, type) {
   const newName = (prompt('Rename "' + oldName + '" to:', oldName) || '').trim();
   if (!newName || newName === oldName) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadTimeframeList();
+  if (!timeframeListLoaded) {
+    alert('Could not confirm the latest timeframe list — check your connection and try again.');
+    return;
+  }
+  if (!timeframeList.some((t) => t.type === type && t.name === oldName)) {
+    alert('"' + oldName + '" no longer exists — someone (maybe you, in another tab) may have already renamed or retired it. Refreshing the list.');
+    renderTimeframeManagerList();
+    return;
+  }
   const dup = timeframeList.some((t) => t.type === type && t.name.toLowerCase() === newName.toLowerCase() && t.name !== oldName);
   if (dup) { alert('"' + newName + '" already exists.'); return; }
 
@@ -3732,6 +3883,8 @@ async function editTimeframe(oldName, type) {
     alert('Failed to save — check your connection and try again.');
     renderTimeframeManagerList();
     renderTimeframeSelects();
+    populateWeeklyTimeframeHtfLtfSelects();
+    refreshWeeklyTimeframe();
     return;
   }
 
@@ -3747,6 +3900,8 @@ async function editTimeframe(oldName, type) {
 
   renderTimeframeManagerList();
   renderTimeframeSelects();
+  populateWeeklyTimeframeHtfLtfSelects();
+  refreshWeeklyTimeframe();
   await loadAllTrades();
   populateFilterOptions();
   if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
@@ -3759,7 +3914,19 @@ async function editTimeframe(oldName, type) {
 // already using it keep that value untouched.
 async function deleteTimeframe(name, type) {
   if (!confirm('Retire "' + name + '"? Existing trades keep this value; it just stops appearing in the dropdown for new ones.')) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadTimeframeList();
+  if (!timeframeListLoaded) {
+    alert('Could not confirm the latest timeframe list — check your connection and try again.');
+    return;
+  }
   const idx = timeframeList.findIndex((t) => t.type === type && t.name === name);
+  if (idx === -1) {
+    alert('"' + name + '" is already gone from the list.');
+    renderTimeframeManagerList();
+    return;
+  }
   const removed = timeframeList[idx];
   timeframeList = timeframeList.filter((t) => !(t.type === type && t.name === name));
   const ok = await saveTimeframeList();
@@ -3771,6 +3938,8 @@ async function deleteTimeframe(name, type) {
   }
   renderTimeframeManagerList();
   renderTimeframeSelects();
+  populateWeeklyTimeframeHtfLtfSelects();
+  refreshWeeklyTimeframe();
 }
 
 // ================= STRATEGY MANAGER (persists in Supabase — table: strategies) =================
@@ -3999,14 +4168,26 @@ function openStrategyEditModal(strategyId) {
 async function closeStrategyEditModal() {
   const page = document.getElementById('strategyDetail');
   const strategyId = page.dataset.strategyId;
-  const strategy = strategyList.find((s) => String(s.id) === String(strategyId));
-  if (strategy) {
-    const notesEl = document.getElementById('strategyNotesInput_' + strategy.id);
-    if (notesEl) strategy.notes = notesEl.value;
-    const ok = await saveStrategyList();
-    if (!ok) {
-      setStrategyNotesStatus(strategy.id, 'Failed to save — check your connection and try again', 'error');
+  const notesEl = document.getElementById('strategyNotesInput_' + strategyId);
+  if (notesEl) {
+    const pendingNotes = notesEl.value;
+    // Re-fetch the real list right before writing — see createStrategy for
+    // the full explanation of why this matters when two browsers/tabs are
+    // open. Grab the pending edit from the DOM first (above), since that's
+    // the user's actual unsaved input, then apply it to the fresh copy.
+    await loadStrategyList();
+    if (!strategyListLoaded) {
+      setStrategyNotesStatus(strategyId, 'Could not confirm the latest strategy list — check your connection and try again.', 'error');
       return;
+    }
+    const strategy = strategyList.find((s) => String(s.id) === String(strategyId));
+    if (strategy) {
+      strategy.notes = pendingNotes;
+      const ok = await saveStrategyList();
+      if (!ok) {
+        setStrategyNotesStatus(strategy.id, 'Failed to save — check your connection and try again', 'error');
+        return;
+      }
     }
   }
   renderStrategyManagerList();
@@ -4129,12 +4310,24 @@ function cancelEditStrategyNotes() {
 // mode and shows an error if the save fails, rather than switching back to the
 // read-only view and silently losing the edit.
 async function saveStrategyNotesEdit(strategyId) {
-  const strategy = strategyList.find((s) => s.id === strategyId);
-  if (!strategy) return;
-  const notesEl = document.getElementById('strategyNotesInput_' + strategy.id);
+  const notesEl = document.getElementById('strategyNotesInput_' + strategyId);
   if (!notesEl) return;
-  strategy.notes = notesEl.value;
-  setStrategyNotesStatus(strategy.id, 'Saving…', '');
+  const pendingNotes = notesEl.value;
+  setStrategyNotesStatus(strategyId, 'Saving…', '');
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    setStrategyNotesStatus(strategyId, 'Could not confirm the latest strategy list — check your connection and try again.', 'error');
+    return;
+  }
+  const strategy = strategyList.find((s) => s.id === strategyId);
+  if (!strategy) {
+    setStrategyNotesStatus(strategyId, 'This strategy no longer exists — it may have been retired elsewhere.', 'error');
+    renderStrategyManagerList();
+    return;
+  }
+  strategy.notes = pendingNotes;
   const ok = await saveStrategyList();
   if (!ok) {
     setStrategyNotesStatus(strategy.id, 'Failed to save — check your connection and try again', 'error');
@@ -4149,8 +4342,19 @@ async function saveStrategyNotesEdit(strategyId) {
 // Confluence Manager; a confluence retired there simply stops appearing here (its name
 // stays harmlessly in confluenceIds, same retire semantics as everywhere else).
 async function toggleStrategyConfluence(strategyId, name) {
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    alert('Could not confirm the latest strategy list — check your connection and try again.');
+    return;
+  }
   const strategy = strategyList.find((s) => s.id === strategyId);
-  if (!strategy) return;
+  if (!strategy) {
+    alert('This strategy no longer exists — it may have been retired elsewhere.');
+    renderStrategyManagerList();
+    return;
+  }
   if (!Array.isArray(strategy.confluenceIds)) strategy.confluenceIds = [];
   const idx = strategy.confluenceIds.indexOf(name);
   if (idx >= 0) strategy.confluenceIds.splice(idx, 1);
@@ -4170,6 +4374,32 @@ async function toggleStrategyConfluence(strategyId, name) {
   renderStrategyEditModal();
 }
 
+// Confluence pills on the "Create New Strategy" form — lets confluences be
+// picked at creation time instead of requiring a separate Edit step
+// afterward. Sourced from the same global confluenceList as everywhere
+// else; selection lives here only until createStrategy() consumes it.
+let newStrategySelectedConfluences = new Set();
+
+function renderNewStrategyConfluencePicker() {
+  const picker = document.getElementById('newStrategyConfluencePicker');
+  if (!picker) return;
+  if (!confluenceList.length) {
+    picker.innerHTML = '<span class="muted" style="font-size:12px;">No confluences yet — add some in the Confluences manager first.</span>';
+    return;
+  }
+  picker.innerHTML = confluenceList.map((name) => {
+    const jsArg = escapeHtml(JSON.stringify(name));
+    const active = newStrategySelectedConfluences.has(name);
+    return '<span class="chip-pill' + (active ? ' active' : '') + '" onclick="toggleNewStrategyConfluencePill(' + jsArg + ')">' + escapeHtml(name) + '</span>';
+  }).join('');
+}
+
+function toggleNewStrategyConfluencePill(name) {
+  if (newStrategySelectedConfluences.has(name)) newStrategySelectedConfluences.delete(name);
+  else newStrategySelectedConfluences.add(name);
+  renderNewStrategyConfluencePicker();
+}
+
 async function createStrategy() {
   const nameInput = document.getElementById('newStrategyNameInput');
   const balanceInput = document.getElementById('newStrategyBalanceInput');
@@ -4183,6 +4413,19 @@ async function createStrategy() {
   const name = (nameInput.value || '').trim();
   if (!name) {
     statusEl.textContent = 'Strategy name is required.';
+    statusEl.className = 'extract-status error';
+    return;
+  }
+  // Re-fetch the real list right before writing — not the copy sitting in
+  // memory since page load — so if another browser/tab saved a strategy a
+  // moment ago, we build on top of that instead of silently erasing it when
+  // we save. If this refresh itself fails, bail out rather than risk saving
+  // a stale/incomplete copy over the real data.
+  statusEl.textContent = 'Checking for the latest list…';
+  statusEl.className = 'extract-status';
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    statusEl.textContent = 'Could not confirm the latest strategy list — check your connection and try again.';
     statusEl.className = 'extract-status error';
     return;
   }
@@ -4209,7 +4452,7 @@ async function createStrategy() {
     // Confluence checklist — full UI landed in Phase 3 (renderStrategyManagerList()).
     notes: '',
     images: [],
-    confluenceIds: [],
+    confluenceIds: Array.from(newStrategySelectedConfluences),
   });
   const ok = await saveStrategyList();
   if (!ok) {
@@ -4221,6 +4464,8 @@ async function createStrategy() {
   nameInput.value = '';
   balanceInput.value = '10000';
   maxDDInput.value = '10';
+  newStrategySelectedConfluences = new Set();
+  renderNewStrategyConfluencePicker();
   statusEl.textContent = '✓ Strategy created.';
   statusEl.className = 'extract-status success';
   renderStrategyManagerList();
@@ -4239,13 +4484,28 @@ async function renameStrategy(id) {
   const oldName = strategy.name;
   const newName = (prompt('Rename "' + oldName + '" to:', oldName) || '').trim();
   if (!newName || newName === oldName) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  // Re-find the strategy in the FRESH list afterward — the reference above
+  // is now stale since loadStrategyList() replaces the whole array.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    alert('Could not confirm the latest strategy list — check your connection and try again.');
+    return;
+  }
+  const freshStrategy = strategyList.find((s) => s.id === id);
+  if (!freshStrategy) {
+    alert('This strategy no longer exists — it may have already been retired elsewhere.');
+    renderStrategyManagerList();
+    return;
+  }
   const dup = strategyList.some((s) => s.name.toLowerCase() === newName.toLowerCase() && s.id !== id);
   if (dup) { alert('"' + newName + '" already exists.'); return; }
 
-  strategy.name = newName;
+  freshStrategy.name = newName;
   const ok = await saveStrategyList();
   if (!ok) {
-    strategy.name = oldName; // revert — don't cascade a rename onto trades that never actually saved on the strategy itself
+    freshStrategy.name = oldName; // revert — don't cascade a rename onto trades that never actually saved on the strategy itself
     alert('Failed to save — check your connection and try again.');
     renderStrategyManagerList();
     renderStrategyEditModal();
@@ -4280,11 +4540,24 @@ async function deleteStrategy(id) {
   const strategy = strategyList.find((s) => s.id === id);
   if (!strategy) return;
   if (!confirm('Retire "' + strategy.name + '"? Existing trades keep this value; it just stops appearing in the New Trade dropdown.')) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    alert('Could not confirm the latest strategy list — check your connection and try again.');
+    return;
+  }
   const idx = strategyList.findIndex((s) => s.id === id);
+  if (idx === -1) {
+    alert('This strategy is already gone from the list.');
+    renderStrategyManagerList();
+    return;
+  }
+  const freshStrategy = strategyList[idx];
   strategyList = strategyList.filter((s) => s.id !== id);
   const ok = await saveStrategyList();
   if (!ok) {
-    strategyList.splice(idx, 0, strategy); // revert — it's still saved remotely, so it can't disappear from the list
+    strategyList.splice(idx, 0, freshStrategy); // revert — it's still saved remotely, so it can't disappear from the list
     alert('Failed to retire — check your connection and try again.');
     renderStrategyManagerList();
     return;
@@ -4306,12 +4579,25 @@ async function addRiskProfile(strategyId) {
   if (!label) return;
   const riskPercent = parseOptionalNumber(prompt('Risk % per trade (e.g. "2"):', '1'));
   if (riskPercent == null || riskPercent <= 0) { alert('Enter a risk % greater than 0.'); return; }
-  strategy.riskProfiles = strategy.riskProfiles || [];
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    alert('Could not confirm the latest strategy list — check your connection and try again.');
+    return;
+  }
+  const freshStrategy = strategyList.find((s) => s.id === strategyId);
+  if (!freshStrategy) {
+    alert('This strategy no longer exists — it may have been retired elsewhere.');
+    renderStrategyManagerList();
+    return;
+  }
+  freshStrategy.riskProfiles = freshStrategy.riskProfiles || [];
   const newProfile = { id: 'risk_' + Date.now(), label, riskPercent };
-  strategy.riskProfiles.push(newProfile);
+  freshStrategy.riskProfiles.push(newProfile);
   const ok = await saveStrategyList();
   if (!ok) {
-    strategy.riskProfiles = strategy.riskProfiles.filter((p) => p.id !== newProfile.id); // revert
+    freshStrategy.riskProfiles = freshStrategy.riskProfiles.filter((p) => p.id !== newProfile.id); // revert
     alert('Failed to save — check your connection and try again.');
     renderStrategyManagerList();
     renderStrategyEditModal();
@@ -4332,10 +4618,36 @@ async function deleteRiskProfile(strategyId, profileId) {
   }
   const profile = strategy.riskProfiles.find((p) => p.id === profileId);
   if (!profile || !confirm('Remove risk profile "' + profile.label + '"?')) return;
-  strategy.riskProfiles = strategy.riskProfiles.filter((p) => p.id !== profileId);
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    alert('Could not confirm the latest strategy list — check your connection and try again.');
+    return;
+  }
+  const freshStrategy = strategyList.find((s) => s.id === strategyId);
+  if (!freshStrategy) {
+    alert('This strategy no longer exists — it may have been retired elsewhere.');
+    renderStrategyManagerList();
+    return;
+  }
+  if ((freshStrategy.riskProfiles || []).length <= 1) {
+    alert('A strategy needs at least one risk profile — add another before removing this one.');
+    renderStrategyManagerList();
+    renderStrategyEditModal();
+    return;
+  }
+  const freshProfile = freshStrategy.riskProfiles.find((p) => p.id === profileId);
+  if (!freshProfile) {
+    alert('This risk profile is already gone.');
+    renderStrategyManagerList();
+    renderStrategyEditModal();
+    return;
+  }
+  freshStrategy.riskProfiles = freshStrategy.riskProfiles.filter((p) => p.id !== profileId);
   const ok = await saveStrategyList();
   if (!ok) {
-    strategy.riskProfiles.push(profile); // revert
+    freshStrategy.riskProfiles.push(freshProfile); // revert
     alert('Failed to save — check your connection and try again.');
     renderStrategyManagerList();
     renderStrategyEditModal();
@@ -4597,6 +4909,8 @@ async function restoreJsonBackup() {
   renderConfluencePicker();
   renderTimeframeManagerList();
   renderTimeframeSelects();
+  populateWeeklyTimeframeHtfLtfSelects();
+  refreshWeeklyTimeframe();
   renderStrategyManagerList();
   renderInsightsStrategySelectOptions();
   renderStrategySelectOptions();
@@ -4846,6 +5160,29 @@ function outcomesFromRROutcome(rrOutcome) {
   return outcomes;
 }
 
+// Auto-generated confluence-checklist notes — appended to (never overwriting)
+// whatever the user typed in the Notes field. Stripped and re-derived on
+// every save so they stay accurate and never duplicate: if the checklist is
+// complete now, neither line is added; if it was previously incomplete and
+// the user re-saves after checking more, the old note is replaced, not
+// stacked on top of a stale one.
+function confluenceIncompleteNote(confirmed, total) {
+  return '⚠ Confluence checklist incomplete at time of logging (' + confirmed + ' of ' + total + ' confirmed).';
+}
+const CONFLUENCE_ZERO_DEFINED_NOTE =
+  '⚠ Selected strategy had no confluences defined at time of logging — add some in Settings → Strategies.';
+
+function stripAutoConfluenceNotes(notes) {
+  return (notes || '')
+    .split('\n')
+    .filter((line) => {
+      const t = line.trim();
+      return !t.startsWith('⚠ Confluence checklist incomplete') && t !== CONFLUENCE_ZERO_DEFINED_NOTE;
+    })
+    .join('\n')
+    .trim();
+}
+
 async function saveTrade() {
   const statusEl = document.getElementById('saveTradeStatus');
   const strategy = document.getElementById('strategySelect').value;
@@ -4887,6 +5224,27 @@ async function saveTrade() {
   }
   const rrOutcome = calculateRROutcome(targetRR, highestRR, result);
   const outcomes = outcomesFromRROutcome(rrOutcome);
+
+  // Confluence checklist completeness — scoped to the selected strategy's
+  // own confluenceIds, same set the picker renders. Determines which (if
+  // any) auto-note gets appended below.
+  const savedConfluences = confluencesFromForm();
+  const strategyObj = strategyList.find((s) => s.name === strategy);
+  const strategyConfluenceNames = (strategyObj && Array.isArray(strategyObj.confluenceIds)) ? strategyObj.confluenceIds : [];
+  const manualNotes = stripAutoConfluenceNotes(document.getElementById('tradeNotesInput').value);
+  let autoNote = '';
+  if (!strategyConfluenceNames.length) {
+    autoNote = CONFLUENCE_ZERO_DEFINED_NOTE;
+  } else {
+    const confirmedCount = strategyConfluenceNames.filter(
+      (n) => savedConfluences.some((c) => c.toLowerCase() === n.toLowerCase())
+    ).length;
+    if (confirmedCount < strategyConfluenceNames.length) {
+      autoNote = confluenceIncompleteNote(confirmedCount, strategyConfluenceNames.length);
+    }
+  }
+  const finalNotes = autoNote ? (manualNotes ? manualNotes + '\n' + autoNote : autoNote) : manualNotes;
+
   const trade = {
     id,
     createdAt: (allTrades.find(t => t.id === id) || {}).createdAt || Date.now(),
@@ -4902,14 +5260,14 @@ async function saveTrade() {
     ltf: document.getElementById('ltfSelect').value,
     model: document.getElementById('modelSelect').value,
     stopPips: parseOptionalNumber(document.getElementById('stopPipsInput').value),
-    confluences: confluencesFromForm(),
+    confluences: savedConfluences,
     outcomes,
     targetRR,
     highestRR,
     result,
     rrOutcome,
     images: tradeImages.slice(), // replaces whatever was stored before — old images are never orphaned
-    notes: document.getElementById('tradeNotesInput').value || '',
+    notes: finalNotes,
   };
 
   try {
@@ -4945,8 +5303,6 @@ function resetEntryForm() {
   document.getElementById('pairInput').value = '';
   document.getElementById('stopPipsInput').value = '';
   document.getElementById('tradeNotesInput').value = '';
-  document.getElementById('confluenceChips').innerHTML = '';
-  renderConfluencePicker();
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
   document.getElementById('openedAtInput').value =
@@ -4956,6 +5312,11 @@ function resetEntryForm() {
   document.getElementById('modelSelect').selectedIndex = 0;
   document.getElementById('strategySelect').selectedIndex = 0;
   updateEntryStrategySub();
+  // Confluence picker is strategy-scoped, so it must render AFTER the
+  // Strategy select above is reset to its final value — otherwise it would
+  // briefly render pills for whatever strategy was selected before reset.
+  document.getElementById('confluenceChips').innerHTML = '';
+  renderConfluencePicker();
   applyTargetRRToForm('1:1');
   applyHighestRRToForm('1:1');
   applyTradeResultToForm(null);
@@ -5500,10 +5861,33 @@ function openViewerForStrategy(strategyId, index, editable) {
     } : undefined,
     onReplace: editable ? async (imgIndex, newImg) => {
       const oldImg = strategy.images[imgIndex];
-      strategy.images[imgIndex] = newImg;
+      if (!oldImg) return;
+      // Re-fetch the real list right before writing — see createStrategy for
+      // the full explanation of why this matters when two browsers/tabs are
+      // open. Match by image id (not index) since the order in the fresh
+      // copy might differ from what this viewer opened with.
+      await loadStrategyList();
+      if (!strategyListLoaded) {
+        alert('Could not confirm the latest strategy list — check your connection and try again.');
+        return;
+      }
+      const freshStrategy = strategyList.find((s) => s.id === strategyId);
+      if (!freshStrategy) {
+        alert('This strategy no longer exists — it may have been retired elsewhere.');
+        renderStrategyManagerList();
+        return;
+      }
+      const freshIdx = (freshStrategy.images || []).findIndex((img) => img.id === oldImg.id);
+      if (freshIdx === -1) {
+        alert('This image is already gone.');
+        renderStrategyManagerList();
+        renderStrategyEditModal();
+        return;
+      }
+      freshStrategy.images[freshIdx] = newImg;
       const ok = await saveStrategyList();
       if (!ok) {
-        strategy.images[imgIndex] = oldImg; // revert — the viewer's own copy already shows newImg, but the saved data (and next reload) reflects this instead
+        freshStrategy.images[freshIdx] = oldImg; // revert — the viewer's own copy already shows newImg, but the saved data (and next reload) reflects this instead
         alert('Failed to save the replacement — check your connection and try again.');
         renderStrategyManagerList();
         renderStrategyEditModal();
@@ -6447,15 +6831,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   syncThemeToggleIcon();
   syncStickyToolbarOffset();
   populateWeeklyYoYWeekSelects();
+  populateWeeklyTimeframeWeekSelects();
   window.addEventListener('resize', syncStickyToolbarOffset);
   if (!AI_VOICE_SUPPORTED) {
     const aiBtn = document.getElementById('aiPlayBtn');
     if (aiBtn) { aiBtn.textContent = '🔇 Voice unavailable'; aiBtn.disabled = true; aiBtn.title = "This browser doesn't support voice playback."; }
   }
-  const tradesReady = loadAllTrades().then(() => { populateFilterOptions(); renderPairSelectOptions(); refreshDashboardTradeSummary(); });
-  const confluencesReady = loadConfluenceList().then(() => { renderConfluenceManagerList(); renderConfluenceSuggestions(); renderConfluencePicker(); renderAdvancedFilterOptions(); });
-  const timeframesReady = loadTimeframeList().then(() => { renderTimeframeManagerList(); renderTimeframeSelects(); renderAdvancedFilterOptions(); });
-  const strategiesReady = loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); updateOnboardingBanner(); });
+  const tradesReady = loadAllTrades().then(() => { populateFilterOptions(); renderPairSelectOptions(); refreshDashboardTradeSummary(); refreshWeeklyYoY(); refreshWeeklyTimeframe(); });
+  const confluencesReady = loadConfluenceList().then(() => { renderConfluenceManagerList(); renderConfluenceSuggestions(); renderConfluencePicker(); renderNewStrategyConfluencePicker(); renderAdvancedFilterOptions(); });
+  const timeframesReady = loadTimeframeList().then(() => { renderTimeframeManagerList(); renderTimeframeSelects(); renderAdvancedFilterOptions(); populateWeeklyTimeframeHtfLtfSelects(); refreshWeeklyTimeframe(); });
+  const strategiesReady = loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderConfluencePicker(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); updateOnboardingBanner(); });
   // Loader overlay stays up until every one of these has genuinely resolved —
   // not a fixed delay, so it never hides too early on a slow connection or
   // lingers too long on a fast one. minDisplay just avoids an instant flash
@@ -6495,6 +6880,14 @@ function getInsightsTarget() {
 // Standard profile, which meant Insights and Dashboard could crown two
 // different targets at once — see roadmap notes on unifying this.)
 // Replaces the old hardcoded "R:R 1:2 🏆".
+// Returns null when nothing is actually eligible yet (mirrors what
+// pickLeadingTarget() itself returns) instead of a fake "1:2" fallback —
+// the old fallback meant the 1:2 option always showed a 🏆 even with zero
+// trades logged, disagreeing with the Dashboard/History banners, which
+// both correctly show "—"/no crown in that same situation. Callers treat
+// null as "no leader yet": the badge functions below skip crowning any
+// option (opt.value === null never matches a real target string), same as
+// applyHistoryLeadingTargetBadge() already does for the History dropdown.
 function computeInsightsLeadingTarget(trades) {
   const profileRaceBars = RISK_PROFILE_CONFIG.map((config) => {
     const accountBalanceHistories = buildAccountBalanceHistories(trades, config);
@@ -6503,7 +6896,7 @@ function computeInsightsLeadingTarget(trades) {
     return { riskProfile: config, raceBars };
   });
   const leading = pickLeadingTarget(profileRaceBars);
-  return leading ? leading.target : '1:2';
+  return leading ? leading.target : null;
 }
 
 // Insights page: Pair + Strategy filters, both owned by the sticky toolbar.
@@ -6632,14 +7025,21 @@ function setInsightsTarget(value) {
 // <select> element to match. After this first call, selectedInsightsTarget
 // is no longer null, so this never overrides a target the user has since
 // picked themselves.
+// leadingTarget can now be null (nothing eligible yet — see
+// computeInsightsLeadingTarget()). That's only a "no crown" signal, not a
+// "no selection" signal: the dropdown still needs a real value selected, so
+// the initial selection falls back to '1:2' (same default getInsightsTarget()
+// already uses) WITHOUT crowning it — selectedInsightsTarget is set to that
+// fallback (not left null), so this init still only ever runs once per
+// session, same as before.
 function initInsightsTargetIfNeeded() {
   if (selectedInsightsTarget !== null) return;
   const leadingTarget = computeInsightsLeadingTarget(getInsightsScopedTrades());
-  selectedInsightsTarget = leadingTarget;
+  selectedInsightsTarget = leadingTarget || '1:2';
   const select = document.getElementById('targetSelect');
-  if (select) select.value = leadingTarget;
+  if (select) select.value = selectedInsightsTarget;
   applyInsightsLeadingTargetBadge(leadingTarget);
-  const label = 'R:R ' + leadingTarget + ' 🏆';
+  const label = 'R:R ' + selectedInsightsTarget + (leadingTarget ? ' 🏆' : '');
   document.querySelectorAll('.target-tag').forEach(el => el.textContent = label);
 }
 
@@ -6663,6 +7063,7 @@ function renderInsightsCards() {
   renderBestPeriods(analyzeBestPeriods(insightsScopedTrades));
   renderBestDaysOfWeek(document.getElementById('bestDaysOfWeekBody'), analyzeBestDaysOfWeek(insightsScopedTrades));
   refreshWeeklyYoY();
+  refreshWeeklyTimeframe();
 }
 
 // Insights page: Standard / Conservative risk toggle — swaps every .v-std /
@@ -7705,6 +8106,78 @@ function refreshWeeklyYoY() {
   const startWeek = parseInt(fromSel.value, 10);
   const endWeek = parseInt(toSel.value, 10);
   renderWeeklyYoY(document.getElementById('weeklyYoYBody'), analyzeWeeklyYoY(getInsightsScopedTrades(), startWeek, endWeek));
+}
+
+// ---- Weekly & Timeframe Comparison ----
+// Same ISO-week-across-years comparison as Weekly YoY above, additionally
+// narrowed to a specific HTF/LTF combination. 'All' (empty string) skips
+// that filter entirely; a real value requires an exact match on t.htf /
+// t.ltf. HTF and LTF are matched together on the SAME trade (a trade has
+// exactly one of each), never treated as two separate filters applied to
+// two different trade sets — so "4H | 15M" only counts trades that used
+// both on the same setup, not the union of "any 4H trade" + "any 15M trade".
+// Reuses analyzeWeeklyYoY's exact week-range/year-grouping logic by taking
+// the same trades array pre-filtered by HTF/LTF first, then delegates to it
+// — one grouping implementation, not two to keep in sync.
+function analyzeWeeklyTimeframe(trades, startWeek, endWeek, htfFilter, ltfFilter) {
+  const filtered = (Array.isArray(trades) ? trades : []).filter((t) => {
+    if (htfFilter && t.htf !== htfFilter) return false;
+    if (ltfFilter && t.ltf !== ltfFilter) return false;
+    return true;
+  });
+  return analyzeWeeklyYoY(filtered, startWeek, endWeek);
+}
+
+// Populates the From/To week selects (1–53), same pattern and defaults as
+// populateWeeklyYoYWeekSelects(). Idempotent — safe on every DOMContentLoaded.
+function populateWeeklyTimeframeWeekSelects() {
+  const fromSel = document.getElementById('weeklyTfFromWeek');
+  const toSel = document.getElementById('weeklyTfToWeek');
+  if (!fromSel || !toSel || fromSel.options.length) return;
+  const optionsHtml = Array.from({ length: 53 }, (_, i) => i + 1)
+    .map((w) => '<option value="' + w + '">W' + w + '</option>').join('');
+  fromSel.innerHTML = optionsHtml;
+  toSel.innerHTML = optionsHtml;
+  const currentWeek = getISOWeekInfo(new Date()).isoWeek;
+  fromSel.value = String(currentWeek);
+  toSel.value = String(currentWeek);
+}
+// Keeps the HTF/LTF filter <select>s in sync with the managed Timeframe
+// list — same source of truth New Trade's htfSelect/ltfSelect use (see
+// renderTimeframeSelects()), with an "All" option prepended so either side
+// can be left unfiltered per the partial-filtering behavior described in
+// the card's own sub-copy. Preserves the current selection if it's still a
+// valid option after the rebuild, same intent as renderTimeframeSelects().
+function populateWeeklyTimeframeHtfLtfSelects() {
+  const htfSel = document.getElementById('weeklyTfHtfSelect');
+  const ltfSel = document.getElementById('weeklyTfLtfSelect');
+  if (htfSel) {
+    const current = htfSel.value;
+    htfSel.innerHTML = '<option value="">All</option>' + timeframeList.filter((t) => t.type === 'htf')
+      .map((t) => '<option>' + escapeHtml(t.name) + '</option>').join('');
+    setSelectValue('weeklyTfHtfSelect', current, true);
+  }
+  if (ltfSel) {
+    const current = ltfSel.value;
+    ltfSel.innerHTML = '<option value="">All</option>' + timeframeList.filter((t) => t.type === 'ltf')
+      .map((t) => '<option>' + escapeHtml(t.name) + '</option>').join('');
+    setSelectValue('weeklyTfLtfSelect', current, true);
+  }
+}
+function onWeeklyTimeframeChange() {
+  refreshWeeklyTimeframe();
+}
+function refreshWeeklyTimeframe() {
+  const fromSel = document.getElementById('weeklyTfFromWeek');
+  const toSel = document.getElementById('weeklyTfToWeek');
+  const htfSel = document.getElementById('weeklyTfHtfSelect');
+  const ltfSel = document.getElementById('weeklyTfLtfSelect');
+  if (!fromSel || !toSel) return;
+  const startWeek = parseInt(fromSel.value, 10);
+  const endWeek = parseInt(toSel.value, 10);
+  const htfFilter = htfSel ? htfSel.value : '';
+  const ltfFilter = ltfSel ? ltfSel.value : '';
+  renderWeeklyYoY(document.getElementById('weeklyTfBody'), analyzeWeeklyTimeframe(getInsightsScopedTrades(), startWeek, endWeek, htfFilter, ltfFilter));
 }
 
 function renderAdvancedFilterOptions() {
