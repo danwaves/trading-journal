@@ -1595,7 +1595,7 @@
                ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileSelect(event, 'before');">
             <div class="upload-icon">📷</div>
             <div class="upload-label">Tap to select a screenshot</div>
-            <div class="upload-sub">PNG, JPG, WEBP, GIF · compressed for fast loading</div>
+            <div class="upload-sub">PNG, JPG, WEBP, GIF · hosted on Cloudinary</div>
           </div>
           <div class="url-paste-row">
             <input id="imageUrlInputBefore" placeholder="Or paste an image link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('before');}" />
@@ -1614,7 +1614,7 @@
                ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileSelect(event, 'after');">
             <div class="upload-icon">📷</div>
             <div class="upload-label">Tap to select a screenshot</div>
-            <div class="upload-sub">PNG, JPG, WEBP, GIF · compressed for fast loading</div>
+            <div class="upload-sub">PNG, JPG, WEBP, GIF · hosted on Cloudinary</div>
           </div>
           <div class="url-paste-row">
             <input id="imageUrlInputAfter" placeholder="Or paste an image link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('after');}" />
@@ -2769,15 +2769,54 @@ const LOSS_KEYS = Object.keys(OUTCOME_META).filter(k => OUTCOME_META[k].group ==
 // badge, the cross-trade screenshot gallery, and the fullscreen viewer's next/prev nav
 // — none of which know about slots — keep working unchanged against the plain array.
 const MAX_IMAGES_PER_SLOT = 1;
-const MAX_RAW_BYTES = 20 * 1024 * 1024;      // reject anything absurdly large before we even try to compress
-const MIN_QUALITY_FLOOR = 0.5;               // never encode below this JPEG quality — chart lines/labels start
-                                              // visibly degrading below ~0.5-0.55, so clarity wins over file size
-const LARGE_FILE_SAFETY_BYTES = 300 * 1024;  // safety valve only: if still this large at the quality floor,
-                                              // shrink dimensions too — not a compression target to chase
-                                              // (tightened from 500KB so the dimension-shrink kicks in sooner)
+const MAX_RAW_BYTES = 20 * 1024 * 1024;      // reject anything absurdly large before we even try to upload
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
 
-let tradeImages = []; // { id, slot: 'before'|'after', source: 'file'|'url', base64?, mediaType?, sizeKB?, url?, name }
+// ---- Cloudinary (image hosting + delivery) ----
+// Unsigned upload preset — safe to expose client-side, it can only upload into
+// the configured folder, never read/delete/list other assets. Resolution and
+// compression are no longer decided client-side: the original file is sent
+// as-is, and Cloudinary serves the best format/quality/size for the viewer
+// automatically via the f_auto,q_auto delivery flags baked into the URL.
+const CLOUDINARY_CLOUD_NAME = 'cqhynayh';
+const CLOUDINARY_UPLOAD_PRESET = 'danwaves_trades';
+const CLOUDINARY_UPLOAD_URL = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload';
+
+// Inserts Cloudinary's auto-format/auto-quality delivery transformation right
+// after '/upload/' in a secure_url, so every image is served in whatever
+// format/quality is best for the requesting browser — sharper where the
+// connection allows it, lighter where it doesn't — without us managing that.
+function cloudinaryDeliveryUrl(secureUrl) {
+  return secureUrl.replace('/upload/', '/upload/f_auto,q_auto/');
+}
+
+// Uploads a raw File object straight to Cloudinary (unsigned). No client-side
+// resizing/re-encoding — Cloudinary stores the original and optimizes on
+// delivery instead, which is what actually fixed the "blurry" complaint.
+async function uploadFileToCloudinary(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data && data.error && data.error.message) || 'Cloudinary upload failed');
+  return { url: cloudinaryDeliveryUrl(data.secure_url), publicId: data.public_id, sizeKB: Math.round(data.bytes / 1024) };
+}
+
+// Pulls an externally-pasted image link into Cloudinary too, so every trade
+// image — uploaded or pasted — lives in one place with the same optimization
+// and doesn't break later if the original external host takes it down.
+async function uploadRemoteUrlToCloudinary(url) {
+  const formData = new FormData();
+  formData.append('file', url);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
+  const data = await res.json();
+  if (!res.ok) throw new Error((data && data.error && data.error.message) || 'Cloudinary could not fetch that link');
+  return { url: cloudinaryDeliveryUrl(data.secure_url), publicId: data.public_id, sizeKB: Math.round(data.bytes / 1024) };
+}
+
+let tradeImages = []; // { id, slot: 'before'|'after', source: 'cloudinary', url, publicId, sizeKB, name }
 
 function setImageStatus(msg, cls) {
   const el = document.getElementById('imageUploadStatus');
@@ -2801,13 +2840,12 @@ function renderImageGrid() {
     if (!grid) return;
     grid.innerHTML = '';
     imagesForSlot(slot).forEach(img => {
-      const src = img.source === 'url' ? img.url : ('data:' + img.mediaType + ';base64,' + img.base64);
       const wrap = document.createElement('div');
       wrap.className = 'trade-thumb';
       wrap.innerHTML =
-        '<img src="' + src.replace(/"/g, '&quot;') + '" alt="Trade screenshot" />' +
+        '<img src="' + img.url.replace(/"/g, '&quot;') + '" alt="Trade screenshot" />' +
         '<div class="trade-thumb-remove" onclick="removeImage(\'' + img.id + '\')">✕</div>' +
-        '<div class="trade-thumb-size">' + (img.source === 'url' ? 'linked' : img.sizeKB + ' KB') + '</div>';
+        '<div class="trade-thumb-size">' + (img.sizeKB ? img.sizeKB + ' KB' : 'hosted') + '</div>';
       grid.appendChild(wrap);
     });
     updateSlotDropVisibility(slot);
@@ -2819,84 +2857,11 @@ function removeImage(id) {
   renderImageGrid();
 }
 
-// ---- compression pipeline (canvas-based, clarity-first — quality floor, not a byte target) ----
-function readFileAsDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result);
-    r.onerror = reject;
-    r.readAsDataURL(file);
-  });
-}
-function loadImageEl(dataUrl) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    // Diagnostic fix: img.onerror fires with a generic Event, not an Error —
-    // rejecting with that raw Event gave the catch in handleFileSelect nothing
-    // usable to show the user (hence the old message being the same generic
-    // "Couldn't process" no matter what actually went wrong). Reject with a
-    // real Error carrying a specific, user-facing reason instead.
-    img.onerror = () => reject(new Error('the browser couldn\'t decode this file as an image — it may be corrupted, or a format like HEIC that isn\'t browser-readable'));
-    img.src = dataUrl;
-  });
-}
-function canvasToBlob(canvas, quality) {
-  return new Promise((resolve, reject) => canvas.toBlob((blob) => {
-    // Diagnostic fix: toBlob(null) happens on very large/unusual canvases and
-    // previously passed straight through to blobToBase64(null), which threw
-    // an opaque, unrelated-looking error from inside FileReader. Catch it
-    // here instead, with a reason that actually points at the cause.
-    if (!blob) { reject(new Error('the image is too large or an unusual format for this browser to re-encode')); return; }
-    resolve(blob);
-  }, 'image/jpeg', quality));
-}
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(r.result.split(',')[1]);
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-}
-
-async function compressToTarget(file, maxDimension = 1000) { // lowered from 1600 (via 1280) — 1000px keeps chart
-                                                              // labels/candle detail readable at the quality floor
-                                                              // while cutting file size roughly in half again
-  const dataUrl = await readFileAsDataURL(file);
-  const img = await loadImageEl(dataUrl);
-  let width = img.width, height = img.height;
-  if (Math.max(width, height) > maxDimension) {
-    const scale = maxDimension / Math.max(width, height);
-    width = Math.round(width * scale);
-    height = Math.round(height * scale);
-  }
-  let quality = 0.85;
-  let blob = null;
-  for (let attempt = 0; attempt < 9; attempt++) {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-    blob = await canvasToBlob(canvas, quality);
-    if (quality > MIN_QUALITY_FLOOR) {
-      quality = Math.max(MIN_QUALITY_FLOOR, quality - 0.15); // step 1: drop quality first, never past the clarity floor
-      continue;
-    }
-    // already at the clarity floor — only shrink dimensions (not quality) if still unreasonably large
-    if (blob.size <= LARGE_FILE_SAFETY_BYTES || width < 200) break;
-    width = Math.round(width * 0.8);   // step 2: shrink dimensions, quality stays pinned at the floor
-    height = Math.round(height * 0.8);
-  }
-  const base64 = await blobToBase64(blob);
-  return { base64, mediaType: 'image/jpeg', sizeKB: Math.round(blob.size / 1024) };
-}
-
 function updateCompressProgress(doneCount, total, label) {
   const pct = Math.round((doneCount / total) * 100);
   document.getElementById('compressProgressFill').style.width = pct + '%';
   document.getElementById('compressProgressLabel').textContent =
-    'Compressing' + (label ? ' — ' + label : '') + '…';
+    'Uploading' + (label ? ' — ' + label : '') + '…';
 }
 
 async function handleFileSelect(event, slot) {
@@ -2930,25 +2895,21 @@ async function handleFileSelect(event, slot) {
   for (let i = 0; i < accepted.length; i++) {
     updateCompressProgress(i, accepted.length, accepted[i].name);
     try {
-      const result = await compressToTarget(accepted[i]);
+      const result = await uploadFileToCloudinary(accepted[i]);
       tradeImages.push({
         id: 'img_' + Date.now() + '_' + i,
         slot,
-        source: 'file',
-        base64: result.base64,
-        mediaType: result.mediaType,
+        source: 'cloudinary',
+        url: result.url,
+        publicId: result.publicId,
         sizeKB: result.sizeKB,
         name: accepted[i].name,
       });
       renderImageGrid();
     } catch (err) {
-      console.error('Compression failed:', err);
-      // Diagnostic fix: surface the specific reason (from loadImageEl/canvasToBlob
-      // above) instead of the old one-size-fits-all "Couldn't process" — this is
-      // what actually tells us whether it's a bad format, a corrupt file, or
-      // something else, rather than us guessing blind.
+      console.error('Upload failed:', err);
       const reason = (err && err.message) ? err.message : 'unknown error';
-      setImageStatus('Couldn\'t process "' + accepted[i].name + '" — ' + reason + '.', 'error');
+      setImageStatus('Couldn\'t upload "' + accepted[i].name + '" — ' + reason + '.', 'error');
     }
   }
 
@@ -2977,15 +2938,32 @@ async function addImageFromUrl(slot) {
     setImageStatus('Image links need to start with http:// or https://', 'error');
     return;
   }
-  tradeImages.push({ id: 'img_' + Date.now(), slot, source: 'url', url, name: url });
-  input.value = '';
-  renderImageGrid();
+  setImageStatus('Fetching image…', '');
+  try {
+    const result = await uploadRemoteUrlToCloudinary(url);
+    tradeImages.push({
+      id: 'img_' + Date.now(),
+      slot,
+      source: 'cloudinary',
+      url: result.url,
+      publicId: result.publicId,
+      sizeKB: result.sizeKB,
+      name: url,
+    });
+    input.value = '';
+    setImageStatus('', '');
+    renderImageGrid();
+  } catch (err) {
+    console.error('Remote fetch failed:', err);
+    const reason = (err && err.message) ? err.message : 'unknown error';
+    setImageStatus('Couldn\'t fetch that link — ' + reason + '.', 'error');
+  }
 }
 
 // ---- Strategy image gallery (Settings > Strategies) ----
 // Separate storage from trade screenshots on purpose (writes into strategyList
 // / strategy.images, never tradeImages) — but reuses the exact same
-// compressToTarget() pipeline above, since the resize/quality logic itself has
+// uploadFileToCloudinary() pipeline above, since the upload logic itself has
 // no slot or trade-specific knowledge; only the destination array and the cap
 // differ. No before/after split here — just a flat gallery up to the cap.
 const MAX_STRATEGY_IMAGES = 5;
@@ -3029,21 +3007,21 @@ async function handleStrategyImageSelect(event, strategyId) {
   const newImgs = [];
   for (let i = 0; i < accepted.length; i++) {
     try {
-      const result = await compressToTarget(accepted[i]);
+      const result = await uploadFileToCloudinary(accepted[i]);
       const newImg = {
         id: 'simg_' + Date.now() + '_' + i,
-        source: 'file',
-        base64: result.base64,
-        mediaType: result.mediaType,
+        source: 'cloudinary',
+        url: result.url,
+        publicId: result.publicId,
         sizeKB: result.sizeKB,
         name: accepted[i].name,
       };
       newImgs.push(newImg);
       newIds.push(newImg.id);
     } catch (err) {
-      console.error('Strategy image compression failed:', err);
+      console.error('Strategy image upload failed:', err);
       const reason = (err && err.message) ? err.message : 'unknown error';
-      setStrategyImageStatus(strategyId, 'Couldn\'t process "' + accepted[i].name + '" — ' + reason + '.', 'error');
+      setStrategyImageStatus(strategyId, 'Couldn\'t upload "' + accepted[i].name + '" — ' + reason + '.', 'error');
     }
   }
   if (!newIds.length) return;
@@ -4108,7 +4086,7 @@ function openStrategyView(strategyId) {
   const gallery = images.length
     ? '<div class="trade-img-grid" style="margin-top:8px;">' +
         images.map((img, idx) =>
-          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', false)"><img src="data:' + img.mediaType + ';base64,' + img.base64 + '" alt="' + escapeHtml(s.name) + ' reference" /></div>'
+          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', false)"><img src="' + img.url + '" alt="' + escapeHtml(s.name) + ' reference" /></div>'
         ).join('') +
       '</div>'
     : '<p class="sub" style="font-size:11px; margin:0;">No reference charts yet.</p>';
@@ -4279,7 +4257,7 @@ function renderStrategyEditModal() {
       '<div id="strategyImageStatus_' + s.id + '" class="extract-status"></div>' +
       '<div class="trade-img-grid" style="margin-top:8px;">' +
         (s.images || []).map((img, idx) =>
-          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', true)"><img src="data:' + img.mediaType + ';base64,' + img.base64 + '" alt="' + escapeHtml(s.name) + ' reference" />' +
+          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', true)"><img src="' + img.url + '" alt="' + escapeHtml(s.name) + ' reference" />' +
             '<div class="trade-thumb-size">' + img.sizeKB + ' KB</div>' +
           '</div>'
         ).join('') +
@@ -5646,7 +5624,7 @@ function setTradeView(view) {
 }
 
 function thumbSrc(img) {
-  return img.source === 'url' ? img.url : ('data:' + img.mediaType + ';base64,' + img.base64);
+  return img.url;
 }
 
 // Trades tab list/grid badge. Milestone 4.4: same fix as classifyTrade() — reads
@@ -5970,10 +5948,21 @@ function viewerToggleFullscreen() {
 
 function viewerDownload() {
   const img = viewerImages[viewerIndex];
-  const a = document.createElement('a');
-  a.href = thumbSrc(img);
-  a.download = (img.name || 'screenshot') + (img.source === 'url' ? '' : '.jpg');
-  a.click();
+  // Cloudinary-hosted images are cross-origin, so a plain <a download> link
+  // gets ignored by the browser (it just opens the image in a new tab
+  // instead of saving it). Fetch the bytes first, then download from a same-
+  // origin blob URL, which forces a real save.
+  fetch(thumbSrc(img))
+    .then((r) => r.blob())
+    .then((blob) => {
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = (img.name || 'screenshot') + '.jpg';
+      a.click();
+      URL.revokeObjectURL(blobUrl);
+    })
+    .catch((e) => console.error('Download failed:', e));
 }
 
 function viewerDelete() {
@@ -5997,8 +5986,8 @@ function viewerReplace() {
     const file = input.files[0];
     if (!file) return;
     try {
-      const result = await compressToTarget(file);
-      const newImg = { id: 'img_' + Date.now(), source: 'file', base64: result.base64, mediaType: result.mediaType, sizeKB: result.sizeKB, name: file.name };
+      const result = await uploadFileToCloudinary(file);
+      const newImg = { id: 'img_' + Date.now(), source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: file.name };
       const idx = viewerIndex;
       if (viewerImages[idx] && viewerImages[idx].slot) newImg.slot = viewerImages[idx].slot; // preserve Before/After tag on replace
       viewerOpts.onReplace(idx, newImg); // old screenshot is overwritten, never kept around
