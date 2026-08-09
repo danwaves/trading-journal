@@ -5624,7 +5624,11 @@ function setTradeView(view) {
 }
 
 function thumbSrc(img) {
-  return img.url;
+  // Defensive: a handful of trades were saved mid-migration (old pre-Cloudinary
+  // pipeline, or an upload that failed but got attached anyway) and can carry
+  // an image entry with no .url. Returning '' instead of letting .replace()
+  // throw on undefined keeps one bad entry from blanking the entire list.
+  return (img && img.url) ? img.url : '';
 }
 
 // Trades tab list/grid badge. Milestone 4.4: same fix as classifyTrade() — reads
@@ -5687,8 +5691,8 @@ async function renderTradeList() {
       return;
     }
     wrap.innerHTML = filtered.map(t => {
-      const beforeImg = (t.images || []).find(i => i.slot === 'before');
-      const afterImg = (t.images || []).find(i => i.slot === 'after');
+      const beforeImg = (t.images || []).find(i => i.slot === 'before' && i.url);
+      const afterImg = (t.images || []).find(i => i.slot === 'after' && i.url);
       const slotThumb = (img, label) => '<div class="trade-row-thumb">' +
         (img ? '<img src="' + thumbSrc(img).replace(/"/g,'&quot;') + '" />' : '<span class="trade-row-thumb-missing">' + label + '</span>') +
         '</div>';
@@ -5713,6 +5717,7 @@ async function renderTradeList() {
     const wrap = document.getElementById('tradeGridWrap');
     const allImages = [];
     filtered.forEach(t => (t.images || []).forEach(img => {
+      if (!img.url) return; // legacy/incomplete entry with no hosted URL — nothing to show
       if (currentGridSlot === 'all' || img.slot === currentGridSlot) allImages.push({ img, trade: t });
     }));
     if (!allImages.length) {
@@ -5748,8 +5753,8 @@ function openSidePanel(id) {
   if (!trade) return;
   const panel = document.getElementById('sidePanel');
   const tradeImgs = trade.images || [];
-  const beforeIdx = tradeImgs.findIndex(i => i.slot === 'before');
-  const afterIdx = tradeImgs.findIndex(i => i.slot === 'after');
+  const beforeIdx = tradeImgs.findIndex(i => i.slot === 'before' && i.url);
+  const afterIdx = tradeImgs.findIndex(i => i.slot === 'after' && i.url);
   const slotThumb = (idx, label) => {
     if (idx === -1) {
       return '<div><div class="sub" style="font-size:10.5px; margin-bottom:4px;">' + label + '</div>' +
