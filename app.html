@@ -1278,11 +1278,13 @@
       </select>
       <select id="insightsStrategySelect" class="target-select" onchange="onInsightsStrategyChange(this)" title="Strategy — scopes every card on this page"></select>
       <select id="targetSelect" class="target-select" onchange="setInsightsTarget(this.value)">
+        <option value="0.5">R:R 0.5</option>
         <option value="1:1">R:R 1:1</option>
         <option value="1:1.5">R:R 1:1.5</option>
         <option value="1:2" selected>R:R 1:2</option>
         <option value="1:2.5">R:R 1:2.5</option>
         <option value="1:3">R:R 1:3</option>
+        <option value="1:3.5">R:R 1:3.5</option>
         <option value="1:4">R:R 1:4</option>
       </select>
       <div id="riskToggle" class="risk-toggle">
@@ -1431,6 +1433,26 @@
           </table>
           </div>
           <p class="sub" style="margin:12px 0 0; font-size:11px;">Scored per strategy — a combo's win rate only reflects trades logged under the Strategy selected in the sticky bar at the top of the page, since the same tags can behave differently across different strategies. Combos of 2 up to 5 confluences (whatever a trade actually carries, capped at 5) need at least 15 trades to be ranked — below that they're folded into an "Other combos" bucket instead of showing a misleadingly clean win rate. Each row is tagged "N-way" so a 3-way combo's edge isn't mistaken for a 2-way pair nested inside it. Only the top 10 qualifying combos (by Net P/L) are shown individually; the rest are folded into "Other qualifying combos."</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="mini-card-header" onclick="toggleCard(this)">
+          <h2 style="margin-bottom:2px;">Development vs. Validation</h2>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="mini-card-body">
+          <p class="sub">Splits the Strategy selected above into an earlier "development" period and a later "validation" period, so you can check whether its edge holds up on trades it wasn't unconsciously curve-fitted to. Figures are R-based at the R:R target selected at the top of the page, same convention as the rest of this page.</p>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:10px 0 14px;">
+            <label style="font-size:12px; color:var(--muted); display:flex; align-items:center; gap:6px;">
+              Cutoff date
+              <input type="date" id="devValCutoffInput" class="target-select" style="padding:4px 8px;" onchange="renderInsightsCards()">
+            </label>
+            <a href="#" onclick="event.preventDefault(); document.getElementById('devValCutoffInput').value=''; renderInsightsCards();" style="font-size:12px;">Reset to auto (last 30% of trades)</a>
+          </div>
+          <div id="devValBody">
+            <p class="sub muted">Loading…</p>
+          </div>
         </div>
       </div>
 
@@ -1586,8 +1608,8 @@
         <p class="sub" style="margin-bottom:14px;">Optional — attach a screenshot from before and/or after the trade.</p>
 
         <div class="screenshot-slot">
-          <label style="display:block; font-size:11px; color:var(--muted); margin-bottom:8px; font-weight:600;">Before Trade</label>
-          <input type="file" id="tradeImageInputBefore" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="handleFileSelect(event, 'before')" />
+          <label style="display:block; font-size:11px; color:var(--muted); margin-bottom:8px; font-weight:600;">Before Trade <span style="font-weight:400;">(up to 2 — e.g. HTF bias + LTF entry)</span></label>
+          <input type="file" id="tradeImageInputBefore" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none;" onchange="handleFileSelect(event, 'before')" />
           <div id="uploadDropBefore" class="upload-drop"
                onclick="document.getElementById('tradeImageInputBefore').click()"
                ondragover="event.preventDefault(); this.classList.add('dragover');"
@@ -2768,7 +2790,15 @@ const LOSS_KEYS = Object.keys(OUTCOME_META).filter(k => OUTCOME_META[k].group ==
 // tagged with .slot) so storage (images jsonb column), the Trades-tab thumbnail/count
 // badge, the cross-trade screenshot gallery, and the fullscreen viewer's next/prev nav
 // — none of which know about slots — keep working unchanged against the plain array.
-const MAX_IMAGES_PER_SLOT = 1;
+// Before Trade allows 2 (typically HTF bias + LTF entry, standard for
+// multi-timeframe methodologies) since the decision that led to a trade is
+// usually informed by more than one chart. After Trade stays at 1 — the
+// outcome is normally just one chart.
+const MAX_IMAGES_PER_SLOT_BEFORE = 2;
+const MAX_IMAGES_PER_SLOT_AFTER = 1;
+function maxImagesForSlot(slot) {
+  return slot === 'before' ? MAX_IMAGES_PER_SLOT_BEFORE : MAX_IMAGES_PER_SLOT_AFTER;
+}
 const MAX_RAW_BYTES = 20 * 1024 * 1024;      // reject anything absurdly large before we even try to upload
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
 
@@ -2786,6 +2816,29 @@ const CLOUDINARY_UPLOAD_URL = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CL
 // after '/upload/' in a secure_url, so every image is served in whatever
 // format/quality is best for the requesting browser — sharper where the
 // connection allows it, lighter where it doesn't — without us managing that.
+// Deletes an already-uploaded Cloudinary asset via the delete-image Netlify
+// function (which holds the signing secret server-side — see that file).
+// Fire-and-forget by design: cleanup should never block or fail the user's
+// actual action (removing a screenshot, deleting a trade, etc.). Worst case
+// on a failure is one orphaned asset left for the next attempt/cleanup, not
+// a stuck UI or a blocked delete. Errors are logged, not surfaced to the user.
+async function deleteFromCloudinary(publicId) {
+  if (!publicId) return;
+  try {
+    const res = await fetch('/.netlify/functions/delete-image', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publicId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error('Cloudinary cleanup failed for', publicId, data);
+    }
+  } catch (err) {
+    console.error('Cloudinary cleanup request failed for', publicId, err);
+  }
+}
+
 function cloudinaryDeliveryUrl(secureUrl) {
   return secureUrl.replace('/upload/', '/upload/f_auto,q_auto/');
 }
@@ -2831,7 +2884,7 @@ function imagesForSlot(slot) {
 
 function updateSlotDropVisibility(slot) {
   const drop = document.getElementById(slot === 'before' ? 'uploadDropBefore' : 'uploadDropAfter');
-  if (drop) drop.style.display = imagesForSlot(slot).length >= MAX_IMAGES_PER_SLOT ? 'none' : 'block';
+  if (drop) drop.style.display = imagesForSlot(slot).length >= maxImagesForSlot(slot) ? 'none' : 'block';
 }
 
 function renderImageGrid() {
@@ -2853,8 +2906,13 @@ function renderImageGrid() {
 }
 
 function removeImage(id) {
+  const removed = tradeImages.find(i => i.id === id);
   tradeImages = tradeImages.filter(i => i.id !== id);
   renderImageGrid();
+  // Already uploaded to Cloudinary the moment it was picked/pasted, so
+  // removing it here — even before the trade is ever saved — needs its own
+  // cleanup call, or it's orphaned regardless of whether Save is ever hit.
+  if (removed && removed.source === 'cloudinary' && removed.publicId) deleteFromCloudinary(removed.publicId);
 }
 
 function updateCompressProgress(doneCount, total, label) {
@@ -2871,10 +2929,11 @@ async function handleFileSelect(event, slot) {
   if (event.target) event.target.value = ''; // allow re-selecting the same file later
 
   const slotLabel = slot === 'before' ? 'Before' : 'After';
+  const slotMax = maxImagesForSlot(slot);
   const accepted = [];
   for (const file of files) {
-    if (imagesForSlot(slot).length + accepted.length >= MAX_IMAGES_PER_SLOT) {
-      setImageStatus('Only one ' + slotLabel + ' screenshot — replace it by removing this one first.', 'error');
+    if (imagesForSlot(slot).length + accepted.length >= slotMax) {
+      setImageStatus((slotMax === 1 ? 'Only one ' + slotLabel + ' screenshot' : 'Only ' + slotMax + ' ' + slotLabel + ' screenshots') + ' — remove one first to add another.', 'error');
       break;
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -2923,8 +2982,9 @@ async function addImageFromUrl(slot) {
   const url = input.value.trim();
   if (!url) return;
   const slotLabel = slot === 'before' ? 'Before' : 'After';
-  if (imagesForSlot(slot).length >= MAX_IMAGES_PER_SLOT) {
-    setImageStatus('Only one ' + slotLabel + ' screenshot — remove the current one first.', 'error');
+  const slotMax = maxImagesForSlot(slot);
+  if (imagesForSlot(slot).length >= slotMax) {
+    setImageStatus((slotMax === 1 ? 'Only one ' + slotLabel + ' screenshot' : 'Only ' + slotMax + ' ' + slotLabel + ' screenshots') + ' — remove one first to add another.', 'error');
     return;
   }
   let parsed;
@@ -3082,6 +3142,7 @@ async function removeStrategyImage(strategyId, imageId) {
     renderStrategyEditModal();
     return;
   }
+  if (removed && removed.source === 'cloudinary' && removed.publicId) deleteFromCloudinary(removed.publicId);
   renderStrategyManagerList();
   renderStrategyEditModal();
 }
@@ -4540,6 +4601,13 @@ async function deleteStrategy(id) {
     renderStrategyManagerList();
     return;
   }
+  // "Retiring" here actually drops the strategy record entirely (existing
+  // trades keep their own strategy name string, which is all the confirm()
+  // above promises) — so its whole Chart Gallery goes with it. Clean up
+  // every image that was in it, not just the confirm dialog's narrower claim.
+  (freshStrategy.images || []).forEach((img) => {
+    if (img.source === 'cloudinary' && img.publicId) deleteFromCloudinary(img.publicId);
+  });
   renderStrategyManagerList();
   // Navigate away rather than re-render — the strategy this page was showing no longer exists.
   const page = document.getElementById('strategyDetail');
@@ -5248,13 +5316,25 @@ async function saveTrade() {
     notes: finalNotes,
   };
 
+  // Cloudinary assets that existed on this trade before this save but aren't
+  // in the new image list — dropped/replaced screenshots on an edit. Computed
+  // before the upsert so we still have the previous row's data; cleaned up
+  // only after the save actually succeeds below.
+  const previousImages = (allTrades.find(t => t.id === id) || {}).images || [];
+  const newPublicIds = new Set(trade.images.filter(i => i.publicId).map(i => i.publicId));
+  const droppedImages = previousImages.filter(i => i.source === 'cloudinary' && i.publicId && !newPublicIds.has(i.publicId));
+
   try {
-    // Overwriting the same key means any screenshot removed/replaced in this edit
-    // is simply not written back — nothing lingers in storage.
+    // The DB row itself is fully overwritten by the upsert below (any
+    // screenshot removed/replaced in this edit just isn't in the new
+    // `images` array) — but the Cloudinary asset behind it needs its own
+    // explicit delete call, which happens after a successful save via
+    // droppedImages above.
     setSyncState('saving');
     const { error } = await supabaseClient.from('trades').upsert(tradeToRow(trade));
     if (error) throw error;
     setSyncState('synced');
+    droppedImages.forEach(img => deleteFromCloudinary(img.publicId));
     statusEl.textContent = '✓ Trade saved.';
     statusEl.className = 'extract-status success';
     await loadAllTrades();
@@ -5360,6 +5440,9 @@ async function loadTradeIntoForm(id) {
 }
 
 async function deleteTradeRecord(id) {
+  // Grabbed before the delete below removes the row — this is the only
+  // chance to know which Cloudinary assets belonged to this trade.
+  const trade = allTrades.find(t => t.id === id);
   setSyncState('saving');
   const { error } = await supabaseClient.from('trades').delete().eq('id', id);
   if (error) {
@@ -5368,6 +5451,9 @@ async function deleteTradeRecord(id) {
     return false; // never claim "deleted" for something that didn't actually delete
   }
   setSyncState('synced');
+  ((trade && trade.images) || []).forEach(img => {
+    if (img.source === 'cloudinary' && img.publicId) deleteFromCloudinary(img.publicId);
+  });
   await loadAllTrades();
   // Without this, the live Dashboard cards (Net P/L, Win Rate, streaks, By
   // Direction/Pair/Model, Win + Partial cells) go stale immediately after a
@@ -5813,15 +5899,19 @@ function openViewerForTrade(tradeId, index) {
   openViewer(trade.images || [], index, {
     editable: true,
     onDelete: async (imgIndex) => {
+      const removedImg = trade.images[imgIndex];
       trade.images.splice(imgIndex, 1);
       const ok = await persistTrade(trade);
+      if (ok && removedImg && removedImg.source === 'cloudinary' && removedImg.publicId) deleteFromCloudinary(removedImg.publicId);
       await loadAllTrades();
       openSidePanel(trade.id);
       if (!ok) alert('Failed to delete the screenshot — check your connection and try again.');
     },
     onReplace: async (imgIndex, newImg) => {
-      trade.images[imgIndex] = newImg; // overwrite in place — old base64 is discarded, nothing orphaned
+      const oldImg = trade.images[imgIndex];
+      trade.images[imgIndex] = newImg; // overwritten in the trade record — old Cloudinary asset is cleaned up below on success
       const ok = await persistTrade(trade);
+      if (ok && oldImg && oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId);
       await loadAllTrades();
       openSidePanel(trade.id);
       if (!ok) alert('Failed to save the replacement screenshot — check your connection and try again.');
@@ -5876,6 +5966,7 @@ function openViewerForStrategy(strategyId, index, editable) {
         renderStrategyEditModal();
         return;
       }
+      if (oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId);
       renderStrategyManagerList();
       renderStrategyEditModal();
     } : undefined,
@@ -6116,6 +6207,123 @@ function evaluateTradeAtInsightsTarget(trade, target) {
   const ev = evaluateTradeAgainstTPModels(trade, [target]).evaluations[target];
   if (!ev) return null;
   return { win: ev.status === 'Win', rValue: ev.rValue };
+}
+
+// ================= DEVELOPMENT VS. VALIDATION SPLIT =================
+// Compares a strategy's stats before/after a cutoff date, so a strategy
+// that looks great across the whole history can be checked for whether
+// that edge holds up on trades that came after the "development" period
+// where rules may have been unconsciously tuned to fit what already
+// happened. Uses the same evaluateTradeAtInsightsTarget() engine as every
+// other R-based Insights card, so this is directly comparable to them.
+const MIN_DEVVAL_SAMPLE = 20;
+
+function dateToYMD(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + d;
+}
+
+// Auto default: puts the most recent 30% of trades (by count, not calendar
+// time — stays meaningful whether trades are dense or sparse) into
+// "validation". Returns the first validation trade's date, or null when
+// there isn't enough dated history to split at all.
+function computeDevValAutoCutoff(trades) {
+  const dated = (Array.isArray(trades) ? trades : [])
+    .filter((t) => t.date)
+    .map((t) => parseLocalDate(t.date))
+    .filter((d) => !isNaN(d.getTime()))
+    .sort((a, b) => a - b);
+  if (dated.length < 2) return null;
+  const idx = Math.min(Math.max(Math.floor(dated.length * 0.7), 1), dated.length - 1);
+  return dated[idx];
+}
+
+// Manual override (the #devValCutoffInput date field) wins when set;
+// otherwise falls back to the 70/30 auto split above.
+function getDevValCutoffDate(trades) {
+  const input = document.getElementById('devValCutoffInput');
+  if (input && input.value) {
+    const d = parseLocalDate(input.value);
+    if (!isNaN(d.getTime())) return d;
+  }
+  return computeDevValAutoCutoff(trades);
+}
+
+function computeDevValStats(trades, cutoff, target) {
+  const dev = { wins: 0, losses: 0, total: 0, netR: 0, grossWinR: 0, grossLossR: 0 };
+  const val = { wins: 0, losses: 0, total: 0, netR: 0, grossWinR: 0, grossLossR: 0 };
+  (Array.isArray(trades) ? trades : []).forEach((t) => {
+    if (!t.date) return;
+    const d = parseLocalDate(t.date);
+    if (isNaN(d.getTime())) return;
+    const ev = evaluateTradeAtInsightsTarget(t, target);
+    if (!ev) return; // trade never aimed at this target — excluded, not counted as a loss
+    const bucket = (cutoff && d < cutoff) ? dev : val;
+    bucket.total++;
+    if (ev.win) { bucket.wins++; bucket.grossWinR += ev.rValue; }
+    else { bucket.losses++; bucket.grossLossR += ev.rValue; }
+    bucket.netR += ev.rValue;
+  });
+  [dev, val].forEach((b) => {
+    b.winRate = b.total ? (b.wins / b.total) * 100 : null;
+    b.avgR = b.total ? b.netR / b.total : null;
+    b.profitFactor = b.grossLossR < 0 ? (b.grossWinR / Math.abs(b.grossLossR)) : (b.grossWinR > 0 ? Infinity : null);
+  });
+  return { dev, val };
+}
+
+// Pure rendering — writes to #devValBody. Called from renderInsightsCards()
+// so it stays in sync with every existing trigger (filter changes, target
+// changes, tab entry, inherit-from-dashboard) with no extra wiring needed.
+function renderDevValPanel(scopedTrades) {
+  const container = document.getElementById('devValBody');
+  if (!container) return;
+  const strategyFilter = getInsightsStrategyFilter();
+  const target = getInsightsTarget();
+  const autoCutoff = computeDevValAutoCutoff(scopedTrades);
+  const cutoff = getDevValCutoffDate(scopedTrades);
+
+  // Keep the date input showing the effective cutoff when the user hasn't
+  // typed their own override — so "auto" isn't just a blank field.
+  const input = document.getElementById('devValCutoffInput');
+  if (input && !input.value && autoCutoff) input.value = dateToYMD(autoCutoff);
+
+  const scopeNote = strategyFilter
+    ? ''
+    : '<p class="sub" style="margin:0 0 12px; color:#d9a441;">⚠ Showing all strategies combined — pick a specific strategy in the sticky bar above for a cleaner development/validation read.</p>';
+
+  if (!cutoff) {
+    container.innerHTML = scopeNote + '<p class="sub muted">Not enough dated trades yet to split into development and validation periods.</p>';
+    return;
+  }
+
+  const { dev, val } = computeDevValStats(scopedTrades, cutoff, target);
+  const fmtPF = (pf) => pf === null ? '—' : (pf === Infinity ? '∞' : pf.toFixed(2));
+  const fmtWR = (wr) => wr === null ? '—' : wr.toFixed(1) + '%';
+  const fmtAvgR = (v) => v === null ? '—' : fmtR(v, true);
+  const warn = (b) => b.total < MIN_DEVVAL_SAMPLE
+    ? '<div class="muted" style="font-size:11px; margin-top:6px;">⚠ Only ' + b.total + ' trade' + (b.total === 1 ? '' : 's') + ' — treat with caution below ' + MIN_DEVVAL_SAMPLE + '</div>'
+    : '';
+  const bucketCard = (label, sublabel, b) =>
+    '<div style="background:var(--bg,rgba(255,255,255,0.03)); border:1px solid var(--border); border-radius:10px; padding:12px;">' +
+      '<div style="font-weight:600; margin-bottom:8px;">' + label + ' <span class="muted" style="font-weight:400; font-size:11px;">(' + sublabel + ')</span></div>' +
+      '<div style="display:grid; grid-template-columns:auto auto; gap:4px 10px; font-size:13px;">' +
+        '<span class="muted">Trades</span><span class="mono">' + b.total + '</span>' +
+        '<span class="muted">Win Rate</span><span class="mono ' + (b.winRate !== null && b.winRate >= 50 ? 'win' : (b.winRate !== null ? 'loss' : '')) + '">' + fmtWR(b.winRate) + '</span>' +
+        '<span class="muted">Avg R</span><span class="mono">' + fmtAvgR(b.avgR) + '</span>' +
+        '<span class="muted">Net R</span><span class="mono">' + fmtR(b.netR, true) + '</span>' +
+        '<span class="muted">Profit Factor</span><span class="mono">' + fmtPF(b.profitFactor) + '</span>' +
+      '</div>' +
+      warn(b) +
+    '</div>';
+
+  container.innerHTML = scopeNote +
+    '<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">' +
+      bucketCard('Development', 'before ' + dateToYMD(cutoff), dev) +
+      bucketCard('Validation', 'on/after ' + dateToYMD(cutoff), val) +
+    '</div>';
 }
 
 // Formats an R total for the 7 Insights cards driven by the target selector.
@@ -7056,6 +7264,7 @@ function renderInsightsCards() {
   renderStreaksCard(computeStreaks(insightsScopedTrades));
   renderBestPeriods(analyzeBestPeriods(insightsScopedTrades));
   renderBestDaysOfWeek(document.getElementById('bestDaysOfWeekBody'), analyzeBestDaysOfWeek(insightsScopedTrades));
+  renderDevValPanel(insightsScopedTrades);
   refreshWeeklyYoY();
   refreshWeeklyTimeframe();
 }
