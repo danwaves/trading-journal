@@ -75,7 +75,9 @@
     flex: 1; min-width: 90px; padding: 12px 8px; background: none; border: none;
     color: var(--muted); font-family: 'Inter'; font-size: 12px; cursor: pointer;
     border-bottom: 2px solid transparent;
+    transition: color .15s ease, border-color .15s ease;
   }
+  .preview-tabs button:hover { color: var(--light); }
   .preview-tabs button.active { color: var(--brand); border-bottom-color: var(--brand); }
   /* Theme toggle — sits at the end of the sticky tab bar, not stretched
      like the nav buttons (flex:none) and set off with a divider so it
@@ -144,7 +146,11 @@
   .screen { display: none; max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
   .screen.active { display: block; }
 
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.16), 0 8px 24px -12px rgba(0,0,0,0.35);
+  }
   .muted { color: var(--muted); }
   .win { color: var(--win); }
   .loss { color: var(--loss); }
@@ -193,21 +199,28 @@
   .brand { display: flex; align-items: center; gap: 8px; color: var(--brand); margin-bottom: 28px; font-family: 'Space Grotesk'; font-weight: 600; }
   .field { margin-bottom: 14px; }
   .field label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; }
-  .field input { width: 100%; padding: 11px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 16px; }
+  .field input { width: 100%; padding: 11px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 16px; transition: border-color .15s ease, box-shadow .15s ease; }
   .field input:focus, select:focus, textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(238,130,179,0.15); }
   .password-input-wrap { position: relative; }
   .password-input-wrap input { padding-right: 42px; }
-  .password-toggle-btn { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); width: 32px; height: 32px; border: none; background: none; color: var(--muted); font-size: 15px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
+  .password-toggle-btn { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); width: 32px; height: 32px; border: none; background: none; color: var(--muted); font-size: 15px; cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: color .15s ease, background-color .15s ease; }
   .password-toggle-btn:hover { color: var(--light); background: var(--surface2); }
-  .btn-primary { width: 100%; padding: 12px; background: var(--brand); color: var(--bg); border: none; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
-  .btn-primary:hover { background: var(--brand-dark); }
-  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-primary {
+    width: 100%; padding: 12px; color: #1A0E14; border: none; border-radius: 10px;
+    font-weight: 600; font-size: 14px; cursor: pointer;
+    background: linear-gradient(135deg, var(--brand-3), var(--brand) 55%, var(--brand-2));
+    box-shadow: 0 4px 14px -4px rgba(238,130,179,0.45);
+    transition: transform .12s ease, box-shadow .12s ease, filter .12s ease;
+  }
+  .btn-primary:hover { filter: brightness(1.06); box-shadow: 0 6px 18px -4px rgba(238,130,179,0.55); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); filter: brightness(0.97); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; filter: none; }
 
   /* Stat cards */
   .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 10px; }
   @media (min-width: 640px) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
   .resolved-caption { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; margin-bottom: 16px; }
-  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.16), 0 8px 24px -12px rgba(0,0,0,0.35); }
   .stat-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
   .stat-value { font-family: 'Space Grotesk'; font-size: 20px; font-weight: 600; }
 
@@ -249,25 +262,36 @@
   .race-card-note { font-size: 11.5px; padding: 10px 12px; border-radius: 8px; margin-bottom: 16px; }
   .race-card-note-fail { background: rgba(255,92,92,0.1); color: var(--loss); }
   .race-card-note-lead { background: rgba(245,166,35,0.1); color: var(--lead); }
-  .race-card-note-win { background: rgba(78,161,247,0.1); color: var(--info); }
+  .race-card-note-win { background: rgba(0,200,150,0.1); color: var(--win); }
 
   /* Form */
-  select, textarea { width: 100%; padding: 11px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 14px; }
+  select, textarea { width: 100%; padding: 11px 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 14px; transition: border-color .15s ease, box-shadow .15s ease; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   @media (max-width: 380px) { .grid2 { grid-template-columns: 1fr; } }
   .dir-toggle { display: flex; gap: 8px; }
-  .dir-btn { flex: 1; padding: 11px; border-radius: 8px; text-align: center; font-size: 13px; font-weight: 500; border: 1px solid var(--border); color: var(--muted); }
-  .dir-btn.buy-active { border-color: var(--win); background: rgba(0,200,150,0.1); color: var(--win); }
-  .dir-btn.sell-active { border-color: var(--loss); background: rgba(255,92,92,0.1); color: var(--loss); }
-  .dir-btn { cursor: pointer; }
   .rr-toggle { display: flex; flex-wrap: wrap; gap: 6px; }
-  .rr-btn { flex: 1 1 0; min-width: 52px; padding: 9px 4px; border-radius: 8px; text-align: center; font-size: 12px; font-weight: 500; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
-  .rr-btn.rr-active { border-color: var(--lead); background: rgba(245,166,35,0.12); color: var(--lead); }
   .result-toggle { display: flex; gap: 8px; }
-  .result-btn { flex: 1; padding: 11px; border-radius: 8px; text-align: center; font-size: 13px; font-weight: 500; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
-  .result-btn.win-active { border-color: var(--win); background: rgba(0,200,150,0.1); color: var(--win); }
-  .result-btn.loss-active { border-color: var(--loss); background: rgba(255,92,92,0.1); color: var(--loss); }
-  .result-btn.pending-active { border-color: var(--lead); background: rgba(245,166,35,0.1); color: var(--lead); }
+  /* Shared base for every pill/box-style toggle button in the app (Direction,
+     R:R, Trade Result, Confluence tags) — border-radius, border, base color,
+     text-align and cursor used to be repeated in each class below; now
+     defined once here so a shared tweak (e.g. radius) only needs one edit.
+     Each class below keeps only what actually differs between them
+     (padding, font-size, font-weight, flex-basis, etc.). */
+  .dir-btn, .rr-btn, .result-btn, .tag-btn {
+    border-radius: 8px; text-align: center; border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+    background: var(--surface);
+    transition: border-color .15s ease, background-color .15s ease, color .15s ease, box-shadow .15s ease, transform .1s ease;
+  }
+  .dir-btn:active, .rr-btn:active, .result-btn:active, .tag-btn:active { transform: scale(0.97); }
+  .dir-btn { flex: 1; padding: 11px; font-size: 13px; font-weight: 500; }
+  .dir-btn.buy-active { border-color: var(--win); background: rgba(0,200,150,0.1); color: var(--win); box-shadow: 0 0 0 1px rgba(0,200,150,0.25); }
+  .dir-btn.sell-active { border-color: var(--loss); background: rgba(255,92,92,0.1); color: var(--loss); box-shadow: 0 0 0 1px rgba(255,92,92,0.25); }
+  .rr-btn { flex: 1 1 0; min-width: 52px; padding: 9px 4px; font-size: 12px; font-weight: 500; }
+  .rr-btn.rr-active { border-color: var(--lead); background: rgba(245,166,35,0.12); color: var(--lead); box-shadow: 0 0 0 1px rgba(245,166,35,0.25); }
+  .result-btn { flex: 1; padding: 11px; font-size: 13px; font-weight: 500; }
+  .result-btn.win-active { border-color: var(--win); background: rgba(0,200,150,0.1); color: var(--win); box-shadow: 0 0 0 1px rgba(0,200,150,0.25); }
+  .result-btn.loss-active { border-color: var(--loss); background: rgba(255,92,92,0.1); color: var(--loss); box-shadow: 0 0 0 1px rgba(255,92,92,0.25); }
+  .result-btn.pending-active { border-color: var(--lead); background: rgba(245,166,35,0.1); color: var(--lead); box-shadow: 0 0 0 1px rgba(245,166,35,0.25); }
 
   /* Very narrow phones (<380px) — two-column fields get cramped, so drop
      to a single column instead of shrinking text/padding further. */
@@ -298,7 +322,12 @@
   /* Small uppercase section labels inside the New Trade fields card, same
      pattern already used for "Screenshots & Timing" in Trade Filters —
      reused here to break the long form into scannable groups. */
-  .field-section-label { margin: 22px 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+  .entry-header h1 {
+    background: linear-gradient(135deg, var(--light), var(--light) 55%, var(--brand-3));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .field-section-label { margin: 22px 0 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; display: flex; align-items: center; gap: 6px; }
+  .field-section-label::before { content: ''; width: 3px; height: 11px; border-radius: 2px; background: linear-gradient(180deg, var(--brand-3), var(--brand-2)); }
   .field-section-label:first-child { margin-top: 0; }
 
   /* Save Trade stays reachable without scrolling to the very end of a long
@@ -311,22 +340,26 @@
   }
 
   /* AI image upload / extraction card (New Trade) — single-screenshot upload */
-  .upload-drop { border: 1.5px dashed var(--border); border-radius: 10px; padding: 20px 16px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
-  .upload-drop:hover, .upload-drop.dragover { border-color: #a78bfa; background: rgba(139,92,246,0.06); }
-  .upload-drop .upload-icon { font-size: 22px; margin-bottom: 6px; }
+  .upload-drop { border: 1.5px dashed var(--border); border-radius: 12px; padding: 22px 16px; text-align: center; cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+  .upload-drop:hover { border-color: var(--brand); background: rgba(238,130,179,0.05); transform: translateY(-1px); }
+  .upload-drop.dragover { border-color: var(--brand); background: rgba(238,130,179,0.08); transform: scale(1.01); }
+  .upload-drop .upload-icon {
+    font-size: 20px; margin: 0 auto 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+    border-radius: 50%; background: linear-gradient(135deg, rgba(238,130,179,0.16), rgba(178,121,178,0.10));
+  }
   .upload-drop .upload-label { font-size: 13px; color: var(--light); font-weight: 500; margin-bottom: 2px; }
   .upload-drop .upload-sub { font-size: 11px; color: var(--muted); }
 
   .url-paste-row { display: flex; gap: 8px; margin-top: 10px; }
-  .url-paste-row input { flex: 1; padding: 9px 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 12.5px; }
-  .url-add-btn { flex: none; padding: 9px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 12.5px; font-weight: 600; cursor: pointer; }
-  .url-add-btn:hover { border-color: #a78bfa; color: #a78bfa; }
+  .url-paste-row input { flex: 1; padding: 9px 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 12.5px; transition: border-color .15s ease; }
+  .url-add-btn { flex: none; padding: 9px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+  .url-add-btn:hover { border-color: var(--brand); color: var(--brand-3); }
 
   .compress-progress-wrap { display: none; margin-top: 12px; }
   .compress-progress-wrap.show { display: block; }
   .compress-progress-label { font-size: 11px; color: var(--muted); margin-bottom: 5px; }
   .compress-progress-track { height: 6px; background: var(--surface2); border-radius: 999px; overflow: hidden; }
-  .compress-progress-fill { height: 100%; width: 0%; background: #a78bfa; border-radius: 999px; transition: width .2s ease; }
+  .compress-progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--brand-3), var(--brand)); border-radius: 999px; transition: width .2s ease; }
 
   .trade-img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; margin-top: 12px; }
   .trade-thumb { position: relative; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); aspect-ratio: 1; background: var(--surface2); }
@@ -334,11 +367,57 @@
   .trade-thumb-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--light); font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .trade-thumb-size { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(11,14,20,0.75); color: var(--muted); font-size: 9px; text-align: center; padding: 2px 0; font-family: 'JetBrains Mono', monospace; }
 
-  .extract-btn { width: 100%; padding: 11px; margin-top: 12px; background: #7c3aed; border: none; border-radius: 8px; color: #fff; font-weight: 600; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 7px; }
+  .extract-btn {
+    width: 100%; padding: 11px; margin-top: 12px; border: none; border-radius: 8px;
+    background: linear-gradient(135deg, var(--brand-3), var(--brand) 55%, var(--brand-2));
+    color: #1A0E14; font-weight: 600; font-size: 13px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    transition: filter .12s ease, transform .12s ease;
+  }
+  .extract-btn:hover:not(:disabled) { filter: brightness(1.06); }
+  .extract-btn:active:not(:disabled) { transform: scale(0.98); }
   .extract-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .extract-status { font-size: 11.5px; color: var(--muted); margin-top: 10px; min-height: 14px; }
   .extract-status.success { color: var(--win); }
   .extract-status.error { color: var(--loss); }
+  .save-banner { display: none; padding: 12px 14px; border-radius: 10px; font-size: 13px; font-weight: 500; margin-top: 14px; text-align: center; border: 1px solid transparent; line-height: 1.4; }
+  .save-banner.show { display: block; }
+  .save-banner.success { background: rgba(0, 200, 150, 0.12); border-color: rgba(0, 200, 150, 0.35); color: var(--win); }
+  .save-banner.error { background: rgba(255, 92, 92, 0.12); border-color: rgba(255, 92, 92, 0.35); color: var(--loss); }
+  .save-banner .banner-code { display: block; margin-top: 4px; font-size: 11px; font-family: monospace; opacity: 0.75; }
+
+  /* App-wide top banner — fixed to the very top of the viewport (matches the
+     TradingView-style "Chart Layout saved" bar), used for all save
+     confirmations/errors instead of an inline block buried in the form.
+     Reused via showTopBanner() from any save flow, not just Save Trade. */
+  #topBanner {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+    display: flex; align-items: center; gap: 10px;
+    padding: 14px 16px; padding-top: calc(14px + env(safe-area-inset-top, 0px));
+    font-size: 13px; font-weight: 500; line-height: 1.4;
+    transform: translateY(-100%); opacity: 0;
+    transition: transform .25s ease, opacity .25s ease;
+    pointer-events: none;
+  }
+  #topBanner.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+  #topBanner.success { background: var(--win); color: #04231B; }
+  #topBanner.error { background: var(--loss); color: #2B0808; }
+  #topBanner .top-banner-text { flex: 1; }
+  #topBanner .top-banner-code { display: block; margin-top: 2px; font-size: 11px; font-family: monospace; opacity: 0.8; }
+  #topBanner .top-banner-close {
+    display: none; /* only errors get a manual close — success just auto-dismisses */
+    flex: none; background: none; border: none; color: inherit; opacity: 0.85;
+    font-size: 18px; line-height: 1; cursor: pointer; padding: 2px 4px;
+  }
+  #topBanner.error .top-banner-close { display: block; }
+  #topBanner .top-banner-close:hover { opacity: 1; }
+
+  /* Field-level error highlight — applied to the specific input/select/group
+     that a validation error refers to, so the user's eye (and focus) goes
+     straight to what needs fixing instead of just reading a message. Clears
+     itself the moment the user interacts with the field again. */
+  .field-error-highlight { border-color: var(--loss) !important; box-shadow: 0 0 0 3px rgba(255,92,92,0.18) !important; }
+  .result-toggle.field-error-highlight { border-radius: 8px; box-shadow: 0 0 0 3px rgba(255,92,92,0.18); padding: 2px; margin: -2px; }
 
   /* Login / account (backlog #9) */
   .auth-toggle-link { background: none; border: none; color: var(--brand); font-size: 12.5px; cursor: pointer; padding: 0; width: auto; font-family: 'Inter'; text-decoration: underline; }
@@ -350,16 +429,12 @@
   .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--surface2); padding: 5px 10px; border-radius: 999px; font-size: 12px; margin: 0 6px 6px 0; }
   .chip-pill { display: inline-flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 5px 10px; border-radius: 999px; font-size: 12px; margin: 0 6px 6px 0; cursor: pointer; user-select: none; }
   .chip-pill.active { background: rgba(238,130,179,0.14); border-color: var(--brand); color: var(--brand); }
-  .rr-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
-  .rr-btn { padding: 10px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: 600; border: 1px solid var(--border); color: var(--muted); }
-  .rr-btn.hit { border-color: var(--win); background: rgba(0,200,150,0.1); color: var(--win); }
-
   /* Multi-select outcome tags (checkbox-style, several can be active per target) */
-  .tag-btn { padding: 10px 6px; border-radius: 8px; text-align: center; font-size: 10.5px; font-weight: 600; border: 1px solid var(--border); color: var(--muted); cursor: pointer; user-select: none; transition: border-color .1s, background .1s, color .1s; }
-  .tag-btn.active.tag-win { border-color: var(--win); background: rgba(0,200,150,0.14); color: var(--win); }
-  .tag-btn.active.tag-win-partial { border-color: var(--win); background: rgba(0,200,150,0.14); color: var(--win); }
-  .tag-btn.active.tag-loss-partial { border-color: var(--lead); background: rgba(245,166,35,0.14); color: var(--lead); }
-  .tag-btn.active.tag-loss { border-color: var(--loss); background: rgba(255,92,92,0.14); color: var(--loss); }
+  .tag-btn { padding: 10px 6px; font-size: 10.5px; font-weight: 600; user-select: none; transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease, transform .1s ease; }
+  .tag-btn.active.tag-win { border-color: var(--win); background: rgba(0,200,150,0.14); color: var(--win); box-shadow: 0 0 0 1px rgba(0,200,150,0.25); }
+  .tag-btn.active.tag-win-partial { border-color: var(--win); background: rgba(0,200,150,0.14); color: var(--win); box-shadow: 0 0 0 1px rgba(0,200,150,0.25); }
+  .tag-btn.active.tag-loss-partial { border-color: var(--lead); background: rgba(245,166,35,0.14); color: var(--lead); box-shadow: 0 0 0 1px rgba(245,166,35,0.25); }
+  .tag-btn.active.tag-loss { border-color: var(--loss); background: rgba(255,92,92,0.14); color: var(--loss); box-shadow: 0 0 0 1px rgba(255,92,92,0.25); }
   .tag-btn.active::after { content: " ✓"; }
 
   /* Currency Pair filter row + manage-pair modal */
@@ -370,13 +445,13 @@
   .filter-note a { color: var(--lead); text-decoration: underline; cursor: pointer; }
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(5,7,12,0.7); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
   .modal-overlay.show { display: flex; }
-  .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 360px; width: 100%; }
+  .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; max-width: 360px; width: 100%; box-shadow: 0 20px 60px -12px rgba(0,0,0,0.55); }
 
   .nav-note { text-align: center; color: var(--muted); font-size: 11px; padding: 16px; }
   .new-tag { background: rgba(238,130,179,0.18); color: var(--brand); border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 600; margin-left: 6px; vertical-align: middle; }
 
   /* Insights: outer group toggle + per-card accordion, both collapsed by default */
-  .insights-toggle { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; user-select: none; }
+  .insights-toggle { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; user-select: none; box-shadow: 0 1px 2px rgba(0,0,0,0.16), 0 8px 24px -12px rgba(0,0,0,0.35); transition: border-color .15s ease; }
   .insights-toggle .chevron { color: var(--muted); font-size: 14px; transition: transform .15s; flex: none; margin-left: 12px; }
   .insights-toggle.open .chevron { transform: rotate(180deg); }
   .insights-body { display: none; }
@@ -384,7 +459,7 @@
   /* Advanced Filters trigger: plain inline button (no sticky, no accordion)
      that opens the filters drawer below. Same visual treatment the old
      sticky/accordion header used, just without the sticky positioning. */
-  .filters-trigger { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; user-select: none; }
+  .filters-trigger { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; user-select: none; box-shadow: 0 1px 2px rgba(0,0,0,0.16), 0 8px 24px -12px rgba(0,0,0,0.35); transition: border-color .15s ease; }
   .filters-trigger .chevron { color: var(--muted); font-size: 16px; flex: none; margin-left: 12px; }
 
   /* Dashboard sticky toolbar — Filters, Strategy, Risk toggle & Share all in one
@@ -400,6 +475,7 @@
     display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
     padding: 10px; margin-bottom: 16px;
     background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 4px 16px -4px rgba(0,0,0,0.3);
   }
   /* Milestone 8: sticky search + outcome-chip bar pinned above the trade list.
      Sticks to the page's own scroll (body has no overflow set, .screen has
@@ -555,8 +631,18 @@
   .filters-drawer-overlay.show { display: block; }
   .filters-drawer { position: fixed; top: 0; right: 0; height: 100%; width: min(360px, 88vw); background: var(--surface); border-left: 1px solid var(--border); z-index: 160; padding: 18px 16px 24px; overflow-y: auto; transform: translateX(100%); transition: transform .25s ease; box-shadow: -8px 0 24px rgba(0,0,0,0.35); }
   .filters-drawer.open { transform: translateX(0); }
+  /* The drawer is capped at 360px regardless of screen size, so its two-up
+     .grid2 rows only had ~160px per select — plenty for phones under the
+     old 380px page-width breakpoint, but that breakpoint checked the whole
+     viewport, not the drawer's own (always-narrow) width. On any phone
+     wider than 380px the drawer stayed two columns and labels like
+     "Highest R Time: Any" or "Before Image: Any" got clipped mid-word.
+     Stacking to one column inside the drawer itself — independent of
+     viewport — fixes it everywhere the drawer appears, at any screen size. */
+  .filters-drawer .grid2 { grid-template-columns: 1fr; }
   .filters-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .filters-drawer-close { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); width: 32px; height: 32px; font-size: 14px; cursor: pointer; flex: none; }
+  .filters-drawer-close { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); width: 32px; height: 32px; font-size: 14px; cursor: pointer; flex: none; transition: border-color .15s ease, color .15s ease; }
+  .filters-drawer-close:hover { border-color: var(--brand); color: var(--brand-3); }
   body.drawer-open { overflow: hidden; }
   .mini-card-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
   .mini-card-header .chevron { color: var(--muted); font-size: 13px; transition: transform .15s; flex: none; margin-left: 12px; }
@@ -604,6 +690,22 @@
   .compare-strategy-checklist { display: flex; flex-wrap: wrap; gap: 10px 18px; }
   .compare-strategy-checklist label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--light); cursor: pointer; user-select: none; }
   .compare-strategy-checklist input[type="checkbox"] { accent-color: var(--brand); width: 15px; height: 15px; cursor: pointer; }
+
+  /* Compare Strategies table: min-width forces horizontal scroll on any
+     screen narrower than ~1080px, which on phones meant every column past
+     "Strategy" sat off-screen with no hint it was scrollable — you'd see
+     the strategy name and a sliver of the next column and nothing else.
+     Below 680px, drop the four lowest-priority columns (R:R Target,
+     POI → Entry, Confluence, Profit, Loss — still reachable by scrolling
+     the table if needed since we only hide, not remove) and let the table
+     shrink to the card's actual width, so Strategy / Trades / Win Rate /
+     Net Profit — the numbers people actually compare at a glance — are
+     all visible without scrolling on a phone. */
+  .compare-table { min-width: 1080px; }
+  @media (max-width: 680px) {
+    .compare-table { min-width: 0; width: 100%; }
+    .compare-table .col-secondary { display: none; }
+  }
 
   /* Compare page — matches every other page's contract: a flat 900px cap,
      same as .screen itself, same as History/Dashboard/Insights. It used to
@@ -655,15 +757,22 @@
   .history-conservative .d-con { display: block; }
 
   /* AI Insights */
-  .ai-card { border: 1px solid rgba(139,92,246,0.4); background: linear-gradient(180deg, rgba(139,92,246,0.10), rgba(139,92,246,0.02)); }
+  .ai-card { border: 1px solid rgba(238,130,179,0.4); background: linear-gradient(180deg, rgba(238,130,179,0.10), rgba(178,121,178,0.02)); }
   .ai-insight-list { margin: 0; padding-left: 18px; font-size: 12px; color: var(--light); line-height: 1.65; }
   .ai-insight-list li { margin-bottom: 7px; }
-  .ai-insight-list b { color: #a78bfa; }
-  .ai-play-btn { width: auto; padding: 8px 14px; display: flex; align-items: center; gap: 6px; white-space: nowrap; background: #7c3aed; border: none; border-radius: 8px; color: #fff; font-weight: 600; font-size: 12px; cursor: pointer; }
+  .ai-insight-list b { color: var(--brand-3); }
+  .ai-play-btn {
+    width: auto; padding: 8px 14px; display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    background: linear-gradient(135deg, var(--brand-3), var(--brand) 55%, var(--brand-2));
+    border: none; border-radius: 8px; color: #1A0E14; font-weight: 600; font-size: 12px; cursor: pointer;
+    transition: filter .12s ease, transform .12s ease;
+  }
+  .ai-play-btn:hover:not(:disabled) { filter: brightness(1.06); }
+  .ai-play-btn:active:not(:disabled) { transform: scale(0.97); }
   .ai-play-btn:disabled { background: var(--surface2); color: var(--muted); cursor: not-allowed; }
   .ai-playbar { display: none; height: 4px; background: var(--surface2); border-radius: 2px; margin-bottom: 12px; overflow: hidden; }
   .ai-playbar.show { display: block; }
-  .ai-playbar-fill { height: 100%; width: 0%; background: #a78bfa; transition: width 6s linear; }
+  .ai-playbar-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--brand-3), var(--brand)); transition: width 6s linear; }
 
   /* Trade list */
   .icon-btn.active { border-color: var(--brand); color: var(--brand); }
@@ -734,6 +843,14 @@
 </head>
 <body>
 
+<!-- Global fixed top banner for save confirmations/errors app-wide — see
+     showTopBanner() and #topBanner CSS. Sits above absolutely everything
+     (z-index 9999), including the app loader and modals. -->
+<div id="topBanner" role="status" aria-live="polite">
+  <span class="top-banner-text" id="topBannerText"></span>
+  <button type="button" class="top-banner-close" id="topBannerClose" onclick="hideTopBanner()" aria-label="Dismiss">✕</button>
+</div>
+
 <div id="appLoader">
   <div class="app-loader-badge">
     <div class="app-loader-ring"></div>
@@ -745,7 +862,7 @@
 <div class="preview-tabs">
   <button id="tabLogin" class="active" onclick="showScreen('login', this)">Login</button>
   <button class="app-tab is-hidden" onclick="showScreen('dashboard', this); refreshDashboardTradeSummary();">Dashboard</button>
-  <button class="app-tab is-hidden" onclick="showScreen('trades', this); renderTradeList();">Trades</button>
+  <button class="app-tab is-hidden" id="tabTrades" onclick="showScreen('trades', this); renderTradeList();">Trades</button>
   <button class="app-tab is-hidden" onclick="showScreen('entry', this); resetEntryForm();" id="tabEntry">New Trade</button>
   <button class="app-tab is-hidden" onclick="showScreen('insights', this); inheritDashboardFiltersToInsights();">Insights</button>
   <button class="app-tab is-hidden" onclick="showScreen('history', this); inheritDashboardFiltersToHistory(); restoreHistoryCardCollapseState(); refreshDashboardTradeSummary();">History</button>
@@ -1278,10 +1395,10 @@
       </select>
       <select id="insightsStrategySelect" class="target-select" onchange="onInsightsStrategyChange(this)" title="Strategy — scopes every card on this page"></select>
       <select id="targetSelect" class="target-select" onchange="setInsightsTarget(this.value)">
-        <option value="0.5">R:R 0.5</option>
+        <option value="0.5" selected>R:R 0.5</option>
         <option value="1:1">R:R 1:1</option>
         <option value="1:1.5">R:R 1:1.5</option>
-        <option value="1:2" selected>R:R 1:2</option>
+        <option value="1:2">R:R 1:2</option>
         <option value="1:2.5">R:R 1:2.5</option>
         <option value="1:3">R:R 1:3</option>
         <option value="1:3.5">R:R 1:3.5</option>
@@ -1297,7 +1414,7 @@
       <span></span>
       <a onclick="clearInsightsFilters()">Clear</a>
     </div>
-    <p class="sub" style="margin:0 0 16px;">Best periods, days, confluences, POI, sessions, direction &amp; streaks — all for the <span id="targetSelectEcho" class="target-tag" style="margin-left:0;">R:R 1:2</span> target selected above (defaults to your leading target). These figures are in R, not $ — a hypothetical R:R target doesn't have one true dollar outcome. The risk toggle now only affects the $ figures in Confluence Performance's "Top Combinations" table below, which stays real-outcome-based.</p>
+    <p class="sub" style="margin:0 0 16px;">Best periods, days, confluences, POI, sessions, direction &amp; streaks — all for the <span id="targetSelectEcho" class="target-tag" style="margin-left:0;">R:R 0.5</span> target selected above (defaults to your leading target). These figures are in R, not $ — a hypothetical R:R target doesn't have one true dollar outcome. The risk toggle now only affects the $ figures in Confluence Performance's "Top Combinations" table below, which stays real-outcome-based.</p>
 
     <div id="insightsBody" class="risk-standard">
       <!-- BEST PERIODS -->
@@ -1617,7 +1734,7 @@
                ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileSelect(event, 'before');">
             <div class="upload-icon">📷</div>
             <div class="upload-label">Tap to select a screenshot</div>
-            <div class="upload-sub">PNG, JPG, WEBP, GIF · hosted on Cloudinary</div>
+            <div class="upload-sub">PNG, JPG, WEBP, GIF</div>
           </div>
           <div class="url-paste-row">
             <input id="imageUrlInputBefore" placeholder="Or paste an image link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('before');}" />
@@ -1636,7 +1753,7 @@
                ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileSelect(event, 'after');">
             <div class="upload-icon">📷</div>
             <div class="upload-label">Tap to select a screenshot</div>
-            <div class="upload-sub">PNG, JPG, WEBP, GIF · hosted on Cloudinary</div>
+            <div class="upload-sub">PNG, JPG, WEBP, GIF</div>
           </div>
           <div class="url-paste-row">
             <input id="imageUrlInputAfter" placeholder="Or paste an image link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('after');}" />
@@ -1662,31 +1779,29 @@
 
         <p class="field-section-label">Trade Info</p>
         <div class="field"><label>Strategy</label><select id="strategySelect" onchange="onStrategySelectChanged()"></select></div>
-        <div class="grid2" style="margin-bottom:14px;">
-          <div class="field" style="margin-bottom:0;"><label>Trade Opened</label><input type="datetime-local" id="openedAtInput" /></div>
-          <div class="field" style="margin-bottom:0;"><label>Time of Highest R <span class="muted" style="font-weight:400;">(optional)</span></label><input type="datetime-local" id="highestRAtInput" /></div>
-        </div>
         <div class="field"><label>Currency Pair</label><input id="pairInput" list="pairSuggestions" placeholder="EURUSD" oninput="this.value = this.value.toUpperCase();" />
           <datalist id="pairSuggestions"><option value="EURUSD"></option><option value="GBPUSD"></option><option value="XAUUSD"></option><option value="USDJPY"></option></datalist>
         </div>
-
-        <p class="field-section-label">Setup</p>
         <div class="grid2" style="margin-bottom:14px;">
           <div><label style="display:block; font-size:11px; color:var(--muted); margin-bottom:5px;">Direction</label>
             <div class="dir-toggle"><div id="dirBuyBtn" class="dir-btn buy-active" onclick="setDirection('buy')">Buy</div><div id="dirSellBtn" class="dir-btn" onclick="setDirection('sell')">Sell</div></div>
           </div>
           <div class="field" style="margin-bottom:0;"><label>Session</label><select id="sessionSelect"><option>London</option><option>NY</option><option>London/NY Overlap</option><option>Asian</option></select></div>
         </div>
+        <div class="field"><label>Trade Opened</label><input type="datetime-local" id="openedAtInput" /></div>
+
+        <p class="field-section-label">Setup</p>
         <div class="grid2" style="margin-bottom:14px;">
           <div class="field" style="margin-bottom:0;"><label>Higher Timeframe (POI)</label><select id="htfSelect"><option>Daily</option></select></div>
           <div class="field" style="margin-bottom:0;"><label>Lower Timeframe</label><select id="ltfSelect"><option>M15</option></select></div>
         </div>
+        <div class="field"><label>POI Type</label><select id="poiTypeSelect"></select></div>
         <div class="field">
           <label>Trade Model / Setup</label>
           <select id="modelSelect"><option>Reversal</option><option>Continuation</option><option>Breakout Retest</option><option>Range Fade</option></select>
         </div>
 
-        <p class="field-section-label">Risk &amp; Outcome</p>
+        <p class="field-section-label">Risk Plan</p>
         <div class="field">
           <label>Target R:R</label>
           <div class="rr-toggle" id="targetRRToggle">
@@ -1696,21 +1811,6 @@
             <div class="rr-btn" data-rr="1:4" onclick="setTargetRR('1:4', this)">1:4</div>
           </div>
         </div>
-
-        <div class="field">
-          <label>Highest R Reached</label>
-          <div class="rr-toggle" id="highestRRToggle"></div>
-        </div>
-
-        <div class="field">
-          <label>Trade Result</label>
-          <div class="result-toggle" id="tradeResultToggle">
-            <div id="resultWinBtn" class="result-btn" onclick="setTradeResult('win')">Win</div>
-            <div id="resultLossBtn" class="result-btn" onclick="setTradeResult('loss')">Loss</div>
-            <div id="resultPendingBtn" class="result-btn" onclick="setTradeResult('pending')">Pending</div>
-          </div>
-        </div>
-
         <div class="field">
           <label>Stop-Loss Distance (pips)</label>
           <input type="number" id="stopPipsInput" placeholder="e.g. 18" step="0.1" min="0" />
@@ -1726,6 +1826,21 @@
           <div id="confluenceEmptyState" class="muted" style="font-size:12px; display:none;"></div>
         </div>
 
+        <p class="field-section-label">Outcome</p>
+        <div class="field"><label>Time of Highest R <span class="muted" style="font-weight:400;">(optional)</span></label><input type="datetime-local" id="highestRAtInput" /></div>
+        <div class="field">
+          <label>Highest R Reached</label>
+          <div class="rr-toggle" id="highestRRToggle"></div>
+        </div>
+        <div class="field">
+          <label>Trade Result</label>
+          <div class="result-toggle" id="tradeResultToggle">
+            <div id="resultWinBtn" class="result-btn" onclick="setTradeResult('win')">Win</div>
+            <div id="resultLossBtn" class="result-btn" onclick="setTradeResult('loss')">Loss</div>
+            <div id="resultPendingBtn" class="result-btn" onclick="setTradeResult('pending')">Pending</div>
+          </div>
+        </div>
+
         <p class="field-section-label">Notes</p>
         <div class="field">
           <textarea id="tradeNotesInput" class="mono" style="width:100%; min-height:70px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px; color:var(--light); font-size:12px; resize:vertical;" placeholder="Anything about this trade — what you saw, how you felt, what to remember next time…"></textarea>
@@ -1733,7 +1848,6 @@
 
         <button id="saveTradeBtn" class="btn-primary" onclick="saveTrade()">Save Trade</button>
         <button id="deleteTradeBtn" style="display:none; width:100%; padding:12px; margin-top:10px; background:rgba(255,92,92,0.1); border:1px solid var(--loss); border-radius:8px; color:var(--loss); font-weight:600; font-size:14px; cursor:pointer;" onclick="deleteTradeFromEntry()">🗑 Delete Trade</button>
-        <div id="saveTradeStatus" class="extract-status" style="text-align:center;"></div>
       </div>
     </div>
 
@@ -1954,6 +2068,25 @@
       </div>
     </div>
 
+    <!-- POI TYPES -->
+    <div class="card">
+      <div class="mini-card-header" onclick="toggleCard(this)">
+        <h2 style="margin:0;">POI Types</h2>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="mini-card-body">
+        <p class="sub">Add, rename, or retire POI types (e.g. Order Block, FVG, Breaker Block) — changes appear in New Trade instantly. Retiring one only removes it from the dropdown for new trades; trades already using it keep that value.</p>
+        <div class="nested-card" style="display:flex; gap:8px;">
+          <input id="newPoiTypeInput" placeholder="New POI type name" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addPoiTypeToManager();}" />
+          <button class="btn-primary" style="width:auto; padding:10px 16px;" onclick="addPoiTypeToManager()">Add</button>
+        </div>
+        <div class="nested-card">
+          <h2 style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom:12px;">Your POI Types</h2>
+          <div id="poiTypeManagerList" class="mono muted" style="font-size:12.5px;">Loading…</div>
+        </div>
+      </div>
+    </div>
+
     <!-- DATA & BACKUP -->
     <div class="card">
       <div class="mini-card-header" onclick="toggleCard(this)">
@@ -2010,8 +2143,8 @@
     <div class="card">
       <h2 id="compareRiskHeading">1% Risk — Strategy Comparison</h2>
       <div style="overflow-x:auto;">
-      <table style="min-width:1080px;">
-        <thead><tr><th>Strategy</th><th>R:R Target</th><th>POI → Entry</th><th>Confluence</th><th>Trades</th><th>Win Rate</th><th>Profit</th><th>Loss</th><th>Net Profit</th></tr></thead>
+      <table class="compare-table">
+        <thead><tr><th>Strategy</th><th class="col-secondary">R:R Target</th><th class="col-secondary">POI → Entry</th><th class="col-secondary">Confluence</th><th>Trades</th><th>Win Rate</th><th class="col-secondary">Profit</th><th class="col-secondary">Loss</th><th>Net Profit</th></tr></thead>
         <tbody id="compareBody" class="risk-standard">
           <tr><td colspan="9" class="muted" style="font-size:12px;">Loading…</td></tr>
         </tbody>
@@ -2623,7 +2756,7 @@ function inheritDashboardFiltersToInsights() {
   // rather than falsely claiming a winner off zero/insufficient data.
   const scoped = getInsightsScopedTrades();
   const leadingTarget = computeInsightsLeadingTarget(scoped);
-  const displayTarget = leadingTarget || '1:2';
+  const displayTarget = leadingTarget || '0.5';
   selectedInsightsTarget = displayTarget;
   insightsTargetIsAutoFallback = !leadingTarget;
   const targetSel = document.getElementById('targetSelect');
@@ -3351,6 +3484,35 @@ function setTradeResult(result, opts) {
   if (!opts || !opts.auto) {
     document.getElementById('tradeResultToggle').dataset.pendingSticky = (result === 'pending') ? '1' : '0';
   }
+  applyPendingLockToRRFields();
+}
+
+// A trade that hasn't resolved yet can't have a known peak R time or
+// value — leaving these editable while Pending let stale/guessed values
+// quietly pollute every R-based stat (win rate, profit factor, the R:R
+// race cards, Dev vs Validation) on a trade that's still open. Locks and
+// blanks both fields whenever Trade Result is Pending; tapping Win or Loss
+// (which un-stickies Pending — see setTradeResult() above) unlocks them
+// again and hands control back to the normal auto-Win/Loss-from-Highest-R
+// flow exactly as before.
+function applyPendingLockToRRFields() {
+  const pending = getTradeResult() === 'pending';
+  const timeInput = document.getElementById('highestRAtInput');
+  const rrWrap = document.getElementById('highestRRToggle');
+  if (timeInput) {
+    timeInput.disabled = pending;
+    if (pending) timeInput.value = '';
+  }
+  if (rrWrap) {
+    rrWrap.querySelectorAll('.rr-btn').forEach((btn) => {
+      btn.style.pointerEvents = pending ? 'none' : '';
+      btn.style.opacity = pending ? '0.35' : '';
+    });
+    if (pending) {
+      rrWrap.dataset.selected = '';
+      rrWrap.querySelectorAll('.rr-btn').forEach((b) => b.classList.remove('rr-active'));
+    }
+  }
 }
 
 function setSelectValue(id, value, allowCreate) {
@@ -3474,6 +3636,7 @@ function tradeToRow(t) {
     session: t.session,
     htf: t.htf,
     ltf: t.ltf,
+    poi_type: t.poiType,
     model: t.model,
     stop_pips: t.stopPips,
     confluences: t.confluences,
@@ -3501,6 +3664,7 @@ function rowToTrade(r) {
     session: r.session,
     htf: r.htf,
     ltf: r.ltf,
+    poiType: r.poi_type || '',
     model: r.model,
     stopPips: r.stop_pips,
     confluences: r.confluences,
@@ -3981,6 +4145,193 @@ async function deleteTimeframe(name, type) {
   refreshWeeklyTimeframe();
 }
 
+// ================= POI TYPE MANAGER (persists in Supabase — table: poi_types) =================
+// Same single-JSON-row pattern as the Confluence Manager (a flat list, one
+// value per trade rather than multiple tags — matches how HTF/LTF work,
+// not how Confluences work) — drives the <select id="poiTypeSelect"> on
+// New Trade. Retiring one only removes it from the dropdown for new
+// trades; trades already using it keep that value untouched. Renaming
+// cascades onto every existing trade's trade.poiType, same promise as
+// every other managed list in this app.
+const POI_TYPE_LIST_ROW_ID = 'list';
+const DEFAULT_POI_TYPES = ['Order Block', 'FVG', 'Breaker Block'];
+let poiTypeList = [];
+// See strategyListLoaded above — same guard, same reason.
+let poiTypeListLoaded = false;
+
+async function loadPoiTypeList() {
+  try {
+    const { data, error } = await supabaseClient
+      .from('poi_types').select('name').eq('id', POI_TYPE_LIST_ROW_ID).maybeSingle();
+    if (error) throw error;
+    if (data && data.name) {
+      poiTypeList = JSON.parse(data.name);
+      poiTypeListLoaded = true;
+      return poiTypeList;
+    }
+    // No error, but genuinely no row yet — first real use, safe to seed.
+    poiTypeList = DEFAULT_POI_TYPES.slice();
+    await savePoiTypeList();
+    poiTypeListLoaded = true;
+    return poiTypeList;
+  } catch (e) {
+    // A real fetch error (network/auth hiccup) — do NOT save here, or we'd
+    // overwrite the real saved data with an empty list. Leave remote data
+    // untouched; the next successful load will recover it.
+    console.error('Failed to load POI type list — not overwriting saved data:', e);
+    poiTypeList = [];
+    poiTypeListLoaded = false;
+    return poiTypeList;
+  }
+}
+
+async function savePoiTypeList() {
+  setSyncState('saving');
+  try {
+    const { error } = await supabaseClient.from('poi_types')
+      .upsert({ id: POI_TYPE_LIST_ROW_ID, name: JSON.stringify(poiTypeList) });
+    if (error) throw error;
+    setSyncState('synced');
+    return true;
+  } catch (e) {
+    console.error('Failed to save POI type list:', e);
+    setSyncState('error');
+    return false;
+  }
+}
+
+// Keeps New Trade's POI Type <select> options in sync with the managed
+// list, preserving the current selection if it's still present after the
+// rebuild — same intent as renderTimeframeSelects().
+function renderPoiTypeSelect() {
+  const sel = document.getElementById('poiTypeSelect');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = poiTypeList.map((p) => '<option>' + escapeHtml(p) + '</option>').join('');
+  setSelectValue('poiTypeSelect', current, true);
+}
+
+// Renders the editable chip list on the Settings screen — same chip markup
+// as the Confluence/Timeframe Managers.
+function renderPoiTypeManagerList() {
+  const container = document.getElementById('poiTypeManagerList');
+  if (!container) return;
+  if (!poiTypeList.length) {
+    container.innerHTML = '<span class="muted" style="font-size:12px;">None yet — add one above.</span>';
+    return;
+  }
+  container.innerHTML = poiTypeList.map((p) => {
+    const jsArg = escapeHtml(JSON.stringify(p));
+    return '<div class="chip" style="display:flex; justify-content:space-between; width:100%; margin-bottom:8px;">' +
+      '<span>' + escapeHtml(p) + '</span>' +
+      '<span class="muted" style="cursor:pointer;">' +
+        '<span class="chip-action" onclick="editPoiType(' + jsArg + ')" title="Rename">✎</span> ' +
+        '<span class="chip-action" onclick="deletePoiType(' + jsArg + ')" title="Retire">🗑</span>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+}
+
+async function addPoiTypeToManager() {
+  const input = document.getElementById('newPoiTypeInput');
+  const name = (input.value || '').trim();
+  if (!name) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadPoiTypeList();
+  if (!poiTypeListLoaded) {
+    alert('Could not confirm the latest POI type list — check your connection and try again.');
+    return;
+  }
+  const exists = poiTypeList.some((p) => p.toLowerCase() === name.toLowerCase());
+  if (exists) { input.value = ''; return; }
+  poiTypeList.push(name);
+  const ok = await savePoiTypeList();
+  if (!ok) {
+    poiTypeList = poiTypeList.filter((p) => p !== name); // revert — never claim "added" for something that didn't actually save
+    alert('Failed to save — check your connection and try again.');
+    return;
+  }
+  input.value = '';
+  renderPoiTypeManagerList();
+  renderPoiTypeSelect();
+}
+
+// Rename cascades onto every existing trade's trade.poiType, same promise
+// as editTimeframe()/editConfluence() above.
+async function editPoiType(oldName) {
+  const newName = (prompt('Rename "' + oldName + '" to:', oldName) || '').trim();
+  if (!newName || newName === oldName) return;
+  await loadPoiTypeList();
+  if (!poiTypeListLoaded) {
+    alert('Could not confirm the latest POI type list — check your connection and try again.');
+    return;
+  }
+  if (!poiTypeList.includes(oldName)) {
+    alert('"' + oldName + '" no longer exists — someone (maybe you, in another tab) may have already renamed or retired it. Refreshing the list.');
+    renderPoiTypeManagerList();
+    return;
+  }
+  const dup = poiTypeList.some((p) => p.toLowerCase() === newName.toLowerCase() && p !== oldName);
+  if (dup) { alert('"' + newName + '" already exists.'); return; }
+
+  const previousList = poiTypeList.slice();
+  poiTypeList = poiTypeList.map((p) => (p === oldName ? newName : p));
+  const ok = await savePoiTypeList();
+  if (!ok) {
+    poiTypeList = previousList; // revert — don't cascade a rename onto trades that never actually saved on the list itself
+    alert('Failed to save — check your connection and try again.');
+    renderPoiTypeManagerList();
+    renderPoiTypeSelect();
+    return;
+  }
+
+  await loadAllTrades();
+  const affected = allTrades.filter((t) => t.poiType === oldName);
+  let failedCount = 0;
+  for (const t of affected) {
+    t.poiType = newName;
+    const ok2 = await persistTrade(t);
+    if (!ok2) failedCount++;
+  }
+
+  renderPoiTypeManagerList();
+  renderPoiTypeSelect();
+  await loadAllTrades();
+  populateFilterOptions();
+  if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
+  if (failedCount > 0) {
+    alert(failedCount + ' of ' + affected.length + ' trade(s) failed to update with the new POI type name — check your connection and try again for those.');
+  }
+}
+
+// Retiring only removes it from the dropdown for new trades — trades
+// already using it keep that value untouched.
+async function deletePoiType(name) {
+  if (!confirm('Retire "' + name + '"? Existing trades keep this value; it just stops appearing in the dropdown for new ones.')) return;
+  await loadPoiTypeList();
+  if (!poiTypeListLoaded) {
+    alert('Could not confirm the latest POI type list — check your connection and try again.');
+    return;
+  }
+  const idx = poiTypeList.indexOf(name);
+  if (idx === -1) {
+    alert('"' + name + '" is already gone from the list.');
+    renderPoiTypeManagerList();
+    return;
+  }
+  poiTypeList = poiTypeList.filter((p) => p !== name);
+  const ok = await savePoiTypeList();
+  if (!ok) {
+    poiTypeList.splice(idx, 0, name); // revert — it's still saved remotely, so it can't disappear from the list
+    alert('Failed to retire — check your connection and try again.');
+    renderPoiTypeManagerList();
+    return;
+  }
+  renderPoiTypeManagerList();
+  renderPoiTypeSelect();
+}
+
 // ================= STRATEGY MANAGER (persists in Supabase — table: strategies) =================
 // Same persisted-list pattern as the Confluence/Timeframe Managers above, mirrored
 // field-for-field. Replaces the single hardcoded "Partial TP Test" strategy with a real,
@@ -4112,12 +4463,16 @@ function renderStrategyManagerList() {
     // opens its side panel. Edit and Retire both live inside that view now,
     // instead of sitting on the card itself, so browsing the list never puts
     // you one accidental tap away from editing something.
+    // Name sits on its own line, full width — with a long name (or a
+    // narrow/mobile card), a single flex row between name and "$X · Y% max
+    // DD" used to wrap the name onto two lines while the dollar figure
+    // stayed pinned top-right, leaving it stranded next to the name's
+    // first line with dead space beside the second. Stacking name above
+    // meta avoids that regardless of name length or screen width.
     return '<div style="background:var(--surface2); border-radius:8px; padding:14px; margin-bottom:12px; cursor:pointer;" onclick="openStrategyView(' + idArg + ')">' +
-      '<div style="display:flex; justify-content:space-between; align-items:center;">' +
-        '<span style="font-size:13px; font-weight:600;">' + escapeHtml(s.name) + '</span>' +
-        '<span class="mono muted" style="font-size:11px;">$' + s.startingBalance.toLocaleString('en-US') + ' · ' + s.maxDrawdownPercent + '% max DD</span>' +
-      '</div>' +
+      '<div style="font-size:13px; font-weight:600;">' + escapeHtml(s.name) + '</div>' +
       '<div class="mono muted" style="font-size:11px; margin-top:6px;">' +
+        '$' + s.startingBalance.toLocaleString('en-US') + ' · ' + s.maxDrawdownPercent + '% max DD · ' +
         profileCount + ' risk profile' + (profileCount === 1 ? '' : 's') + ' · ' + imageCount + ' image' + (imageCount === 1 ? '' : 's') +
       '</div>' +
     '</div>';
@@ -5229,12 +5584,70 @@ function stripAutoConfluenceNotes(notes) {
     .trim();
 }
 
+// Global fixed top banner — used for all save confirmations/errors app-wide
+// (not just Save Trade), so feedback is hard to miss right after tapping
+// Save on mobile: it shows above everything, right at the top of the
+// viewport, instead of an inline block that can be scrolled out of view.
+// Success auto-dismisses quickly; errors stay up longer AND get a manual ✕
+// close, since an error (and its code, when there is one) is worth actually
+// reading. Calling this while a banner is already showing replaces it
+// instantly — the newest result always wins, nothing queues.
+let topBannerTimer = null;
+function showTopBanner(message, kind, code) {
+  const el = document.getElementById('topBanner');
+  const textEl = document.getElementById('topBannerText');
+  if (!el || !textEl) return;
+  if (topBannerTimer) { clearTimeout(topBannerTimer); topBannerTimer = null; }
+  if (!message) {
+    el.className = '';
+    return;
+  }
+  textEl.innerHTML = escapeHtml(message) + (code ? '<span class="top-banner-code">Error code: ' + escapeHtml(String(code)) + '</span>' : '');
+  el.className = 'show' + (kind ? ' ' + kind : '');
+  const duration = kind === 'error' ? 8000 : 3000;
+  topBannerTimer = setTimeout(hideTopBanner, duration);
+}
+function hideTopBanner() {
+  const el = document.getElementById('topBanner');
+  if (!el) return;
+  el.className = '';
+  if (topBannerTimer) { clearTimeout(topBannerTimer); topBannerTimer = null; }
+}
+
+// Backward-compat wrapper — every existing call site (saveTrade() and any
+// future callers) keeps working unchanged; it just routes to the shared top
+// banner now instead of the old inline #saveTradeStatus block.
+function setSaveTradeBanner(message, kind, code) {
+  showTopBanner(message, kind, code);
+}
+
+// Highlights the specific field a validation error refers to — red
+// border/focus/scroll-into-view — so the user's eye (and, for real inputs,
+// their keyboard) goes straight to what needs fixing instead of just
+// reading the banner text. Clears itself the moment the user interacts with
+// the field again. `isGroup` is for non-input controls (e.g. the Trade
+// Result button row): it skips .focus() and clears on click instead of
+// input/change.
+function highlightFieldError(elId, isGroup) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.classList.add('field-error-highlight');
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const clear = () => el.classList.remove('field-error-highlight');
+  if (isGroup) {
+    el.addEventListener('click', clear, { once: true });
+  } else {
+    el.addEventListener('input', clear, { once: true });
+    el.addEventListener('change', clear, { once: true });
+    el.focus();
+  }
+}
+
 async function saveTrade() {
-  const statusEl = document.getElementById('saveTradeStatus');
   const strategy = document.getElementById('strategySelect').value;
   if (!strategy) {
-    statusEl.textContent = 'Strategy is required — create one in the Strategies tab first if the list is empty.';
-    statusEl.className = 'extract-status error';
+    setSaveTradeBanner('Strategy is required — create one in the Strategies tab first if the list is empty.', 'error');
+    highlightFieldError('strategySelect');
     return;
   }
   // Uppercased defensively here too (not just via the input's oninput) so a
@@ -5243,29 +5656,35 @@ async function saveTrade() {
   // into "EURUSD" and "eurusd" as two different pairs.
   const pair = document.getElementById('pairInput').value.trim().toUpperCase();
   if (!pair) {
-    statusEl.textContent = 'Currency pair is required.';
-    statusEl.className = 'extract-status error';
+    setSaveTradeBanner('Currency pair is required.', 'error');
+    highlightFieldError('pairInput');
     return;
   }
   const openedAt = document.getElementById('openedAtInput').value;
   if (!openedAt) {
-    statusEl.textContent = 'Trade Opened is required.';
-    statusEl.className = 'extract-status error';
+    setSaveTradeBanner('Trade Opened is required.', 'error');
+    highlightFieldError('openedAtInput');
     return;
   }
-  const highestRAt = document.getElementById('highestRAtInput').value || null;
+  // Locked/blanked by applyPendingLockToRRFields() whenever Trade Result is
+  // Pending — a trade that hasn't resolved yet can't have a known peak R
+  // time or value. Re-forced to null here too (not just in the UI) so a
+  // stale value can never slip through and pollute R-based stats on an
+  // open trade, regardless of how the form got into this state.
+  const isPending = getTradeResult() === 'pending';
+  const highestRAt = isPending ? null : (document.getElementById('highestRAtInput').value || null);
   if (highestRAt && highestRAt < openedAt) {
-    statusEl.textContent = 'Time of Highest R cannot be earlier than Trade Opened.';
-    statusEl.className = 'extract-status error';
+    setSaveTradeBanner('Time of Highest R cannot be earlier than Trade Opened.', 'error');
+    highlightFieldError('highestRAtInput');
     return;
   }
   const id = editingTradeId || ('trade_' + Date.now());
   const targetRR = getTargetRR();
-  const highestRR = getHighestRR();
+  const highestRR = isPending ? null : getHighestRR();
   const result = getTradeResult();
   if (!result) {
-    statusEl.textContent = 'Trade Result is required.';
-    statusEl.className = 'extract-status error';
+    setSaveTradeBanner('Trade Result is required.', 'error');
+    highlightFieldError('tradeResultToggle', true);
     return;
   }
   const rrOutcome = calculateRROutcome(targetRR, highestRR, result);
@@ -5304,6 +5723,7 @@ async function saveTrade() {
     session: document.getElementById('sessionSelect').value,
     htf: document.getElementById('htfSelect').value,
     ltf: document.getElementById('ltfSelect').value,
+    poiType: document.getElementById('poiTypeSelect') ? document.getElementById('poiTypeSelect').value : '',
     model: document.getElementById('modelSelect').value,
     stopPips: parseOptionalNumber(document.getElementById('stopPipsInput').value),
     confluences: savedConfluences,
@@ -5335,18 +5755,27 @@ async function saveTrade() {
     if (error) throw error;
     setSyncState('synced');
     droppedImages.forEach(img => deleteFromCloudinary(img.publicId));
-    statusEl.textContent = '✓ Trade saved.';
-    statusEl.className = 'extract-status success';
+    setSaveTradeBanner('✓ Trade saved.', 'success');
     await loadAllTrades();
     if (document.getElementById('statTotalTrades')) {
       await refreshDashboardTradeSummary();
     }
+    // Brief pause so the success banner is actually visible before the
+    // redirect — navigating away instantly would mean the confirmation the
+    // banner exists to show never actually gets seen.
+    await new Promise((resolve) => setTimeout(resolve, 700));
     resetEntryForm();
+    showScreen('trades', document.getElementById('tabTrades'));
+    renderTradeList();
   } catch (e) {
     console.error('Save failed:', e);
     setSyncState('error');
-    statusEl.textContent = 'Could not save the trade — please try again.';
-    statusEl.className = 'extract-status error';
+    // Supabase/PostgREST errors carry a real .code (e.g. a Postgres error
+    // code) and .message — surfaced here instead of a generic string so a
+    // recurring failure can actually be diagnosed rather than just retried
+    // blindly. Falls back gracefully for a plain network failure, which
+    // won't have a .code at all.
+    setSaveTradeBanner('Could not save the trade — ' + (e && e.message ? e.message : 'check your connection and try again.'), 'error', e && e.code);
   }
 }
 
@@ -5357,7 +5786,7 @@ function resetEntryForm() {
   document.getElementById('entryTitle').textContent = 'New Trade';
   document.getElementById('editingBanner').style.display = 'none';
   document.getElementById('deleteTradeBtn').style.display = 'none';
-  document.getElementById('saveTradeStatus').textContent = '';
+  setSaveTradeBanner('');
   document.getElementById('pairInput').value = '';
   document.getElementById('stopPipsInput').value = '';
   document.getElementById('tradeNotesInput').value = '';
@@ -5368,6 +5797,7 @@ function resetEntryForm() {
     'T' + pad(now.getHours()) + ':' + pad(now.getMinutes());
   document.getElementById('highestRAtInput').value = '';
   document.getElementById('modelSelect').selectedIndex = 0;
+  document.getElementById('poiTypeSelect').selectedIndex = 0;
   document.getElementById('strategySelect').selectedIndex = 0;
   updateEntryStrategySub();
   // Confluence picker is strategy-scoped, so it must render AFTER the
@@ -5418,7 +5848,7 @@ async function loadTradeIntoForm(id) {
   document.getElementById('entryTitle').textContent = 'Edit Trade';
   document.getElementById('editingBanner').style.display = 'flex';
   document.getElementById('deleteTradeBtn').style.display = 'block';
-  document.getElementById('saveTradeStatus').textContent = '';
+  setSaveTradeBanner('');
   document.getElementById('openedAtInput').value = toDatetimeLocalValue(trade.openedAt) || (trade.date ? trade.date + 'T00:00' : '');
   document.getElementById('highestRAtInput').value = toDatetimeLocalValue(trade.highestRAt);
   setSelectValue('strategySelect', trade.strategy, true);
@@ -5428,6 +5858,7 @@ async function loadTradeIntoForm(id) {
   setSelectValue('sessionSelect', trade.session, false);
   setSelectValue('htfSelect', trade.htf, true);
   setSelectValue('ltfSelect', trade.ltf, true);
+  setSelectValue('poiTypeSelect', trade.poiType, true);
   setSelectValue('modelSelect', trade.model, false);
   document.getElementById('stopPipsInput').value = (trade.stopPips ?? '');
   document.getElementById('tradeNotesInput').value = trade.notes || '';
@@ -5791,6 +6222,8 @@ async function renderTradeList() {
           '</div>' +
           '<div class="trade-row-tags">' +
             (t.model ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.model) + '</span>' : '') +
+            (t.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.htf) + ' POI</span>' : '') +
+            (t.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.poiType) + '</span>' : '') +
             outcomeBadge(t) +
             (computeTradeDuration(t) != null ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">⏱ ' + formatDuration(computeTradeDuration(t)) + '</span>' : '') +
             (t.notes ? '<span class="badge" style="background:var(--surface2); color:var(--muted);" title="Has notes">📝</span>' : '') +
@@ -5862,6 +6295,8 @@ function openSidePanel(id) {
       '<div class="stat-card"><div class="stat-label">Direction</div><div class="stat-value mono ' + (trade.direction === 'sell' ? 'loss' : 'win') + '" style="font-size:14px;">' + (trade.direction || '—').toUpperCase() + '</div></div>' +
       '<div class="stat-card"><div class="stat-label">Date</div><div class="stat-value mono" style="font-size:14px;">' + (trade.date || '—') + '</div></div>' +
       '<div class="stat-card"><div class="stat-label">Model</div><div class="stat-value" style="font-size:13px;">' + escapeHtml(trade.model || '—') + '</div></div>' +
+      '<div class="stat-card"><div class="stat-label">POI Timeframe</div><div class="stat-value" style="font-size:13px;">' + escapeHtml(trade.htf || '—') + '</div></div>' +
+      '<div class="stat-card"><div class="stat-label">POI Type</div><div class="stat-value" style="font-size:13px;">' + escapeHtml(trade.poiType || '—') + '</div></div>' +
       '<div class="stat-card"><div class="stat-label">Session</div><div class="stat-value" style="font-size:13px;">' + escapeHtml(trade.session || '—') + '</div></div>' +
       '<div class="stat-card"><div class="stat-label">Duration</div><div class="stat-value mono" style="font-size:14px;">' + (computeTradeDuration(trade) != null ? formatDuration(computeTradeDuration(trade)) : 'Not logged') + '</div></div>' +
       '<div class="stat-card"><div class="stat-label">Result</div><div class="stat-value" style="font-size:13px;">' + (outcomeBadge(trade) || '<span class="sub" style="font-size:12px;">—</span>') + '</div></div>' +
@@ -6292,7 +6727,7 @@ function renderDevValPanel(scopedTrades) {
 
   const scopeNote = strategyFilter
     ? ''
-    : '<p class="sub" style="margin:0 0 12px; color:#d9a441;">⚠ Showing all strategies combined — pick a specific strategy in the sticky bar above for a cleaner development/validation read.</p>';
+    : '<p class="sub" style="margin:0 0 12px; color:var(--lead);">⚠ Showing all strategies combined — pick a specific strategy in the sticky bar above for a cleaner development/validation read.</p>';
 
   if (!cutoff) {
     container.innerHTML = scopeNote + '<p class="sub muted">Not enough dated trades yet to split into development and validation periods.</p>';
@@ -7042,13 +7477,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const tradesReady = loadAllTrades().then(() => { populateFilterOptions(); renderPairSelectOptions(); refreshDashboardTradeSummary(); refreshWeeklyYoY(); refreshWeeklyTimeframe(); });
   const confluencesReady = loadConfluenceList().then(() => { renderConfluenceManagerList(); renderConfluenceSuggestions(); renderConfluencePicker(); renderNewStrategyConfluencePicker(); renderAdvancedFilterOptions(); });
   const timeframesReady = loadTimeframeList().then(() => { renderTimeframeManagerList(); renderTimeframeSelects(); renderAdvancedFilterOptions(); populateWeeklyTimeframeHtfLtfSelects(); refreshWeeklyTimeframe(); });
+  const poiTypesReady = loadPoiTypeList().then(() => { renderPoiTypeManagerList(); renderPoiTypeSelect(); });
   const strategiesReady = loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderConfluencePicker(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); updateOnboardingBanner(); });
   // Loader overlay stays up until every one of these has genuinely resolved —
   // not a fixed delay, so it never hides too early on a slow connection or
   // lingers too long on a fast one. minDisplay just avoids an instant flash
   // on a very fast connection, which would look glitchy rather than calm.
   const minDisplay = new Promise((resolve) => setTimeout(resolve, 500));
-  Promise.all([tradesReady, confluencesReady, timeframesReady, strategiesReady, minDisplay]).then(hideAppLoader).catch(hideAppLoader);
+  Promise.all([tradesReady, confluencesReady, timeframesReady, poiTypesReady, strategiesReady, minDisplay]).then(hideAppLoader).catch(hideAppLoader);
 });
 
 // Fades out the full-screen app-load overlay. Called once auth + all four
@@ -7070,7 +7506,7 @@ setTimeout(hideAppLoader, 8000);
 let selectedInsightsTarget = null;
 
 function getInsightsTarget() {
-  return selectedInsightsTarget || '1:2';
+  return selectedInsightsTarget || '0.5';
 }
 
 // Picks the real leading target for the Insights page's current strategy
@@ -7237,7 +7673,7 @@ function setInsightsTarget(value) {
 function initInsightsTargetIfNeeded() {
   if (selectedInsightsTarget !== null) return;
   const leadingTarget = computeInsightsLeadingTarget(getInsightsScopedTrades());
-  selectedInsightsTarget = leadingTarget || '1:2';
+  selectedInsightsTarget = leadingTarget || '0.5';
   const select = document.getElementById('targetSelect');
   if (select) select.value = selectedInsightsTarget;
   applyInsightsLeadingTargetBadge(leadingTarget);
@@ -7557,13 +7993,13 @@ function renderCompareTable() {
     rows.push(
       '<tr>' +
         '<td style="font-weight:600;">' + nameCell + failedBadge + '</td>' +
-        '<td class="mono">' + std.target + '</td>' +
-        '<td class="mono" style="font-size:11px;">' + tf + '</td>' +
-        '<td style="font-size:11px; color:var(--muted);">' + confluence + '</td>' +
+        '<td class="mono col-secondary">' + std.target + '</td>' +
+        '<td class="mono col-secondary" style="font-size:11px;">' + tf + '</td>' +
+        '<td class="col-secondary" style="font-size:11px; color:var(--muted);">' + confluence + '</td>' +
         '<td class="mono">' + std.stats.totalTrades + '</td>' +
         '<td class="mono">' + winRate.toFixed(1) + '%</td>' +
-        '<td class="mono win">' + compareDollarCell(std.stats.profit, con.profit, false) + '</td>' +
-        '<td class="mono loss">' + compareDollarCell(std.stats.loss, con.loss, false) + '</td>' +
+        '<td class="mono win col-secondary">' + compareDollarCell(std.stats.profit, con.profit, false) + '</td>' +
+        '<td class="mono loss col-secondary">' + compareDollarCell(std.stats.loss, con.loss, false) + '</td>' +
         '<td class="mono ' + (std.stats.netPL >= 0 ? 'win' : 'loss') + '">' + compareDollarCell(std.stats.netPL, con.netPL, true) + '</td>' +
       '</tr>'
     );
@@ -7589,8 +8025,8 @@ function renderCompareTable() {
         '<td colspan="4" style="font-weight:600; color:var(--lead); padding-top:10px;">Combined (' + counted + ' strategies)</td>' +
         '<td class="mono" style="font-weight:600; padding-top:10px;">' + combinedTrades + '</td>' +
         '<td class="mono" style="font-weight:600; padding-top:10px;">' + combinedWins + ' W / ' + combinedLosses + ' L</td>' +
-        '<td class="mono win" style="font-weight:600; padding-top:10px;">' + compareDollarCell(combinedProfitStd, combinedProfitCon, false) + '</td>' +
-        '<td class="mono loss" style="font-weight:600; padding-top:10px;">' + compareDollarCell(combinedLossStd, combinedLossCon, false) + '</td>' +
+        '<td class="mono win col-secondary" style="font-weight:600; padding-top:10px;">' + compareDollarCell(combinedProfitStd, combinedProfitCon, false) + '</td>' +
+        '<td class="mono loss col-secondary" style="font-weight:600; padding-top:10px;">' + compareDollarCell(combinedLossStd, combinedLossCon, false) + '</td>' +
         '<td class="mono win" style="font-weight:600; padding-top:10px;">' + compareDollarCell(combinedNetStd, combinedNetCon, true) + '</td>' +
       '</tr>'
     );
@@ -9818,7 +10254,7 @@ function renderUnifiedTimeline(container, timelineData, selectedTarget) {
       );
     }
     const rows = events.map((e) => {
-      const dotColor = e.type === 'milestone' ? 'var(--good, #2ecc71)' : 'var(--bad, #e67e22)';
+      const dotColor = e.type === 'milestone' ? 'var(--win)' : 'var(--loss)';
       return (
         '<tr>' +
           '<td class="mono">' + e.date + '</td>' +
@@ -11208,7 +11644,8 @@ function analyzeDirectionPerformance(trades) {
   });
   return Object.values(groups)
     .map((g) => ({ ...g, winRate: (g.wins + g.losses) ? (g.wins / (g.wins + g.losses)) * 100 : 0 }))
-    .filter((g) => g.total > 0);
+    .filter((g) => g.total > 0)
+    .sort((a, b) => b.netR - a.netR);
 }
 
 // ---- Direction Performance: pure rendering only — writes to #directionPerformanceBody ----
@@ -11218,9 +11655,9 @@ function renderDirectionPerformance(container, ranked) {
     container.innerHTML = '<tr><td colspan="7" class="muted mono" style="font-size:12px;">Log a few trades at or above the selected target to see your Buy vs Sell breakdown.</td></tr>';
     return;
   }
-  container.innerHTML = ranked.map((g) => (
+  container.innerHTML = ranked.map((g, i) => (
     '<tr>' +
-      '<td style="font-weight:600;' + (g.key === 'Buy' ? ' color:var(--win);' : '') + '">' + g.key + '</td>' +
+      '<td style="font-weight:600;' + (i === 0 ? ' color:var(--lead);' : '') + '">' + g.key + (i === 0 ? ' 🏆' : '') + '</td>' +
       '<td class="mono">' + g.total + '</td>' +
       '<td class="mono">' + g.wins + ' / ' + g.losses + '</td>' +
       '<td class="mono ' + (g.winRate >= 50 ? 'win' : 'loss') + '">' + g.winRate.toFixed(1) + '%</td>' +
