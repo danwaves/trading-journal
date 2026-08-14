@@ -46,12 +46,17 @@
      via the head script above / toggleTheme() below, so every component
      using var(--bg)/var(--surface)/etc repaints with no extra markup. */
   html[data-theme="light"] {
-    --bg: #F4F5F8;
+    /* Tinted toward the brand's purple/magenta gradient instead of a flat
+       neutral gray, so the light theme reads as intentional rather than a
+       generic inverted dark theme. bg/border are pulled a bit further from
+       white than before so card edges and buttons stay legible against the
+       page background instead of blending into it. */
+    --bg: #F1EEF7;
     --surface: #FFFFFF;
-    --surface2: #ECEEF3;
-    --border: #DDE1E8;
-    --light: #12151C;
-    --muted: #5B6472;
+    --surface2: #EBE6F2;
+    --border: #D9D2E6;
+    --light: #191320;
+    --muted: #635C72;
   }
   * { box-sizing: border-box; }
   body {
@@ -144,7 +149,12 @@
   @media (max-width: 480px) { .sync-indicator .sync-label { display: none; } }
 
   .screen { display: none; max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
-  .screen.active { display: block; }
+  .screen.active { display: block; animation: screenFadeIn 0.2s ease; }
+  /* Tab switch transition — plays once whenever a screen gains .active (every
+     showScreen() call removes .active from all screens first, so re-adding
+     it to the target always restarts this rather than needing extra JS to
+     force a replay). Kept short and subtle since it fires on every nav tap. */
+  @keyframes screenFadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
 
   .card {
     background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
@@ -352,7 +362,8 @@
 
   .url-paste-row { display: flex; gap: 8px; margin-top: 10px; }
   .url-paste-row input { flex: 1; padding: 9px 11px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 12.5px; transition: border-color .15s ease; }
-  .url-add-btn { flex: none; padding: 9px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+  .url-add-btn { flex: none; padding: 9px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); font-size: 12.5px; font-weight: 600; cursor: pointer; transition: border-color .15s ease, color .15s ease, transform .1s ease; }
+  .url-add-btn:active { transform: scale(0.95); }
   .url-add-btn:hover { border-color: var(--brand); color: var(--brand-3); }
 
   .compress-progress-wrap { display: none; margin-top: 12px; }
@@ -366,6 +377,21 @@
   .trade-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .trade-thumb-remove { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--light); font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
   .trade-thumb-size { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(11,14,20,0.75); color: var(--muted); font-size: 9px; text-align: center; padding: 2px 0; font-family: 'JetBrains Mono', monospace; }
+  /* Roadmap Step 3: video play badge (center) + caption indicator dot (top-left)
+     overlaid on any thumbnail — trade grids, strategy gallery, list/side-panel
+     thumbs — wherever .trade-thumb is used. Pointer-events none on the play
+     badge so it never blocks the existing click-to-open-viewer behavior. */
+  .trade-thumb-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 20px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.7); pointer-events: none; }
+  .trade-thumb-caption-dot { position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 50%; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--light); font-size: 9px; display: flex; align-items: center; justify-content: center; }
+
+  /* Roadmap Step 5: fullscreen viewer dropup — tab always visible at the
+     bottom edge, sliding the body up on toggle. Kept viewer-scoped rather
+     than reusing .trade-thumb classes since nothing else needs this shape. */
+  .viewer-dropup { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; transform: translateY(calc(100% - 34px)); transition: transform 0.25s ease; }
+  .viewer-dropup.open { transform: translateY(0); }
+  .viewer-dropup-tab { background: rgba(11,14,20,0.92); border: 1px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0; padding: 8px 16px; font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; width: fit-content; }
+  .viewer-dropup-body { width: 100%; max-width: 640px; background: rgba(11,14,20,0.97); border-top: 1px solid var(--border); padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
+  #viewerDropupTextarea { width: 100%; min-height: 90px; max-height: 30vh; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--light); font-size: 13px; font-family: inherit; resize: vertical; box-sizing: border-box; }
 
   .extract-btn {
     width: 100%; padding: 11px; margin-top: 12px; border: none; border-radius: 8px;
@@ -402,6 +428,7 @@
   #topBanner.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
   #topBanner.success { background: var(--win); color: #04231B; }
   #topBanner.error { background: var(--loss); color: #2B0808; }
+  #topBanner.celebrate { background: linear-gradient(90deg, var(--brand), var(--lead)); color: #2A1A08; }
   #topBanner .top-banner-text { flex: 1; }
   #topBanner .top-banner-code { display: block; margin-top: 2px; font-size: 11px; font-family: monospace; opacity: 0.8; }
   #topBanner .top-banner-close {
@@ -427,8 +454,9 @@
   .chip-action { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 32px; padding: 4px; cursor: pointer; border-radius: 6px; }
   .chip-action:active { background: var(--surface); }
   .chip { display: inline-flex; align-items: center; gap: 6px; background: var(--surface2); padding: 5px 10px; border-radius: 999px; font-size: 12px; margin: 0 6px 6px 0; }
-  .chip-pill { display: inline-flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 5px 10px; border-radius: 999px; font-size: 12px; margin: 0 6px 6px 0; cursor: pointer; user-select: none; }
+  .chip-pill { display: inline-flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); padding: 5px 10px; border-radius: 999px; font-size: 12px; margin: 0 6px 6px 0; cursor: pointer; user-select: none; transition: transform .1s ease; }
   .chip-pill.active { background: rgba(238,130,179,0.14); border-color: var(--brand); color: var(--brand); }
+  .chip-pill:active { transform: scale(0.94); }
   /* Multi-select outcome tags (checkbox-style, several can be active per target) */
   .tag-btn { padding: 10px 6px; font-size: 10.5px; font-weight: 600; user-select: none; transition: border-color .15s ease, background .15s ease, color .15s ease, box-shadow .15s ease, transform .1s ease; }
   .tag-btn.active.tag-win { border-color: var(--win); background: rgba(0,200,150,0.14); color: var(--win); box-shadow: 0 0 0 1px rgba(0,200,150,0.25); }
@@ -439,7 +467,8 @@
 
   /* Currency Pair filter row + manage-pair modal */
   .pair-filter-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-  .icon-btn { width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 13px; }
+  .icon-btn { width: 34px; height: 34px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); cursor: pointer; font-size: 13px; transition: transform .1s ease; }
+  .icon-btn:active { transform: scale(0.92); }
   .filter-note { font-size: 11px; color: var(--lead); background: rgba(245,166,35,0.1); padding: 8px 12px; border-radius: 8px; margin-bottom: 16px; display: none; align-items: center; justify-content: space-between; gap: 8px; }
   .filter-note.show { display: flex; }
   .filter-note a { color: var(--lead); text-decoration: underline; cursor: pointer; }
@@ -599,6 +628,33 @@
   @keyframes inheritedFilterPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   .inherited-filter-flash { animation: inheritedFilterPulse 0.6s ease-in-out 3; }
 
+  /* Win/loss save flash — brief color pulse on the Save Trade button right
+     after a trade is saved, so the outcome you just logged registers
+     visually instead of only appearing in the banner text. Uses box-shadow
+     (not background/border) so it layers over .btn-primary's own styling
+     without fighting its transitions, and clears itself via animationend. */
+  @keyframes saveResultFlashWin { 0%, 100% { box-shadow: none; } 50% { box-shadow: 0 0 0 3px rgba(0,200,150,0.55); } }
+  @keyframes saveResultFlashLoss { 0%, 100% { box-shadow: none; } 50% { box-shadow: 0 0 0 3px rgba(255,92,92,0.55); } }
+  .save-flash-win { animation: saveResultFlashWin 0.6s ease-in-out; }
+  .save-flash-loss { animation: saveResultFlashLoss 0.6s ease-in-out; }
+
+  /* Milestone celebration confetti (roadmap #9) — a fixed full-screen,
+     pointer-events:none overlay holding a burst of small colored pieces,
+     each animating its own fall/drift/rotation via inline CSS custom
+     properties (--dx/--rot, randomized in JS per piece) rather than fixed
+     keyframe values, so no two pieces move identically. The overlay itself
+     is created and removed by JS (celebrateNewRecord()) — this only styles
+     whatever pieces get appended to it. */
+  .confetti-overlay { position: fixed; inset: 0; z-index: 9998; pointer-events: none; overflow: hidden; }
+  .confetti-piece {
+    position: absolute; top: -12px; width: 8px; height: 8px; opacity: 0.95; border-radius: 1px;
+    animation: confettiFall 1.1s ease-in forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--dx, 0px), 100vh) rotate(var(--rot, 360deg)); opacity: 0; }
+  }
+
   /* Insights sticky toolbar — same pinned-row pattern as .dashboard-toolbar
      and .history-toolbar, applied to the Pair select + Strategy select +
      R:R Target select + Risk toggle at the top of the Insights page so all
@@ -640,8 +696,20 @@
      Stacking to one column inside the drawer itself — independent of
      viewport — fixes it everywhere the drawer appears, at any screen size. */
   .filters-drawer .grid2 { grid-template-columns: 1fr; }
+  /* Filter drawer content stagger — each direct row inside the drawer's
+     .card fades/slides in with a small incremental delay (--i, set inline
+     per row) whenever .open is added. Base rule (no .open) keeps rows at
+     opacity 0 so they're ready to replay next time the drawer opens —
+     invisible either way since the drawer itself is off-screen then. */
+  .filters-drawer .card > .grid2, .filters-drawer .card > p.sub { opacity: 0; }
+  .filters-drawer.open .card > .grid2, .filters-drawer.open .card > p.sub {
+    animation: filterRowIn 0.28s ease both;
+    animation-delay: calc(var(--i, 0) * 30ms);
+  }
+  @keyframes filterRowIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: translateX(0); } }
   .filters-drawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-  .filters-drawer-close { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); width: 32px; height: 32px; font-size: 14px; cursor: pointer; flex: none; transition: border-color .15s ease, color .15s ease; }
+  .filters-drawer-close { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--light); width: 32px; height: 32px; font-size: 14px; cursor: pointer; flex: none; transition: border-color .15s ease, color .15s ease, transform .1s ease; }
+  .filters-drawer-close:active { transform: scale(0.92); }
   .filters-drawer-close:hover { border-color: var(--brand); color: var(--brand-3); }
   body.drawer-open { overflow: hidden; }
   .mini-card-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
@@ -785,6 +853,28 @@
   .trade-row-info { flex: 1; min-width: 0; }
   .trade-row-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
   .trade-row-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  /* Trade row stagger-in (roadmap #6) — plays once per row right after
+     renderTradeList() rebuilds the list. animation-delay is set inline per
+     row (JS, capped so a huge list doesn't produce a multi-second cascade)
+     rather than via nth-child, since filtering/sorting can reorder or
+     shrink the set on every render. */
+  @keyframes tradeRowIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .trade-row-enter { animation: tradeRowIn 0.28s ease both; }
+
+  /* Trade list skeleton (roadmap #5) — shown in place of the list while
+     loadAllTrades() is still in flight on first load, instead of a blank
+     wrap. Sized to roughly match a real .trade-row so the swap-in doesn't
+     jump. Shimmer reuses the same left-to-right sweep idea as elsewhere in
+     the app, just on a gradient instead of an opacity pulse. */
+  .trade-row-skeleton { display: flex; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+  .skeleton-block { border-radius: 8px; background: linear-gradient(90deg, var(--surface2) 25%, var(--border) 37%, var(--surface2) 63%); background-size: 400% 100%; animation: skeletonShimmer 1.4s ease infinite; }
+  .trade-row-skeleton .skeleton-block.thumb { width: 56px; height: 56px; flex: none; }
+  .trade-row-skeleton .skeleton-lines { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+  .trade-row-skeleton .skeleton-block.line { height: 11px; border-radius: 4px; }
+  .trade-row-skeleton .skeleton-block.line.w60 { width: 60%; }
+  .trade-row-skeleton .skeleton-block.line.w35 { width: 35%; }
+  .trade-row-skeleton .skeleton-block.line.w80 { width: 80%; }
+  @keyframes skeletonShimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
   .screenshot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
   .screenshot-grid .trade-thumb { cursor: pointer; }
   .empty-state { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 16px; }
@@ -871,6 +961,7 @@
     <div id="moreMenu" class="more-menu">
       <button onclick="closeMoreMenu(); showScreen('compare', this); renderCompareTable();">Compare</button>
       <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
+      <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal</button>
       <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
     </div>
   </div>
@@ -1636,6 +1727,26 @@
         </div>
       </div>
 
+      <!-- JOURNAL ORIGIN / IDEA HIT-RATE (Phase 9) -->
+      <div class="card">
+        <div class="mini-card-header" onclick="toggleCard(this)">
+          <h2 style="margin-bottom:2px;">Idea Hit-Rate</h2>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="mini-card-body">
+          <p class="sub">Win rate of trades that came from a linked Journal entry ("Attach Trade" or auto-suggest, Phase 6) vs. trades logged with no journal origin at all — a check on whether writing the idea down first actually correlates with better trades.</p>
+          <div style="overflow-x:auto;">
+          <table style="min-width:560px;">
+            <thead><tr><th>Origin</th><th>Trades</th><th>W / L</th><th>Win Rate</th><th>Win R</th><th>Loss R</th><th>Net R</th></tr></thead>
+            <tbody id="journalOriginPerformanceBody">
+              <tr><td colspan="7" class="muted mono" style="font-size:12px;">Loading…</td></tr>
+            </tbody>
+          </table>
+          </div>
+          <p class="sub" style="margin:12px 0 0; font-size:11px;">Origin is a live lookup against each Journal entry's linked trades, same "derived, not stored" backlink used on the Trade side panel — a trade only counts as "From Journal Idea" if it's actually attached to an entry, not just logged under a Strategy that started life as one.</p>
+        </div>
+      </div>
+
       <!-- STREAKS -->
       <div class="card">
         <div class="mini-card-header" onclick="toggleCard(this)">
@@ -1725,38 +1836,38 @@
         <p class="sub" style="margin-bottom:14px;">Optional — attach a screenshot from before and/or after the trade.</p>
 
         <div class="screenshot-slot">
-          <label style="display:block; font-size:11px; color:var(--muted); margin-bottom:8px; font-weight:600;">Before Trade <span style="font-weight:400;">(up to 2 — e.g. HTF bias + LTF entry)</span></label>
-          <input type="file" id="tradeImageInputBefore" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none;" onchange="handleFileSelect(event, 'before')" />
+          <label style="display:block; font-size:11px; color:var(--muted); margin-bottom:8px; font-weight:600;">Before Trade <span style="font-weight:400;">(up to 6 — e.g. HTF bias + LTF entry)</span></label>
+          <input type="file" id="tradeImageInputBefore" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleFileSelect(event, 'before')" />
           <div id="uploadDropBefore" class="upload-drop"
                onclick="document.getElementById('tradeImageInputBefore').click()"
                ondragover="event.preventDefault(); this.classList.add('dragover');"
                ondragleave="this.classList.remove('dragover');"
                ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileSelect(event, 'before');">
             <div class="upload-icon">📷</div>
-            <div class="upload-label">Tap to select a screenshot</div>
-            <div class="upload-sub">PNG, JPG, WEBP, GIF</div>
+            <div class="upload-label">Tap, drop, or paste (Ctrl+V) a screenshot or video</div>
+            <div class="upload-sub">PNG, JPG, WEBP, GIF, MP4, MOV, WEBM</div>
           </div>
           <div class="url-paste-row">
-            <input id="imageUrlInputBefore" placeholder="Or paste an image link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('before');}" />
+            <input id="imageUrlInputBefore" placeholder="Or paste an image/video link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('before');}" />
             <button class="url-add-btn" onclick="addImageFromUrl('before')">Add</button>
           </div>
           <div id="tradeImgGridBefore" class="trade-img-grid"></div>
         </div>
 
         <div class="screenshot-slot" style="margin-top:20px;">
-          <label style="display:block; font-size:11px; color:var(--muted); margin-bottom:8px; font-weight:600;">After Trade</label>
-          <input type="file" id="tradeImageInputAfter" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none;" onchange="handleFileSelect(event, 'after')" />
+          <label style="display:block; font-size:11px; color:var(--muted); margin-bottom:8px; font-weight:600;">After Trade <span style="font-weight:400;">(up to 4)</span></label>
+          <input type="file" id="tradeImageInputAfter" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleFileSelect(event, 'after')" />
           <div id="uploadDropAfter" class="upload-drop"
                onclick="document.getElementById('tradeImageInputAfter').click()"
                ondragover="event.preventDefault(); this.classList.add('dragover');"
                ondragleave="this.classList.remove('dragover');"
                ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileSelect(event, 'after');">
             <div class="upload-icon">📷</div>
-            <div class="upload-label">Tap to select a screenshot</div>
-            <div class="upload-sub">PNG, JPG, WEBP, GIF</div>
+            <div class="upload-label">Tap, drop, or paste (Ctrl+V) a screenshot or video</div>
+            <div class="upload-sub">PNG, JPG, WEBP, GIF, MP4, MOV, WEBM</div>
           </div>
           <div class="url-paste-row">
-            <input id="imageUrlInputAfter" placeholder="Or paste an image link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('after');}" />
+            <input id="imageUrlInputAfter" placeholder="Or paste an image/video link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('after');}" />
             <button class="url-add-btn" onclick="addImageFromUrl('after')">Add</button>
           </div>
           <div id="tradeImgGridAfter" class="trade-img-grid"></div>
@@ -1868,6 +1979,7 @@
         </select>
         <div class="icon-btn" id="viewToggleListBtn" onclick="setTradeView('list')" title="List view">☰</div>
         <div class="icon-btn" id="viewToggleGridBtn" onclick="setTradeView('grid')" title="Screenshot grid">▦</div>
+        <div class="icon-btn" id="shareWatchlistBtn" onclick="shareWatchlistPNG()" title="Share Watchlist as PNG">📤</div>
       </div>
     </div>
 
@@ -1903,15 +2015,15 @@
         <button class="filters-drawer-close" onclick="toggleTradeFilters()" aria-label="Close filters">✕</button>
       </div>
       <div class="card" style="border:none; padding:0; margin:0; background:transparent;">
-        <div class="grid2" style="margin-bottom:10px;">
+        <div class="grid2" style="margin-bottom:10px; --i:1;">
           <select id="filterPair" onchange="renderTradeList()"><option value="">All Pairs</option></select>
           <select id="filterModel" onchange="renderTradeList()"><option value="">All Models</option></select>
         </div>
-        <div class="grid2" style="margin-bottom:10px;">
+        <div class="grid2" style="margin-bottom:10px; --i:2;">
           <select id="filterConfluence" onchange="renderTradeList()"><option value="">All Confluences</option></select>
           <select id="filterMonth" onchange="renderTradeList()"><option value="">All Months</option></select>
         </div>
-        <div class="grid2" style="margin-bottom:10px;">
+        <div class="grid2" style="margin-bottom:10px; --i:3;">
           <select id="filterStrategy" onchange="renderTradeList()">
             <option value="">All Strategies</option>
             <option value="__none__">No Strategy</option>
@@ -1923,8 +2035,15 @@
             <option value="pending">Pending</option>
           </select>
         </div>
-        <p class="sub" style="margin:2px 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:0.05em;">Screenshots &amp; Timing</p>
-        <div class="grid2" style="margin-bottom:10px;">
+        <div class="grid2" style="margin-bottom:10px; --i:4;">
+          <select id="filterDirection" onchange="renderTradeList()">
+            <option value="">All Directions</option>
+            <option value="buy">Buy</option>
+            <option value="sell">Sell</option>
+          </select>
+        </div>
+        <p class="sub" style="margin:2px 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; --i:5;">Screenshots &amp; Timing</p>
+        <div class="grid2" style="margin-bottom:10px; --i:6;">
           <select id="filterBeforeImg" onchange="renderTradeList()">
             <option value="">Before Image: Any</option>
             <option value="has">Has Before Image</option>
@@ -1936,7 +2055,7 @@
             <option value="missing">Missing After Image</option>
           </select>
         </div>
-        <div class="grid2" style="margin-bottom:14px;">
+        <div class="grid2" style="margin-bottom:14px; --i:7;">
           <select id="filterHighestRTime" onchange="renderTradeList()">
             <option value="">Highest R Time: Any</option>
             <option value="has">Logged</option>
@@ -1974,9 +2093,9 @@
   <div style="position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; z-index:5; background:linear-gradient(rgba(5,7,12,0.8), transparent);">
     <span id="viewerCounter" class="mono muted" style="font-size:12px;"></span>
     <div style="display:flex; gap:8px;">
-      <div class="icon-btn" onclick="viewerZoom(1.4)" title="Zoom in">＋</div>
-      <div class="icon-btn" onclick="viewerZoom(1/1.4)" title="Zoom out">－</div>
-      <div class="icon-btn" onclick="viewerResetZoom()" title="Reset">⤢</div>
+      <div id="viewerZoomInBtn" class="icon-btn" onclick="viewerZoom(1.4)" title="Zoom in">＋</div>
+      <div id="viewerZoomOutBtn" class="icon-btn" onclick="viewerZoom(1/1.4)" title="Zoom out">－</div>
+      <div id="viewerResetZoomBtn" class="icon-btn" onclick="viewerResetZoom()" title="Reset">⤢</div>
       <div class="icon-btn" onclick="viewerToggleFullscreen()" title="Full screen">⛶</div>
       <div class="icon-btn" onclick="viewerDownload()" title="Download">⬇</div>
       <div id="viewerReplaceBtn" class="icon-btn" style="display:none;" onclick="viewerReplace()" title="Replace">🔁</div>
@@ -1987,9 +2106,25 @@
   </div>
   <div id="viewerStage" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:grab;">
     <img id="viewerImg" src="" style="max-width:100%; max-height:100%; user-select:none; -webkit-user-drag:none; transform-origin:center center;" draggable="false" />
+    <video id="viewerVideo" controls playsinline style="display:none; max-width:100%; max-height:100%;"></video>
   </div>
   <div class="icon-btn" onclick="viewerNav(-1)" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); z-index:5; width:42px; height:42px; font-size:18px;">‹</div>
   <div class="icon-btn" onclick="viewerNav(1)" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); z-index:5; width:42px; height:42px; font-size:18px;">›</div>
+
+  <!-- Roadmap Step 5: dropup caption/write-up panel. Sits at the bottom of the
+       viewer for every item, image or video — .viewer-dropup is translated
+       down by its own height minus the tab's height when closed, so only the
+       tab pokes up above the screen edge; toggling .open slides the whole
+       thing up to reveal the textarea. -->
+  <div id="viewerDropup" class="viewer-dropup">
+    <div class="viewer-dropup-tab" onclick="toggleViewerDropup()">
+      <span id="viewerDropupIcon">▲</span> <span id="viewerDropupLabel">Notes</span>
+      <span id="viewerDropupSaveState" class="mono muted" style="font-size:9px;"></span>
+    </div>
+    <div class="viewer-dropup-body">
+      <textarea id="viewerDropupTextarea" placeholder="Write a note about this screenshot or video…" oninput="onViewerCaptionInput()" onblur="onViewerCaptionBlur()"></textarea>
+    </div>
+  </div>
 </div>
 
 <!-- SETTINGS -->
@@ -2215,9 +2350,155 @@
   </div>
 </div>
 
+<!-- JOURNAL — Phase 2 (text-only). List/feed screen: status filter chips +
+     reverse-chronological cards. Opening a card (or "+ New Entry") goes to
+     the journalEntry screen below, which handles both create and edit in
+     one form — simpler than the Strategies view/edit split, appropriate for
+     how lightweight a text-only entry is right now. Media (Phase 3/4) and
+     Strategy/Trade linking (Phase 5/6) will extend this same pair of screens
+     rather than needing new ones. -->
+<div id="journal" class="screen">
+  <h1>Journal</h1>
+  <p class="sub" style="margin-bottom:20px;">Ideas first — link them to a Strategy or Trades once they've proven out.</p>
+  <!-- Phase 9: weekly/monthly idea review nudge — same shown/hidden .card
+       banner pattern as #onboardingBanner (see updateOnboardingBanner()),
+       just with its own condition (open ideas + elapsed interval) and its
+       own dismiss action (mark-reviewed) instead of a navigate-away CTA. -->
+  <div id="journalReviewBanner" class="card" style="display:none; border-color:var(--brand); margin-bottom:16px;">
+    <h2 id="journalReviewBannerTitle" style="margin-bottom:4px;"></h2>
+    <p class="sub" id="journalReviewBannerText" style="margin-bottom:12px;"></p>
+    <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+      <button class="btn-primary" id="journalReviewBannerBtn" style="width:auto; padding:8px 16px;">Mark Reviewed</button>
+      <a href="#" id="journalReviewBannerCadenceLink" style="font-size:12px;" onclick="event.preventDefault(); toggleJournalReviewCadence();"></a>
+    </div>
+  </div>
+  <div class="card">
+    <div style="padding-top:0;">
+      <div class="trade-search-wrap" style="margin-bottom:10px;">
+        <input type="text" id="journalSearchText" class="trade-search-input"
+               placeholder="Search title, notes, pair…"
+               oninput="onJournalSearchInput()" />
+      </div>
+      <div id="journalStatusChips" style="margin-bottom:14px;">
+        <span class="chip-pill" onclick="setJournalStatusFilter('')">All</span>
+        <span class="chip-pill" onclick="setJournalStatusFilter('idea')">Idea</span>
+        <span class="chip-pill" onclick="setJournalStatusFilter('watching')">Watching</span>
+        <span class="chip-pill" onclick="setJournalStatusFilter('promoted')">Promoted</span>
+        <span class="chip-pill" onclick="setJournalStatusFilter('invalidated')">Invalidated</span>
+        <span class="chip-pill" onclick="setJournalStatusFilter('archived')">Archived</span>
+      </div>
+      <div id="journalFiltersToggle" class="filters-trigger-compact" onclick="toggleJournalFilters()">
+        <span>🔍 Filters</span>
+        <span class="chevron">›</span>
+      </div>
+      <p id="journalFilterSummary" class="sub" style="display:none; margin:8px 0 0; cursor:pointer;" onclick="clearJournalFilters()"></p>
+      <button class="btn-primary" style="margin:16px 0 16px;" onclick="openNewJournalEntry()">+ New Entry</button>
+      <div id="journalList"></div>
+    </div>
+  </div>
+
+  <div id="journalFiltersDrawerOverlay" class="filters-drawer-overlay" onclick="toggleJournalFilters()"></div>
+  <div id="journalFiltersBody" class="filters-drawer">
+    <div class="filters-drawer-header">
+      <div>
+        <h2 style="margin:0;">🔍 Journal Filters</h2>
+        <p class="sub" style="margin:4px 0 0;">Pair, linked Strategy, images &amp; video</p>
+      </div>
+      <button class="filters-drawer-close" onclick="toggleJournalFilters()" aria-label="Close filters">✕</button>
+    </div>
+    <div class="card" style="border:none; padding:0; margin:0; background:transparent;">
+      <div class="grid2" style="margin-bottom:10px; --i:1;">
+        <select id="filterJournalPair" onchange="renderJournalList()"><option value="">All Pairs</option></select>
+        <select id="filterJournalStrategy" onchange="renderJournalList()">
+          <option value="">All Strategies</option>
+          <option value="__none__">Not Linked</option>
+        </select>
+      </div>
+      <div class="grid2" style="margin-bottom:10px; --i:2;">
+        <select id="filterJournalHasImage" onchange="renderJournalList()">
+          <option value="">Image: Any</option>
+          <option value="has">Has Image</option>
+          <option value="missing">No Image</option>
+        </select>
+        <select id="filterJournalHasVideo" onchange="renderJournalList()">
+          <option value="">Video: Any</option>
+          <option value="has">Has Video</option>
+          <option value="missing">No Video</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JOURNAL ENTRY — create and edit share this one form. openNewJournalEntry()
+     clears it and sets journalEditingId = null; openJournalEntry(id) loads an
+     existing entry and sets journalEditingId = id. Title/body autosave on
+     blur (same pattern as viewer caption autosave — see onViewerCaptionBlur),
+     so nothing is lost if you navigate away mid-thought; there's no separate
+     "Save" button to remember to press. -->
+<div id="journalEntry" class="screen">
+  <a class="muted" style="display:inline-block; margin-bottom:14px; cursor:pointer; font-size:13px;" onclick="closeJournalEntry()">← Back</a>
+  <div class="card">
+    <div style="padding-top:0;">
+      <div class="field">
+        <input id="journalTitleInput" placeholder="Idea title…" style="font-size:15px; font-weight:600;"
+          onblur="onJournalFieldBlur()" onkeydown="if(event.key==='Enter'){this.blur();}" />
+      </div>
+      <div class="grid2" style="margin-bottom:14px;">
+        <div class="field" style="margin-bottom:0;"><label>Status</label>
+          <select id="journalStatusInput" onchange="onJournalFieldBlur()">
+            <option value="idea">Idea</option>
+            <option value="watching">Watching</option>
+            <option value="promoted">Promoted</option>
+            <option value="invalidated">Invalidated</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
+        <div class="field" style="margin-bottom:0;"><label>Pair <span class="muted" style="font-weight:400;">(optional)</span></label>
+          <input id="journalPairInput" list="pairSuggestions" placeholder="EURUSD" oninput="this.value = this.value.toUpperCase();" onblur="onJournalFieldBlur()" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Notes</label>
+        <textarea id="journalBodyInput" class="mono" style="width:100%; min-height:220px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; color:var(--light); font-size:13px; resize:vertical;"
+          placeholder="What's the thesis? What would invalidate it? Anything worth remembering later…" onblur="onJournalFieldBlur()"></textarea>
+      </div>
+      <div id="journalSaveStatus" class="extract-status"></div>
+      <!-- Roadmap Phase 3/4: images + video, reusing the exact same Cloudinary
+           pipeline, trade-img-grid/trade-thumb markup, and fullscreen viewer
+           (with its dropup caption editor and native video playback) already
+           shipped for Trades/Strategy Chart Gallery — see
+           handleJournalMediaSelect/openViewerForJournal below.
+           Locked until the entry has an id (first blur above creates it),
+           same dependency Strategy's gallery has on the strategy existing. -->
+      <div class="field">
+        <label>Media <span class="muted" style="font-weight:400;">(optional — images or video)</span></label>
+        <div id="journalMediaSection"></div>
+      </div>
+      <!-- Roadmap Phase 5: link this idea to a Strategy, or promote it into a
+           brand-new one. Locked until the entry has an id, same dependency
+           the Media section above has on the entry existing — see
+           renderJournalStrategySection()/promoteJournalEntryToStrategy(). -->
+      <div class="field">
+        <label>Strategy <span class="muted" style="font-weight:400;">(optional)</span></label>
+        <div id="journalStrategySection"></div>
+      </div>
+      <!-- Roadmap Phase 6: attach real Trades this idea led to. Locked until
+           the entry has an id, same dependency as Media/Strategy above — see
+           renderJournalTradesSection(). -->
+      <div class="field">
+        <label>Trades <span class="muted" style="font-weight:400;">(optional — link the trades this idea led to)</span></label>
+        <div id="journalTradesSection"></div>
+      </div>
+      <button id="journalDeleteBtn" style="display:none; width:100%; padding:12px; margin-top:10px; background:rgba(255,92,92,0.1); border:1px solid var(--loss); border-radius:8px; color:var(--loss); font-weight:600; font-size:14px; cursor:pointer;" onclick="confirmDeleteJournalEntry()">🗑 Delete Entry</button>
+    </div>
+  </div>
+</div>
+
 <!-- MANAGE CURRENCY PAIR (modal) -->
 <div id="pairModal" class="modal-overlay">
   <div class="modal-card">
+
     <h2>Manage Currency Pair</h2>
     <div class="field"><label>Pair Name</label><input id="pairNameInput" value="XAUUSD" /></div>
     <div class="field">
@@ -2306,7 +2587,7 @@ function showScreen(id, btn) {
   // them is the active screen — otherwise nothing in the visible tab bar
   // would show where you are.
   const moreBtn = document.getElementById('tabMore');
-  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'settings'].includes(id));
+  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'journal', 'settings'].includes(id));
 }
 
 // Opens/closes the "More" dropdown (Compare/Strategies/Settings). A
@@ -2728,7 +3009,7 @@ function updateInsightsFilterNote(strategyFilter, pairFilter) {
 // the visit. It only re-syncs to the Dashboard filter + leading target on
 // the *next* fresh entry into the tab (i.e. after leaving and coming back),
 // never on every re-render.
-function inheritDashboardFiltersToInsights() {
+async function inheritDashboardFiltersToInsights() {
   const dashPairSel = document.getElementById('pairSelect');
   const dashStratSel = document.getElementById('dashboardStrategySelect');
   const insPairSel = document.getElementById('insightsPairSelect');
@@ -2788,6 +3069,18 @@ function inheritDashboardFiltersToInsights() {
   renderInsightsCards();
   refreshConfluenceCombos();
   flashInsightsInheritedFilters();
+
+  // Idea Hit-Rate card (Phase 9) needs allJournalEntries — the Journal tab
+  // may never have been visited this session, so load it lazily here (same
+  // pattern as openStrategyEditModal()'s Phase 5 backlink load) and
+  // re-render just the affected card once it lands, rather than blocking
+  // the rest of the page on it.
+  if (!journalEntriesLoaded) {
+    await loadAllJournalEntries();
+    if (document.getElementById('journalOriginPerformanceBody')) {
+      renderJournalOriginPerformance(document.getElementById('journalOriginPerformanceBody'), analyzeJournalOriginPerformance(getInsightsScopedTrades()));
+    }
+  }
 }
 
 // Brief opacity blink on the Pair select, Strategy select, R:R Target
@@ -2927,23 +3220,38 @@ const LOSS_KEYS = Object.keys(OUTCOME_META).filter(k => OUTCOME_META[k].group ==
 // multi-timeframe methodologies) since the decision that led to a trade is
 // usually informed by more than one chart. After Trade stays at 1 — the
 // outcome is normally just one chart.
-const MAX_IMAGES_PER_SLOT_BEFORE = 2;
-const MAX_IMAGES_PER_SLOT_AFTER = 1;
+const MAX_IMAGES_PER_SLOT_BEFORE = 12; // was 6 — bumped per request, 12 before + 8 after = 20 total
+const MAX_IMAGES_PER_SLOT_AFTER = 8; // was 4 — bumped per request, 12 before + 8 after = 20 total
 function maxImagesForSlot(slot) {
   return slot === 'before' ? MAX_IMAGES_PER_SLOT_BEFORE : MAX_IMAGES_PER_SLOT_AFTER;
 }
-const MAX_RAW_BYTES = 20 * 1024 * 1024;      // reject anything absurdly large before we even try to upload
+const MAX_RAW_BYTES = 20 * 1024 * 1024;      // reject anything absurdly large before we even try to upload (images)
+const MAX_VIDEO_BYTES = 100 * 1024 * 1024;   // videos run bigger — separate cap (Roadmap Step 2)
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
+const ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v']; // Roadmap Step 2
+function isVideoFile(file) {
+  return !!file && ALLOWED_VIDEO_TYPES.includes(file.type);
+}
+function isAcceptedFile(file) {
+  return !!file && (ALLOWED_TYPES.includes(file.type) || isVideoFile(file));
+}
 
-// ---- Cloudinary (image hosting + delivery) ----
+// ---- Cloudinary (image + video hosting/delivery) ----
 // Unsigned upload preset — safe to expose client-side, it can only upload into
 // the configured folder, never read/delete/list other assets. Resolution and
 // compression are no longer decided client-side: the original file is sent
 // as-is, and Cloudinary serves the best format/quality/size for the viewer
 // automatically via the f_auto,q_auto delivery flags baked into the URL.
+// Roadmap Step 2: switched from the /image/upload endpoint to /auto/upload,
+// which lets Cloudinary detect image vs video vs raw from the file itself —
+// one endpoint covers both media types instead of branching client-side.
+// NOTE: the 'danwaves_trades' unsigned preset must have video enabled in the
+// Cloudinary console (Settings > Upload > preset > enable "video" resource
+// type) or video uploads will be rejected server-side even though the code
+// here is ready for them.
 const CLOUDINARY_CLOUD_NAME = 'cqhynayh';
 const CLOUDINARY_UPLOAD_PRESET = 'danwaves_trades';
-const CLOUDINARY_UPLOAD_URL = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/image/upload';
+const CLOUDINARY_UPLOAD_URL = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CLOUD_NAME + '/auto/upload';
 
 // Inserts Cloudinary's auto-format/auto-quality delivery transformation right
 // after '/upload/' in a secure_url, so every image is served in whatever
@@ -2955,13 +3263,24 @@ const CLOUDINARY_UPLOAD_URL = 'https://api.cloudinary.com/v1_1/' + CLOUDINARY_CL
 // actual action (removing a screenshot, deleting a trade, etc.). Worst case
 // on a failure is one orphaned asset left for the next attempt/cleanup, not
 // a stuck UI or a blocked delete. Errors are logged, not surfaced to the user.
-async function deleteFromCloudinary(publicId) {
+// Roadmap Step 4d finding: Cloudinary's destroy API needs resource_type to
+// match what the asset was uploaded as — 'image' works for images, but a
+// video asset uploaded as resource_type 'video' silently fails to delete
+// under the default 'image' type, leaving it orphaned in storage. Passing
+// it through here so callers that know the item's type (all of them, via
+// mediaType()) can supply it.
+// ⚠️ SERVER-SIDE ACTION NEEDED: the Netlify function at
+// /.netlify/functions/delete-image must also read `resourceType` from the
+// request body and pass it as `resource_type` on the Cloudinary destroy
+// call — this client-side change alone doesn't fix cleanup until that
+// function is updated to match.
+async function deleteFromCloudinary(publicId, resourceType) {
   if (!publicId) return;
   try {
     const res = await fetch('/.netlify/functions/delete-image', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publicId }),
+      body: JSON.stringify({ publicId, resourceType: resourceType === 'video' ? 'video' : 'image' }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -2979,6 +3298,8 @@ function cloudinaryDeliveryUrl(secureUrl) {
 // Uploads a raw File object straight to Cloudinary (unsigned). No client-side
 // resizing/re-encoding — Cloudinary stores the original and optimizes on
 // delivery instead, which is what actually fixed the "blurry" complaint.
+// Roadmap Step 2: also returns resourceType ('image'|'video') straight from
+// Cloudinary's response, so callers don't need to re-derive it from the file.
 async function uploadFileToCloudinary(file) {
   const formData = new FormData();
   formData.append('file', file);
@@ -2986,12 +3307,18 @@ async function uploadFileToCloudinary(file) {
   const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
   const data = await res.json();
   if (!res.ok) throw new Error((data && data.error && data.error.message) || 'Cloudinary upload failed');
-  return { url: cloudinaryDeliveryUrl(data.secure_url), publicId: data.public_id, sizeKB: Math.round(data.bytes / 1024) };
+  return {
+    url: cloudinaryDeliveryUrl(data.secure_url),
+    publicId: data.public_id,
+    sizeKB: Math.round(data.bytes / 1024),
+    resourceType: data.resource_type === 'video' ? 'video' : 'image',
+  };
 }
 
-// Pulls an externally-pasted image link into Cloudinary too, so every trade
-// image — uploaded or pasted — lives in one place with the same optimization
-// and doesn't break later if the original external host takes it down.
+// Pulls an externally-pasted image/video link into Cloudinary too, so every
+// trade media item — uploaded or pasted — lives in one place with the same
+// optimization and doesn't break later if the original external host takes
+// it down. Roadmap Step 2: also returns resourceType, same as the function above.
 async function uploadRemoteUrlToCloudinary(url) {
   const formData = new FormData();
   formData.append('file', url);
@@ -2999,7 +3326,46 @@ async function uploadRemoteUrlToCloudinary(url) {
   const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
   const data = await res.json();
   if (!res.ok) throw new Error((data && data.error && data.error.message) || 'Cloudinary could not fetch that link');
-  return { url: cloudinaryDeliveryUrl(data.secure_url), publicId: data.public_id, sizeKB: Math.round(data.bytes / 1024) };
+  return {
+    url: cloudinaryDeliveryUrl(data.secure_url),
+    publicId: data.public_id,
+    sizeKB: Math.round(data.bytes / 1024),
+    resourceType: data.resource_type === 'video' ? 'video' : 'image',
+  };
+}
+
+// Same as uploadFileToCloudinary above, but reports byte-level progress via
+// XMLHttpRequest — fetch() has no upload-progress event, and a single large
+// video is exactly the case where a bare "Uploading…" label isn't enough
+// feedback on a slow mobile connection (Roadmap Phase 4). onProgress is
+// called with a 0-1 fraction as bytes go out; omit it for a plain upload.
+function uploadFileToCloudinaryWithProgress(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    xhr.upload.addEventListener('progress', (e) => {
+      if (onProgress && e.lengthComputable) onProgress(e.loaded / e.total);
+    });
+    xhr.addEventListener('load', () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch (e) { /* fall through to the status check below */ }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve({
+          url: cloudinaryDeliveryUrl(data.secure_url),
+          publicId: data.public_id,
+          sizeKB: Math.round(data.bytes / 1024),
+          resourceType: data.resource_type === 'video' ? 'video' : 'image',
+        });
+      } else {
+        reject(new Error((data && data.error && data.error.message) || 'Cloudinary upload failed'));
+      }
+    });
+    xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+    xhr.open('POST', CLOUDINARY_UPLOAD_URL);
+    xhr.send(formData);
+  });
 }
 
 let tradeImages = []; // { id, slot: 'before'|'after', source: 'cloudinary', url, publicId, sizeKB, name }
@@ -3029,7 +3395,8 @@ function renderImageGrid() {
       const wrap = document.createElement('div');
       wrap.className = 'trade-thumb';
       wrap.innerHTML =
-        '<img src="' + img.url.replace(/"/g, '&quot;') + '" alt="Trade screenshot" />' +
+        '<img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Trade screenshot" />' +
+        mediaBadgesHtml(img) +
         '<div class="trade-thumb-remove" onclick="removeImage(\'' + img.id + '\')">✕</div>' +
         '<div class="trade-thumb-size">' + (img.sizeKB ? img.sizeKB + ' KB' : 'hosted') + '</div>';
       grid.appendChild(wrap);
@@ -3045,7 +3412,7 @@ function removeImage(id) {
   // Already uploaded to Cloudinary the moment it was picked/pasted, so
   // removing it here — even before the trade is ever saved — needs its own
   // cleanup call, or it's orphaned regardless of whether Save is ever hit.
-  if (removed && removed.source === 'cloudinary' && removed.publicId) deleteFromCloudinary(removed.publicId);
+  if (removed && removed.source === 'cloudinary' && removed.publicId) deleteFromCloudinary(removed.publicId, mediaType(removed));
 }
 
 function updateCompressProgress(doneCount, total, label) {
@@ -3066,15 +3433,16 @@ async function handleFileSelect(event, slot) {
   const accepted = [];
   for (const file of files) {
     if (imagesForSlot(slot).length + accepted.length >= slotMax) {
-      setImageStatus((slotMax === 1 ? 'Only one ' + slotLabel + ' screenshot' : 'Only ' + slotMax + ' ' + slotLabel + ' screenshots') + ' — remove one first to add another.', 'error');
+      setImageStatus((slotMax === 1 ? 'Only one ' + slotLabel + ' item' : 'Only ' + slotMax + ' ' + slotLabel + ' items') + ' — remove one first to add another.', 'error');
       break;
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setImageStatus('"' + file.name + '" isn\'t a supported type — use PNG, JPG, WEBP, or GIF.', 'error');
+    if (!isAcceptedFile(file)) {
+      setImageStatus('"' + file.name + '" isn\'t a supported type — use PNG, JPG, WEBP, GIF, MP4, MOV, or WEBM.', 'error');
       continue;
     }
-    if (file.size > MAX_RAW_BYTES) {
-      setImageStatus('"' + file.name + '" is over the 20MB limit — use a smaller file.', 'error');
+    const sizeCap = isVideoFile(file) ? MAX_VIDEO_BYTES : MAX_RAW_BYTES;
+    if (file.size > sizeCap) {
+      setImageStatus('"' + file.name + '" is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit — use a smaller file.', 'error');
       continue;
     }
     accepted.push(file);
@@ -3091,6 +3459,8 @@ async function handleFileSelect(event, slot) {
       tradeImages.push({
         id: 'img_' + Date.now() + '_' + i,
         slot,
+        type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
+        caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
         source: 'cloudinary',
         url: result.url,
         publicId: result.publicId,
@@ -3137,6 +3507,8 @@ async function addImageFromUrl(slot) {
     tradeImages.push({
       id: 'img_' + Date.now(),
       slot,
+      type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
+      caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
       source: 'cloudinary',
       url: result.url,
       publicId: result.publicId,
@@ -3159,7 +3531,118 @@ async function addImageFromUrl(slot) {
 // uploadFileToCloudinary() pipeline above, since the upload logic itself has
 // no slot or trade-specific knowledge; only the destination array and the cap
 // differ. No before/after split here — just a flat gallery up to the cap.
-const MAX_STRATEGY_IMAGES = 5;
+const MAX_STRATEGY_IMAGES = 15;
+
+// Mirrors addImageFromUrl() above but writes into strategy.images instead of
+// tradeImages, and re-fetches/re-saves the strategy list the same way
+// handleStrategyImageSelect() below does (last-write-wins protection).
+async function addStrategyImageFromUrl(strategyId) {
+  const input = document.getElementById('strategyImageUrlInput_' + strategyId);
+  if (!input) return;
+  const url = input.value.trim();
+  if (!url) return;
+  const strategy = strategyList.find((s) => s.id === strategyId);
+  if (!strategy) return;
+  if (!Array.isArray(strategy.images)) strategy.images = [];
+  if (strategy.images.length >= MAX_STRATEGY_IMAGES) {
+    setStrategyImageStatus(strategyId, 'Up to ' + MAX_STRATEGY_IMAGES + ' images per strategy — remove one to add another.', 'error');
+    return;
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (e) {
+    setStrategyImageStatus(strategyId, 'That doesn\'t look like a valid image link.', 'error');
+    return;
+  }
+  if (!/^https?:$/.test(parsed.protocol)) {
+    setStrategyImageStatus(strategyId, 'Image links need to start with http:// or https://', 'error');
+    return;
+  }
+  setStrategyImageStatus(strategyId, 'Fetching image…', '');
+  try {
+    const result = await uploadRemoteUrlToCloudinary(url);
+    // type/caption match the tradeImages shape (Roadmap Step 1) — no `slot` here since
+    // the strategy gallery is a flat list, not before/after.
+    const newImg = { id: 'simg_' + Date.now(), type: result.resourceType, caption: '', source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
+    await loadStrategyList();
+    if (!strategyListLoaded) {
+      setStrategyImageStatus(strategyId, 'Could not confirm the latest strategy list — check your connection and try again.', 'error');
+      return;
+    }
+    const fresh = strategyList.find((s) => String(s.id) === String(strategyId));
+    if (!fresh) { setStrategyImageStatus(strategyId, 'This strategy was retired.', 'error'); return; }
+    if (!Array.isArray(fresh.images)) fresh.images = [];
+    fresh.images.push(newImg);
+    const ok = await saveStrategyList();
+    if (!ok) {
+      setStrategyImageStatus(strategyId, 'Failed to save — check your connection and try again.', 'error');
+      return;
+    }
+    input.value = '';
+    setStrategyImageStatus(strategyId, '', '');
+    renderStrategyEditModal();
+    renderStrategyManagerList();
+  } catch (err) {
+    console.error('Remote fetch failed:', err);
+    const reason = (err && err.message) ? err.message : 'unknown error';
+    setStrategyImageStatus(strategyId, 'Couldn\'t fetch that link — ' + reason + '.', 'error');
+  }
+}
+
+// ---- Ctrl+V / long-press-paste image support ----
+// Lets a copied screenshot (e.g. from a snipping tool) be pasted directly
+// into a drop zone instead of having to save it to a file first. Reads any
+// image item off the clipboard and routes it through the same handlers as a
+// normal file pick/drop, so compression, size limits, and status messages
+// all behave identically either way.
+function extractImageFilesFromClipboard(clipboardData) {
+  if (!clipboardData || !clipboardData.items) return [];
+  const files = [];
+  for (const item of clipboardData.items) {
+    if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  return files;
+}
+
+document.addEventListener('paste', (event) => {
+  const files = extractImageFilesFromClipboard(event.clipboardData);
+  if (!files.length) return; // let normal text paste (e.g. into the URL/notes fields) proceed untouched
+
+  const active = document.activeElement;
+  const strategyDrop = active && active.closest && active.closest('[data-strategy-image-drop]');
+  const journalDrop = active && active.closest && active.closest('[data-journal-media-drop]');
+  const beforeDrop = active && active.closest && active.closest('#uploadDropBefore, #imageUrlInputBefore');
+  const afterDrop = active && active.closest && active.closest('#uploadDropAfter, #imageUrlInputAfter');
+
+  if (strategyDrop) {
+    const match = strategyList.find((s) => String(s.id) === String(strategyDrop.dataset.strategyImageDrop));
+    if (match) { event.preventDefault(); handleStrategyImageSelect({ target: { files } }, match.id); }
+  } else if (journalDrop || document.getElementById('journalEntry').classList.contains('active')) {
+    // Same existence guard as the drop-zone markup itself (see
+    // renderJournalMediaSection) — nothing to attach media to until the
+    // entry has been created by a first blur on title/status/pair/body.
+    if (journalEditingId) { event.preventDefault(); handleJournalMediaSelect({ target: { files } }); }
+  } else if (afterDrop) {
+    event.preventDefault();
+    handleFileSelect({ target: { files } }, 'after');
+  } else if (document.getElementById('entry').classList.contains('active') || beforeDrop) {
+    // Default to the Before slot on the trade entry screen when focus isn't
+    // clearly in a specific field (e.g. user just hit Ctrl+V anywhere on the page).
+    event.preventDefault();
+    handleFileSelect({ target: { files } }, 'before');
+  } else if (document.getElementById('strategyDetail').classList.contains('active')) {
+    const page = document.getElementById('strategyDetail');
+    const match = strategyList.find((s) => String(s.id) === String(page.dataset.strategyId));
+    if (match) {
+      event.preventDefault();
+      handleStrategyImageSelect({ target: { files } }, match.id);
+    }
+  }
+});
 
 function setStrategyImageStatus(strategyId, msg, cls) {
   const el = document.getElementById('strategyImageStatus_' + strategyId);
@@ -3181,15 +3664,16 @@ async function handleStrategyImageSelect(event, strategyId) {
   const accepted = [];
   for (const file of files) {
     if (strategy.images.length + accepted.length >= MAX_STRATEGY_IMAGES) {
-      setStrategyImageStatus(strategyId, 'Up to ' + MAX_STRATEGY_IMAGES + ' images per strategy — remove one to add another.', 'error');
+      setStrategyImageStatus(strategyId, 'Up to ' + MAX_STRATEGY_IMAGES + ' items per strategy — remove one to add another.', 'error');
       break;
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setStrategyImageStatus(strategyId, '"' + file.name + '" isn\'t a supported type — use PNG, JPG, WEBP, or GIF.', 'error');
+    if (!isAcceptedFile(file)) {
+      setStrategyImageStatus(strategyId, '"' + file.name + '" isn\'t a supported type — use PNG, JPG, WEBP, GIF, MP4, MOV, or WEBM.', 'error');
       continue;
     }
-    if (file.size > MAX_RAW_BYTES) {
-      setStrategyImageStatus(strategyId, '"' + file.name + '" is over the 20MB limit — use a smaller file.', 'error');
+    const sizeCap = isVideoFile(file) ? MAX_VIDEO_BYTES : MAX_RAW_BYTES;
+    if (file.size > sizeCap) {
+      setStrategyImageStatus(strategyId, '"' + file.name + '" is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit — use a smaller file.', 'error');
       continue;
     }
     accepted.push(file);
@@ -3201,8 +3685,12 @@ async function handleStrategyImageSelect(event, strategyId) {
   for (let i = 0; i < accepted.length; i++) {
     try {
       const result = await uploadFileToCloudinary(accepted[i]);
+      // type/caption match the tradeImages shape (Roadmap Step 1) — no `slot` here since
+      // the strategy gallery is a flat list, not before/after.
       const newImg = {
         id: 'simg_' + Date.now() + '_' + i,
+        type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
+        caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
         source: 'cloudinary',
         url: result.url,
         publicId: result.publicId,
@@ -3275,7 +3763,7 @@ async function removeStrategyImage(strategyId, imageId) {
     renderStrategyEditModal();
     return;
   }
-  if (removed && removed.source === 'cloudinary' && removed.publicId) deleteFromCloudinary(removed.publicId);
+  if (removed && removed.source === 'cloudinary' && removed.publicId) deleteFromCloudinary(removed.publicId, mediaType(removed));
   renderStrategyManagerList();
   renderStrategyEditModal();
 }
@@ -3705,6 +4193,1026 @@ async function loadAllTrades() {
     allTrades = [];
   }
   return allTrades;
+}
+
+// ================= JOURNAL (persists in Supabase — table: journal_entries) =================
+// Phase 1 of the Journal roadmap: one row per entry (never a JSON blob —
+// see the strategies/confluences list-row pattern above for why that
+// approach causes race conditions and destructive overwrites). Cross-refs to
+// Strategy and Trades follow the exact conventions already established by
+// `trades`: `strategy` is a plain name string (same as trade.strategy, so it
+// rides the existing rename-cascade logic once Phase 5 wires it in), and
+// `linkedTradeIds` / `confluences` are plain arrays living directly on the
+// row (same shape as trade.confluences) — no join tables anywhere in this
+// app, so Journal doesn't introduce the first one. `media` holds images and
+// videos together as an array of Cloudinary refs, same shape as
+// trade.images, so the existing lightbox/viewer and Cloudinary delete-on-
+// remove logic can be reused as-is in later phases.
+//
+// No fetch-merge-save wrapper is needed here the way the strategies/
+// confluences list-row needs one: each entry is its own row, so one entry's
+// upsert can never clobber another's, exactly like `trades` today.
+let allJournalEntries = [];
+let journalEntriesLoaded = false; // same load-guard purpose as strategyListLoaded/confluenceListLoaded
+
+function journalEntryToRow(e) {
+  return {
+    id: e.id,
+    created_at: e.createdAt,
+    updated_at: e.updatedAt,
+    title: e.title,
+    body: e.body,
+    status: e.status,
+    pair: e.pair,
+    confluences: e.confluences,
+    strategy: e.strategy,
+    linked_trade_ids: e.linkedTradeIds,
+    media: e.media,
+  };
+}
+
+function rowToJournalEntry(r) {
+  return {
+    id: r.id,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    title: r.title || '',
+    body: r.body || '',
+    status: r.status || 'idea',
+    pair: r.pair || '',
+    confluences: r.confluences || [],
+    strategy: r.strategy || '',
+    linkedTradeIds: r.linked_trade_ids || [],
+    media: r.media || [],
+  };
+}
+
+async function persistJournalEntry(entry) {
+  setSyncState('saving');
+  const { error } = await supabaseClient.from('journal_entries').upsert(journalEntryToRow(entry));
+  if (error) { console.error('Failed to save journal entry ' + entry.id + ':', error); setSyncState('error'); return false; }
+  setSyncState('synced');
+  return true;
+}
+
+async function loadAllJournalEntries() {
+  try {
+    const { data, error } = await supabaseClient
+      .from('journal_entries')
+      .select('*')
+      .order('updated_at', { ascending: false });
+    if (error) throw error;
+    allJournalEntries = (data || []).map(rowToJournalEntry);
+    journalEntriesLoaded = true;
+  } catch (e) {
+    // Real fetch error (network/auth hiccup) — leave whatever was already
+    // loaded in place rather than wiping it, mirroring the confluence-list
+    // loader's caution above. journalEntriesLoaded stays false so a retry
+    // is possible rather than silently treating this as "genuinely empty."
+    console.error('Failed to load journal entries — not clearing existing data:', e);
+  }
+  return allJournalEntries;
+}
+
+// Builds a fresh entry with a client-generated id/timestamps (same
+// 'prefix_' + Date.now() convention as trade_/strategy_/img_ ids elsewhere),
+// saves it, and — only on confirmed success — adds it to the in-memory list.
+// Returns the new entry on success, null on failure, so callers (once the
+// Phase 2 UI exists) can show an error instead of optimistically navigating
+// to an entry that was never actually saved.
+async function createJournalEntry(fields) {
+  const now = Date.now();
+  // Same collision fix as saveTrade()'s trade id above — a bare Date.now()
+  // id risks a same-millisecond collision (and a silent upsert overwrite)
+  // if two people save a new entry under a shared login at once.
+  const id = 'journal_' + now + '_' + Math.random().toString(36).slice(2, 8);
+  const entry = {
+    id: id,
+    createdAt: now,
+    updatedAt: now,
+    title: fields.title || '',
+    body: fields.body || '',
+    status: fields.status || 'idea',
+    pair: fields.pair || '',
+    confluences: fields.confluences || [],
+    strategy: fields.strategy || '',
+    linkedTradeIds: fields.linkedTradeIds || [],
+    media: fields.media || [],
+  };
+  const ok = await persistJournalEntry(entry);
+  if (!ok) return null;
+  allJournalEntries.unshift(entry);
+  return entry;
+}
+
+// Merge-then-save against the current in-memory copy of this one entry —
+// safe because each entry is its own row (see note above the table). Callers
+// pass only the fields they're changing; anything omitted is preserved.
+async function updateJournalEntry(id, patch) {
+  const entry = allJournalEntries.find((e) => e.id === id);
+  if (!entry) { console.error('updateJournalEntry: no local entry for id', id); return null; }
+  const updated = Object.assign({}, entry, patch, { id: entry.id, createdAt: entry.createdAt, updatedAt: Date.now() });
+  const ok = await persistJournalEntry(updated);
+  if (!ok) return null;
+  Object.assign(entry, updated);
+  return entry;
+}
+
+async function deleteJournalEntry(id) {
+  // Grabbed before the delete below removes the row — same reasoning as
+  // deleteTradeRecord(): it's the only chance to know which Cloudinary
+  // assets belonged to this entry, once Phase 3/4 actually populate `media`.
+  const entry = allJournalEntries.find((e) => e.id === id);
+  setSyncState('saving');
+  const { error } = await supabaseClient.from('journal_entries').delete().eq('id', id);
+  if (error) {
+    console.error('Failed to delete journal entry:', error);
+    setSyncState('error');
+    return false; // never claim "deleted" for something that didn't actually delete
+  }
+  setSyncState('synced');
+  ((entry && entry.media) || []).forEach((m) => {
+    if (m.source === 'cloudinary' && m.publicId) deleteFromCloudinary(m.publicId, m.type);
+  });
+  allJournalEntries = allJournalEntries.filter((e) => e.id !== id);
+  return true;
+}
+
+// ================= JOURNAL UI (Phase 2 — text-only) =================
+// List screen (status chips + feed) and one shared create/edit form. Media
+// (Phase 3/4) and Strategy/Trade linking (Phase 5/6) extend this same pair
+// of screens rather than needing new ones.
+let journalStatusFilter = '';
+let journalEditingId = null; // null while creating a new entry; set to an id while editing
+let journalFieldsDirty = false; // mirrors viewerCaptionDirty — guards the blur-autosave below
+
+// Roadmap Phase 7: free-text search + the filter drawer's four selects.
+// Kept as plain module-level state, same convention as tradeSearchQuery —
+// there's only ever one Journal list visible at a time, so a single set of
+// vars (rather than something keyed per-render) is enough.
+let journalSearchQuery = '';
+const JOURNAL_FILTER_IDS = ['filterJournalPair', 'filterJournalStrategy', 'filterJournalHasImage', 'filterJournalHasVideo'];
+
+const JOURNAL_STATUS_META = {
+  idea:        { label: 'Idea',        color: 'var(--lead)' },
+  watching:    { label: 'Watching',    color: 'var(--brand)' },
+  promoted:    { label: 'Promoted',    color: 'var(--win)' },
+  invalidated: { label: 'Invalidated', color: 'var(--loss)' },
+  archived:    { label: 'Archived',    color: 'var(--muted)' },
+};
+
+function setJournalStatusFilter(value) {
+  journalStatusFilter = value;
+  renderJournalList();
+}
+
+function updateJournalStatusChips() {
+  const chips = document.querySelectorAll('#journalStatusChips .chip-pill');
+  const values = ['', 'idea', 'watching', 'promoted', 'invalidated', 'archived'];
+  chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === journalStatusFilter));
+}
+
+// Same drawer mechanics as toggleTradeFilters() — scoped to the Journal
+// screen's own trigger/drawer/overlay IDs so opening one filter drawer never
+// affects the other.
+function toggleJournalFilters() {
+  const drawer = document.getElementById('journalFiltersBody');
+  const overlay = document.getElementById('journalFiltersDrawerOverlay');
+  const opening = !drawer.classList.contains('open');
+  drawer.classList.toggle('open');
+  overlay.classList.toggle('show');
+  document.body.classList.toggle('drawer-open', opening);
+}
+
+function clearJournalFilters() {
+  JOURNAL_FILTER_IDS.forEach((id) => { document.getElementById(id).value = ''; });
+  document.getElementById('journalSearchText').value = '';
+  journalSearchQuery = '';
+  renderJournalList();
+}
+
+function updateJournalFilterSummary() {
+  const n = JOURNAL_FILTER_IDS.filter((id) => document.getElementById(id).value).length + (journalSearchQuery ? 1 : 0);
+  const el = document.getElementById('journalFilterSummary');
+  if (!el) return;
+  if (!n) {
+    el.style.display = 'none';
+    el.textContent = '';
+  } else {
+    el.style.display = 'block';
+    el.textContent = n + ' filter' + (n === 1 ? '' : 's') + ' active · Clear';
+  }
+}
+
+// Keeps the Pair/Strategy filter selects in sync with what actually exists,
+// same "derive from the real source of truth, not a second hardcoded copy"
+// convention as populateFilterOptions() for Trades. Pair options are the
+// union of every pair logged on a Trade (getDistinctPairs()) AND on a
+// Journal entry — an idea can carry a pair before any trade from it exists,
+// so Trades alone would hide it from this filter. Read-only for filtering;
+// doesn't touch the Manage Currency Pair rename/merge flow, which stays
+// scoped to trade.pair as before.
+function getDistinctJournalFilterPairs() {
+  const pairs = new Set(getDistinctPairs());
+  allJournalEntries.forEach((e) => { if (e.pair) pairs.add(e.pair); });
+  return Array.from(pairs).sort();
+}
+
+function renderJournalFilterOptions() {
+  const pairSel = document.getElementById('filterJournalPair');
+  const stratSel = document.getElementById('filterJournalStrategy');
+  if (pairSel) {
+    const current = pairSel.value;
+    pairSel.innerHTML = '<option value="">All Pairs</option>' +
+      getDistinctJournalFilterPairs().map((p) => '<option>' + escapeHtml(p) + '</option>').join('');
+    setSelectValue('filterJournalPair', current, true);
+  }
+  if (stratSel) {
+    const current = stratSel.value;
+    stratSel.innerHTML = '<option value="">All Strategies</option><option value="__none__">Not Linked</option>' +
+      strategyList.map((s) => '<option>' + escapeHtml(s.name) + '</option>').join('');
+    setSelectValue('filterJournalStrategy', current, true);
+  }
+}
+
+function journalMatchesSearchText(entry, query) {
+  if (!query) return true;
+  const haystack = [entry.title, entry.body, entry.pair].filter(Boolean).join(' ').toLowerCase();
+  return haystack.includes(query);
+}
+
+function journalMatchesFilters(entry) {
+  const pair = document.getElementById('filterJournalPair').value;
+  const strategy = document.getElementById('filterJournalStrategy').value;
+  const hasImage = document.getElementById('filterJournalHasImage').value;
+  const hasVideo = document.getElementById('filterJournalHasVideo').value;
+  if (pair && entry.pair !== pair) return false;
+  if (strategy === '__none__' && entry.strategy) return false;
+  if (strategy && strategy !== '__none__' && entry.strategy !== strategy) return false;
+  const media = entry.media || [];
+  const imageCount = media.filter((m) => mediaType(m) === 'image').length;
+  const videoCount = media.filter((m) => mediaType(m) === 'video').length;
+  if (hasImage === 'has' && !imageCount) return false;
+  if (hasImage === 'missing' && imageCount) return false;
+  if (hasVideo === 'has' && !videoCount) return false;
+  if (hasVideo === 'missing' && videoCount) return false;
+  return true;
+}
+
+const debouncedRenderJournalList = debounce(() => renderJournalList(), 180);
+function onJournalSearchInput() {
+  journalSearchQuery = document.getElementById('journalSearchText').value.trim().toLowerCase();
+  debouncedRenderJournalList();
+}
+
+// Plain-text truncation for the feed snippet — deliberately not cutting mid-
+// word raggedly; falls back gracefully on short bodies.
+function journalSnippet(body, maxLen) {
+  const text = (body || '').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen).replace(/\s+\S*$/, '') + '…';
+}
+
+// ================= JOURNAL REVIEW REMINDER (Phase 9) =================
+// A weekly/monthly nudge to revisit still-open ideas ('idea'/'watching' —
+// 'promoted'/'invalidated'/'archived' are already settled and don't need
+// re-reviewing). No server round-trip needed for this — it's a per-device
+// "have I looked lately" timestamp, so localStorage is the right store, same
+// convention as HISTORY_FILTER_STORAGE_KEY/COMPARE_EQUITY_SELECTION_KEY
+// above (namespaced key, wrapped in try/catch in case storage is unavailable).
+const JOURNAL_REVIEW_LAST_KEY = 'danwaves_journal_last_review';
+const JOURNAL_REVIEW_CADENCE_KEY = 'danwaves_journal_review_cadence'; // 'weekly' | 'monthly'
+
+function getJournalReviewCadence() {
+  try { return localStorage.getItem(JOURNAL_REVIEW_CADENCE_KEY) === 'monthly' ? 'monthly' : 'weekly'; }
+  catch (e) { return 'weekly'; }
+}
+function getJournalReviewIntervalDays() {
+  return getJournalReviewCadence() === 'monthly' ? 30 : 7;
+}
+function getLastJournalReviewAt() {
+  try { return Number(localStorage.getItem(JOURNAL_REVIEW_LAST_KEY)) || 0; }
+  catch (e) { return 0; }
+}
+function markJournalReviewed() {
+  try { localStorage.setItem(JOURNAL_REVIEW_LAST_KEY, String(Date.now())); }
+  catch (e) { /* storage unavailable — banner just won't stay dismissed across sessions */ }
+  updateJournalReviewBanner();
+}
+function toggleJournalReviewCadence() {
+  const next = getJournalReviewCadence() === 'monthly' ? 'weekly' : 'monthly';
+  try { localStorage.setItem(JOURNAL_REVIEW_CADENCE_KEY, next); } catch (e) { /* storage unavailable */ }
+  updateJournalReviewBanner();
+}
+
+// Mirrors updateOnboardingBanner()'s shown/hidden #card banner exactly —
+// just with its own condition (open ideas + elapsed interval since the last
+// mark-reviewed) instead of "no strategy yet" / "no trades yet".
+function updateJournalReviewBanner() {
+  const banner = document.getElementById('journalReviewBanner');
+  if (!banner) return;
+  const openEntries = allJournalEntries.filter((e) => e.status === 'idea' || e.status === 'watching');
+  const daysSince = (Date.now() - getLastJournalReviewAt()) / 86400000;
+  const cadence = getJournalReviewCadence();
+  const cadenceLink = document.getElementById('journalReviewBannerCadenceLink');
+  if (cadenceLink) cadenceLink.textContent = cadence === 'monthly' ? 'Switch to weekly reminders' : 'Switch to monthly reminders';
+
+  if (!journalEntriesLoaded || !openEntries.length || daysSince < getJournalReviewIntervalDays()) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  document.getElementById('journalReviewBannerTitle').textContent = '🔎 Time for your ' + cadence + ' idea review';
+  document.getElementById('journalReviewBannerText').textContent =
+    'You have ' + openEntries.length + ' open idea' + (openEntries.length === 1 ? '' : 's') +
+    ' (Idea/Watching) that haven\'t been looked at in a while — take a pass and mark what\'s still worth watching, ready to promote, or dead.';
+  const btn = document.getElementById('journalReviewBannerBtn');
+  if (btn) btn.onclick = markJournalReviewed;
+  banner.style.display = 'block';
+}
+
+async function renderJournalList() {
+  updateJournalStatusChips();
+  updateJournalFilterSummary();
+  const container = document.getElementById('journalList');
+  if (!container) return;
+  // Phase 8: skeleton in place of a blank/"Loading…" list while the initial
+  // loadAllJournalEntries() fetch is in flight — same reasoning as
+  // renderTradeList()'s isFirstLoad skeleton, just keyed off the journal's
+  // own load flag instead of an empty-array check (an entry-less account is
+  // a legitimate state here, so "no entries yet" can't double as "loading").
+  if (!journalEntriesLoaded) {
+    container.innerHTML = buildJournalListSkeleton();
+    await loadAllJournalEntries();
+  }
+  updateJournalReviewBanner(); // Phase 9: needs allJournalEntries, so refresh after the load above resolves
+  renderJournalFilterOptions(); // after the load above, so pair options reflect any newly-fetched entries
+  const anyFilterActive = journalStatusFilter || journalSearchQuery || JOURNAL_FILTER_IDS.some((id) => document.getElementById(id).value);
+  const entries = allJournalEntries.filter((e) =>
+    (!journalStatusFilter || e.status === journalStatusFilter) &&
+    journalMatchesSearchText(e, journalSearchQuery) &&
+    journalMatchesFilters(e)
+  );
+
+  if (!entries.length) {
+    // Phase 8: reuses the same .empty-state block Trades/Screenshots already
+    // use, instead of a plain muted span, so all three empty states look and
+    // space themselves identically.
+    container.innerHTML = '<div class="empty-state">'
+      + (anyFilterActive ? 'No entries match these filters.' : 'No journal entries yet — tap "+ New Entry" to log your first idea.')
+      + '</div>';
+    return;
+  }
+
+  container.innerHTML = entries.map((e) => {
+    const idArg = escapeHtml(JSON.stringify(e.id));
+    const meta = JOURNAL_STATUS_META[e.status] || JOURNAL_STATUS_META.idea;
+    const snippet = journalSnippet(e.body, 110);
+    const dateLabel = new Date(e.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    // Roadmap Phase 4: feed thumbnail uses gridThumbSrc(), which already
+    // swaps a video's URL for its Cloudinary-generated poster frame — the
+    // list never loads an actual <video> element, just a static image, same
+    // as every other thumbnail grid in the app.
+    const firstMedia = (e.media && e.media[0]) || null;
+    const thumbHtml = firstMedia
+      ? '<div class="trade-thumb" style="width:52px; height:52px; flex-shrink:0;"><img src="' + gridThumbSrc(firstMedia).replace(/"/g, '&quot;') + '" alt="" />' + mediaBadgesHtml(firstMedia) + '</div>'
+      : '';
+    return '<div class="journal-entry-card" style="background:var(--surface2); border-radius:8px; padding:14px; margin-bottom:12px; cursor:pointer; display:flex; gap:12px; align-items:flex-start;" onclick="openJournalEntry(' + idArg + ')">' +
+      thumbHtml +
+      '<div style="flex:1; min-width:0;">' +
+        '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
+          '<div style="font-size:13px; font-weight:600;">' + escapeHtml(e.title || 'Untitled') + '</div>' +
+          '<span style="flex-shrink:0; font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:999px; color:' + meta.color + '; border:1px solid ' + meta.color + ';">' + meta.label + '</span>' +
+        '</div>' +
+        (e.pair ? '<div class="mono muted" style="font-size:11px; margin-top:4px;">' + escapeHtml(e.pair) + '</div>' : '') +
+        (snippet ? '<div class="sub" style="font-size:12px; margin-top:6px;">' + escapeHtml(snippet) + '</div>' : '') +
+        '<div class="mono muted" style="font-size:10.5px; margin-top:8px;">' + dateLabel + '</div>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  // Phase 8: same stagger-in as renderTradeList()'s .trade-row-enter — reuses
+  // that exact animation/keyframe (it's generic opacity+translateY, nothing
+  // trade-specific about it) rather than defining a near-duplicate for cards.
+  container.querySelectorAll('.journal-entry-card').forEach((card, i) => {
+    card.classList.add('trade-row-enter');
+    card.style.animationDelay = (Math.min(i, 20) * 15) + 'ms';
+  });
+}
+
+function openNewJournalEntry() {
+  journalEditingId = null;
+  journalFieldsDirty = false;
+  document.getElementById('journalTitleInput').value = '';
+  document.getElementById('journalStatusInput').value = 'idea';
+  document.getElementById('journalPairInput').value = '';
+  document.getElementById('journalBodyInput').value = '';
+  document.getElementById('journalSaveStatus').textContent = '';
+  document.getElementById('journalSaveStatus').className = 'extract-status';
+  document.getElementById('journalDeleteBtn').style.display = 'none';
+  renderJournalMediaSection(); // Phase 3: shows the "save notes first" placeholder until this entry gets an id
+  renderJournalStrategySection(); // Phase 5: same placeholder, until this entry gets an id
+  renderJournalTradesSection(); // Phase 6: same placeholder, until this entry gets an id
+  showScreen('journalEntry');
+  document.getElementById('journalTitleInput').focus();
+}
+
+function openJournalEntry(id) {
+  const e = allJournalEntries.find((x) => x.id === id);
+  if (!e) return;
+  journalEditingId = id;
+  journalFieldsDirty = false;
+  document.getElementById('journalTitleInput').value = e.title || '';
+  document.getElementById('journalStatusInput').value = e.status || 'idea';
+  document.getElementById('journalPairInput').value = e.pair || '';
+  document.getElementById('journalBodyInput').value = e.body || '';
+  document.getElementById('journalSaveStatus').textContent = '';
+  document.getElementById('journalSaveStatus').className = 'extract-status';
+  document.getElementById('journalDeleteBtn').style.display = '';
+  renderJournalMediaSection(); // Phase 3: shows this entry's existing images (if any)
+  renderJournalStrategySection(); // Phase 5: shows this entry's current Strategy link (if any)
+  renderJournalTradesSection(); // Phase 6: shows this entry's attached trades (if any)
+  showScreen('journalEntry');
+}
+
+// Fires on blur from any field in the form (title/status/pair/body all wire
+// to this) — same "save on blur, not per keystroke" reasoning as the viewer
+// caption autosave. A brand-new entry (journalEditingId === null) is created
+// on its *first* blur, and every field after that becomes a normal update
+// against the id that create returned.
+function onJournalFieldBlur() {
+  journalFieldsDirty = true;
+  flushJournalEntry();
+}
+
+async function flushJournalEntry() {
+  if (!journalFieldsDirty) return;
+  const title = document.getElementById('journalTitleInput').value.trim();
+  const status = document.getElementById('journalStatusInput').value;
+  const pair = document.getElementById('journalPairInput').value.trim();
+  const body = document.getElementById('journalBodyInput').value;
+
+  // An untouched, still-blank new entry shouldn't get saved just because a
+  // field was tabbed through — only persist once there's something to keep.
+  if (!journalEditingId && !title && !body.trim() && !pair) { journalFieldsDirty = false; return; }
+
+  journalFieldsDirty = false;
+  const statusEl = document.getElementById('journalSaveStatus');
+  if (statusEl) { statusEl.textContent = 'Saving…'; statusEl.className = 'extract-status'; }
+
+  const fields = { title, status, pair, body };
+  // journalStrategyInput only exists once the entry has an id (see
+  // renderJournalStrategySection()) — on a brand-new entry's first save
+  // there's nothing to read yet, so createJournalEntry's own '' default
+  // covers that case instead.
+  const strategyEl = document.getElementById('journalStrategyInput');
+  if (strategyEl) fields.strategy = strategyEl.value;
+
+  let ok;
+  if (!journalEditingId) {
+    const created = await createJournalEntry(fields);
+    ok = !!created;
+    if (created) {
+      journalEditingId = created.id;
+      document.getElementById('journalDeleteBtn').style.display = '';
+      renderJournalMediaSection(); // Phase 3: unlocks the image uploader now that the entry has an id
+      renderJournalStrategySection(); // Phase 5: unlocks the Strategy link now that the entry has an id
+      renderJournalTradesSection(); // Phase 6: unlocks Trade attach now that the entry has an id
+    }
+  } else {
+    ok = !!(await updateJournalEntry(journalEditingId, fields));
+  }
+
+  if (!statusEl) return;
+  if (ok) { statusEl.textContent = 'Saved'; statusEl.className = 'extract-status success'; }
+  else { statusEl.textContent = 'Save failed — check your connection and try again'; statusEl.className = 'extract-status error'; }
+}
+
+// Back navigates away — flush any pending edit first so nothing typed right
+// before tapping "Back" gets lost (blur doesn't fire from a link click the
+// same way it does from tabbing to another field).
+function closeJournalEntry() {
+  flushJournalEntry().finally(() => {
+    showScreen('journal');
+    renderJournalList();
+  });
+}
+
+// Phase 8: entry.strategy and entry.linkedTradeIds are both plain fields
+// on the entry row (see the note above journal_entries) — deleting the row
+// makes those links vanish silently, even though the Strategy/Trade side
+// still visually promised a backlink (journalEntriesSectionHtml() /
+// journalOriginSectionHtml() are derived lookups, so they just won't find
+// this entry anymore, no orphaned id left behind on the other side). The
+// data is safe either way; this is purely about not surprising the user.
+function confirmDeleteJournalEntry() {
+  if (!journalEditingId) return;
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  const linkedTradeCount = (entry && entry.linkedTradeIds || []).length;
+  const hasStrategy = !!(entry && entry.strategy);
+
+  let msg = 'Delete this journal entry? This can\'t be undone.';
+  if (hasStrategy || linkedTradeCount) {
+    const parts = [];
+    if (hasStrategy) parts.push('its link to Strategy "' + entry.strategy + '"');
+    if (linkedTradeCount) parts.push(linkedTradeCount + ' linked trade' + (linkedTradeCount === 1 ? '' : 's') + ' losing their "originated from" backlink');
+    msg = 'Delete this journal entry? This can\'t be undone, and will remove ' + parts.join(' and ') + '.';
+  }
+  if (!confirm(msg)) return;
+  finishDeleteJournalEntry();
+}
+
+async function finishDeleteJournalEntry() {
+  const ok = await deleteJournalEntry(journalEditingId);
+  if (!ok) { alert('Could not delete this entry — try again.'); return; }
+  journalEditingId = null;
+  showScreen('journal');
+  renderJournalList();
+}
+
+// ================= JOURNAL → STRATEGY LINK (Phase 5) =================
+// "Link to existing Strategy" is just entry.strategy — the same plain-name
+// string convention as trade.strategy (see the note above the journal_entries
+// table), so it rides the existing strategy rename-cascade for free (wired
+// into renameStrategy() above). "Promote to New Strategy" creates a brand
+// new Strategy pre-filled from this entry, links this entry to it, and marks
+// the entry Promoted — reusing the exact same strategyList shape and
+// dedupe-by-appending-a-suffix convention as createStrategy(), just without
+// the manual name-collision form.
+function renderJournalStrategySection() {
+  const container = document.getElementById('journalStrategySection');
+  if (!container) return;
+  if (!journalEditingId) {
+    container.innerHTML = '<span class="muted" style="font-size:11px;">Save some notes above first, then link this idea to a Strategy.</span>';
+    return;
+  }
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) { container.innerHTML = ''; return; }
+  const options = '<option value="">— Not linked —</option>' + strategyList.map((s) =>
+    '<option' + (entry.strategy === s.name ? ' selected' : '') + '>' + escapeHtml(s.name) + '</option>').join('');
+  container.innerHTML =
+    '<select id="journalStrategyInput" onchange="onJournalFieldBlur()">' + options + '</select>' +
+    '<div style="margin-top:8px;"><span class="muted" style="font-size:11.5px; cursor:pointer;" onclick="promoteJournalEntryToStrategy()">🚀 Promote to New Strategy</span></div>' +
+    '<div id="journalStrategyStatus" class="extract-status"></div>';
+}
+
+function setJournalStrategyStatus(msg, cls) {
+  const el = document.getElementById('journalStrategyStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'extract-status' + (cls ? ' ' + cls : '');
+}
+
+async function promoteJournalEntryToStrategy() {
+  if (!journalEditingId) return; // section is locked/hidden until the entry exists — see renderJournalStrategySection()
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  const baseName = (document.getElementById('journalTitleInput').value || entry.title || '').trim();
+  if (!baseName) { setJournalStrategyStatus('Give this idea a title first — it becomes the new Strategy\'s name.', 'error'); return; }
+  if (!confirm('Create a new Strategy called "' + baseName + '" from this idea? Its notes will be pre-filled from this entry\'s body, and this entry will be marked Promoted.')) return;
+
+  setJournalStrategyStatus('Creating strategy…', '');
+  // Re-fetch the real list right before writing — see createStrategy() for
+  // the full explanation of why this matters when two browsers/tabs are open.
+  await loadStrategyList();
+  if (!strategyListLoaded) {
+    setJournalStrategyStatus('Could not confirm the latest strategy list — check your connection and try again.', 'error');
+    return;
+  }
+
+  // Dedupe by appending a numeric suffix rather than blocking outright —
+  // unlike createStrategy()'s form, there's no name field here for the user
+  // to retype, so promoting shouldn't fail just because some other strategy
+  // happens to share this idea's title.
+  let name = baseName;
+  let n = 2;
+  while (strategyList.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
+    name = baseName + ' (' + n + ')';
+    n++;
+  }
+
+  const newId = 'strategy_' + Date.now();
+  strategyList.push({
+    id: newId,
+    name,
+    startingBalance: 10000,
+    maxDrawdownPercent: 10,
+    riskProfiles: [
+      { id: 'risk_' + Date.now() + '_std', label: 'Standard (1%)', riskPercent: 1 },
+      { id: 'risk_' + Date.now() + '_con', label: 'Conservative (0.5%)', riskPercent: 0.5 },
+    ],
+    notes: entry.body || '',
+    images: [],
+    confluenceIds: Array.isArray(entry.confluences) ? entry.confluences.slice() : [],
+  });
+  const ok = await saveStrategyList();
+  if (!ok) {
+    strategyList = strategyList.filter((s) => s.id !== newId); // revert — never claim "created" for something that didn't actually save
+    setJournalStrategyStatus('Failed to create the strategy — check your connection and try again.', 'error');
+    return;
+  }
+
+  // Carry forward whatever's currently sitting in the form (title/pair/body
+  // may have unsaved edits — a blur hasn't necessarily fired) alongside the
+  // new strategy link and Promoted status, in one single save rather than
+  // two separate ones that could race each other.
+  document.getElementById('journalStatusInput').value = 'promoted';
+  journalFieldsDirty = false;
+  const linked = await updateJournalEntry(journalEditingId, {
+    title: document.getElementById('journalTitleInput').value.trim(),
+    status: 'promoted',
+    pair: document.getElementById('journalPairInput').value.trim(),
+    body: document.getElementById('journalBodyInput').value,
+    strategy: name,
+  });
+
+  renderJournalStrategySection();
+  renderStrategyManagerList();
+  renderStrategySelectOptions();
+  renderDashboardStrategySelectOptions();
+  renderInsightsStrategySelectOptions();
+
+  if (!linked) {
+    setJournalStrategyStatus('Strategy "' + name + '" was created, but linking this entry to it failed — check your connection and try again.', 'error');
+    return;
+  }
+  setJournalStrategyStatus('✓ Promoted — "' + name + '" created and linked.', 'success');
+}
+
+// ================= JOURNAL → TRADES LINK (Phase 6) =================
+// Manual attach + auto-suggest, both writing to entry.linkedTradeIds (a
+// plain array of trade ids on the row — set up back in Phase 0/1, same
+// shape as entry.confluences). The Trade side panel's "Journal Origin"
+// backlink (see journalOriginSectionHtml()) is a derived lookup against
+// this array, not a second stored reference — one source of truth.
+let journalTradeAttachQuery = '';
+
+// Local-date proximity between a trade's date-only string and a journal
+// entry's full createdAt timestamp — reuses parseLocalDate() so this
+// compares calendar days the same way every other date-only field in the
+// app does, not raw UTC-vs-local timestamp math.
+function journalTradeDaysAway(tradeDateStr, entryCreatedAt) {
+  const tradeDate = parseLocalDate(tradeDateStr);
+  const entryDate = new Date(entryCreatedAt);
+  const tradeMidnight = new Date(tradeDate.getFullYear(), tradeDate.getMonth(), tradeDate.getDate()).getTime();
+  const entryMidnight = new Date(entryDate.getFullYear(), entryDate.getMonth(), entryDate.getDate()).getTime();
+  return Math.round((tradeMidnight - entryMidnight) / 86400000);
+}
+
+// One row for a trade inside the Trades section — attached rows get a
+// remove (×), suggested/search-result rows get an Attach button instead.
+function journalTradeRowHtml(trade, attached) {
+  const idArg = escapeHtml(JSON.stringify(trade.id));
+  const badge = outcomeBadge(trade) || '<span class="sub" style="font-size:11px;">—</span>';
+  const actionHtml = attached
+    ? '<span class="muted" style="cursor:pointer; font-size:13px;" onclick="detachTradeFromJournalEntry(' + idArg + ')" title="Remove">✕</span>'
+    : '<span class="chip-pill" style="cursor:pointer;" onclick="attachTradeToJournalEntry(' + idArg + ')">+ Attach</span>';
+  return '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--bg); border-radius:6px; padding:8px 10px; margin-bottom:6px;">' +
+    '<div style="min-width:0;">' +
+      '<span style="font-size:12.5px; font-weight:600;">' + escapeHtml(trade.pair || 'Unknown') + '</span> ' +
+      '<span class="mono muted" style="font-size:11px;">' + escapeHtml(trade.date || '') + '</span> ' +
+      badge +
+    '</div>' +
+    actionHtml +
+  '</div>';
+}
+
+function renderJournalTradesSection() {
+  const container = document.getElementById('journalTradesSection');
+  if (!container) return;
+  if (!journalEditingId) {
+    container.innerHTML = '<span class="muted" style="font-size:11px;">Save some notes above first, then attach the trades this idea led to.</span>';
+    return;
+  }
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) { container.innerHTML = ''; return; }
+  if (!Array.isArray(entry.linkedTradeIds)) entry.linkedTradeIds = [];
+
+  const linkedTrades = entry.linkedTradeIds.map((id) => allTrades.find((t) => t.id === id)).filter(Boolean);
+  const linkedHtml = linkedTrades.length
+    ? linkedTrades.map((t) => journalTradeRowHtml(t, true)).join('')
+    : '<span class="muted" style="font-size:11px;">No trades attached yet.</span>';
+
+  // Auto-suggest — same pair, within 3 calendar days of this entry's created
+  // date, not already attached. Purely a suggestion: nothing links itself,
+  // the user still has to tap Attach.
+  const suggestions = entry.pair
+    ? allTrades
+        .filter((t) => t.pair === entry.pair && t.date && !entry.linkedTradeIds.includes(t.id) && Math.abs(journalTradeDaysAway(t.date, entry.createdAt)) <= 3)
+        .sort((a, b) => Math.abs(journalTradeDaysAway(a.date, entry.createdAt)) - Math.abs(journalTradeDaysAway(b.date, entry.createdAt)))
+        .slice(0, 5)
+    : [];
+  const suggestHtml = suggestions.length
+    ? '<div style="margin-top:10px;"><label style="display:block; font-size:10.5px; color:var(--muted); margin-bottom:6px; font-weight:600;">Suggested — same pair, nearby date</label>' +
+        suggestions.map((t) => journalTradeRowHtml(t, false)).join('') +
+      '</div>'
+    : '';
+
+  const searchMatches = journalTradeAttachQuery
+    ? allTrades.filter((t) => !entry.linkedTradeIds.includes(t.id) && tradeMatchesSearchText(t, journalTradeAttachQuery)).slice(0, 15)
+    : [];
+  const searchHtml =
+    '<div style="margin-top:10px;">' +
+      '<input id="journalTradeAttachInput" placeholder="Search trades to attach — pair, model, strategy…" value="' + escapeHtml(journalTradeAttachQuery) + '" oninput="onJournalTradeAttachInput()" style="width:100%; margin-bottom:6px;" />' +
+      (journalTradeAttachQuery
+        ? (searchMatches.length ? searchMatches.map((t) => journalTradeRowHtml(t, false)).join('') : '<span class="muted" style="font-size:11px;">No matching trades.</span>')
+        : '') +
+    '</div>';
+
+  container.innerHTML = linkedHtml + suggestHtml + searchHtml;
+}
+
+const debouncedRenderJournalTradesSection = debounce(() => renderJournalTradesSection(), 180);
+function onJournalTradeAttachInput() {
+  journalTradeAttachQuery = document.getElementById('journalTradeAttachInput').value.trim().toLowerCase();
+  debouncedRenderJournalTradesSection();
+}
+
+async function attachTradeToJournalEntry(tradeId) {
+  if (!journalEditingId) return;
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  const current = Array.isArray(entry.linkedTradeIds) ? entry.linkedTradeIds : [];
+  if (current.includes(tradeId)) return;
+  const ok = await updateJournalEntry(journalEditingId, { linkedTradeIds: [...current, tradeId] });
+  if (!ok) { alert('Failed to attach the trade — check your connection and try again.'); return; }
+  renderJournalTradesSection();
+}
+
+async function detachTradeFromJournalEntry(tradeId) {
+  if (!journalEditingId) return;
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  const current = Array.isArray(entry.linkedTradeIds) ? entry.linkedTradeIds : [];
+  const ok = await updateJournalEntry(journalEditingId, { linkedTradeIds: current.filter((id) => id !== tradeId) });
+  if (!ok) { alert('Failed to remove the trade — check your connection and try again.'); return; }
+  renderJournalTradesSection();
+}
+
+// ================= JOURNAL MEDIA (Phase 3 images, Phase 4 video) =================
+// Reuses the exact same uploadFileToCloudinary/uploadRemoteUrlToCloudinary
+// pipeline and trade-img-grid/trade-thumb markup as Trades and the Strategy
+// Chart Gallery — only the destination array (entry.media, a flat list, no
+// slots — same shape as strategy.images) and the cap differ.
+// Phase 4: video is now accepted alongside images. Roadmap Phase 0 found
+// Cloudinary's free-plan 100MB/video cap already matches the app's own
+// MAX_VIDEO_BYTES, so no chunked upload is needed as a blocker — a 30min
+// 720p recording still lands right at that edge, so handleJournalMediaSelect
+// below shows a soft heads-up for anything over 80% of the cap rather than
+// letting it fail silently mid-upload. Byte-level progress (via
+// uploadFileToCloudinaryWithProgress, since fetch() can't report upload
+// progress) replaces the old plain "Uploading…" status text for the same
+// reason — Trade/Strategy uploads stay on the simpler fetch-based
+// uploadFileToCloudinary() since their images are small and don't need it.
+const MAX_JOURNAL_MEDIA = 20;
+
+function setJournalMediaStatus(msg, cls) {
+  const el = document.getElementById('journalMediaStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'extract-status' + (cls ? ' ' + cls : '');
+}
+
+// Same doneCount/total + current-file-fraction math as updateCompressProgress
+// above, but against this form's own progress bar (journalMediaSection is
+// rendered fresh per entry, so it can't share the New Trade screen's
+// singleton #compressProgressWrap) and with the current file's own percent
+// in the label, which matters more here than there since a single video can
+// take real time on its own rather than being one of a quick batch of images.
+function updateJournalUploadProgress(doneCount, total, name, frac) {
+  const fill = document.getElementById('journalUploadProgressFill');
+  const label = document.getElementById('journalUploadProgressLabel');
+  if (!fill || !label) return;
+  const pct = Math.round(((doneCount + (frac || 0)) / total) * 100);
+  fill.style.width = pct + '%';
+  label.textContent = 'Uploading — ' + name + ' (' + Math.round((frac || 0) * 100) + '%)';
+}
+
+// Re-renders the Media card inside the entry form. Called whenever the
+// form opens/closes an entry, right after a brand-new entry gets its id
+// (flushJournalEntry), and after every upload/remove below. Locked behind
+// journalEditingId — same dependency Strategy's gallery has on the strategy
+// already existing — since media needs a real entry row (entry_id-equivalent
+// via the media array) to attach to.
+function renderJournalMediaSection() {
+  const container = document.getElementById('journalMediaSection');
+  if (!container) return;
+  if (!journalEditingId) {
+    container.innerHTML = '<span class="muted" style="font-size:11px;">Save some notes above first, then add images or video here.</span>';
+    return;
+  }
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) { container.innerHTML = ''; return; }
+  if (!Array.isArray(entry.media)) entry.media = [];
+  const uploaderHtml = entry.media.length < MAX_JOURNAL_MEDIA
+    ? '<div class="upload-drop" style="padding:12px;" tabindex="0" data-journal-media-drop="true" ' +
+        'onclick="document.getElementById(\'journalMediaInput\').click()" ' +
+        'ondragover="event.preventDefault(); this.classList.add(\'dragover\');" ' +
+        'ondragleave="this.classList.remove(\'dragover\');" ' +
+        'ondrop="event.preventDefault(); this.classList.remove(\'dragover\'); handleJournalMediaSelect(event);">' +
+        '<div class="upload-icon" style="font-size:16px; margin-bottom:2px;">🖼</div>' +
+        '<div class="upload-label" style="font-size:11.5px;">Tap to add, drop, or paste (Ctrl+V) an image or video</div>' +
+        '<div class="upload-sub">Up to ' + MAX_JOURNAL_MEDIA + ' · PNG, JPG, WEBP, GIF, MP4, MOV, WEBM</div>' +
+      '</div>' +
+      '<div class="url-paste-row">' +
+        '<input id="journalMediaUrlInput" placeholder="Or paste an image/video link…" onkeydown="if(event.key===\'Enter\'){event.preventDefault(); addJournalMediaFromUrl();}" />' +
+        '<button class="url-add-btn" onclick="addJournalMediaFromUrl()">Add</button>' +
+      '</div>' +
+      '<div id="journalUploadProgressWrap" class="compress-progress-wrap">' +
+        '<div id="journalUploadProgressLabel" class="compress-progress-label">Uploading…</div>' +
+        '<div class="compress-progress-track"><div id="journalUploadProgressFill" class="compress-progress-fill"></div></div>' +
+      '</div>'
+    : '<span class="muted" style="font-size:11px;">' + MAX_JOURNAL_MEDIA + '/' + MAX_JOURNAL_MEDIA + ' — remove one to add another.</span>';
+  container.innerHTML =
+    '<input type="file" id="journalMediaInput" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleJournalMediaSelect(event)" />' +
+    uploaderHtml +
+    '<div id="journalMediaStatus" class="extract-status"></div>' +
+    '<div class="trade-img-grid" style="margin-top:8px;">' +
+      entry.media.map((img, idx) =>
+        '<div class="trade-thumb" onclick="openViewerForJournal(' + idx + ')"><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Journal media" />' +
+          mediaBadgesHtml(img) +
+          '<div class="trade-thumb-size">' + (img.sizeKB ? img.sizeKB + ' KB' : 'hosted') + '</div>' +
+        '</div>'
+      ).join('') +
+    '</div>';
+}
+
+async function handleJournalMediaSelect(event) {
+  event.preventDefault && event.preventDefault();
+  const rawFiles = (event.dataTransfer && event.dataTransfer.files) || (event.target && event.target.files) || [];
+  const files = Array.from(rawFiles);
+  if (event.target) event.target.value = ''; // allow re-selecting the same file later
+  if (!journalEditingId) return; // guarded by the UI too — belt and suspenders
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  if (!Array.isArray(entry.media)) entry.media = [];
+
+  const accepted = [];
+  for (const file of files) {
+    if (entry.media.length + accepted.length >= MAX_JOURNAL_MEDIA) {
+      setJournalMediaStatus('Up to ' + MAX_JOURNAL_MEDIA + ' items per entry — remove one to add another.', 'error');
+      break;
+    }
+    if (!isAcceptedFile(file)) {
+      setJournalMediaStatus('"' + file.name + '" isn\'t a supported type — use PNG, JPG, WEBP, GIF, MP4, MOV, or WEBM.', 'error');
+      continue;
+    }
+    const sizeCap = isVideoFile(file) ? MAX_VIDEO_BYTES : MAX_RAW_BYTES;
+    if (file.size > sizeCap) {
+      setJournalMediaStatus('"' + file.name + '" is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit — use a smaller file.', 'error');
+      continue;
+    }
+    accepted.push(file);
+  }
+  if (!accepted.length) return;
+
+  // Phase 0 finding: a long 720p recording can land right at the 100MB edge
+  // — worth a heads-up before a slow mobile upload gets partway through.
+  const nearLimit = accepted.find((f) => isVideoFile(f) && f.size > MAX_VIDEO_BYTES * 0.8);
+  if (nearLimit) setJournalMediaStatus('Heads up: "' + nearLimit.name + '" is close to the 100MB video limit — it may take a while or fail on a slow connection.', '');
+
+  const progressWrap = document.getElementById('journalUploadProgressWrap');
+  if (progressWrap) progressWrap.classList.add('show');
+
+  const newImgs = [];
+  for (let i = 0; i < accepted.length; i++) {
+    const file = accepted[i];
+    try {
+      const result = await uploadFileToCloudinaryWithProgress(file, (frac) => {
+        updateJournalUploadProgress(i, accepted.length, file.name, frac);
+      });
+      newImgs.push({
+        id: 'jmedia_' + Date.now() + '_' + i,
+        type: result.resourceType, // 'image' or 'video', straight from Cloudinary
+        caption: '', // editable via the viewer's dropup panel, same as Trades/Strategy
+        source: 'cloudinary',
+        url: result.url,
+        publicId: result.publicId,
+        sizeKB: result.sizeKB,
+        name: file.name,
+      });
+    } catch (err) {
+      console.error('Journal media upload failed:', err);
+      const reason = (err && err.message) ? err.message : 'unknown error';
+      setJournalMediaStatus('Couldn\'t upload "' + file.name + '" — ' + reason + '.', 'error');
+    }
+  }
+
+  if (progressWrap) {
+    const fill = document.getElementById('journalUploadProgressFill');
+    if (fill) fill.style.width = '100%';
+    setTimeout(() => progressWrap.classList.remove('show'), 300);
+  }
+  if (!newImgs.length) return;
+
+  entry.media.push(...newImgs);
+  entry.updatedAt = Date.now();
+  const ok = await persistJournalEntry(entry);
+  if (!ok) {
+    entry.media = entry.media.filter((m) => !newImgs.includes(m)); // revert — don't show items as added when they never actually saved
+    setJournalMediaStatus('Failed to save — check your connection and try again.', 'error');
+    renderJournalMediaSection();
+    return;
+  }
+  setJournalMediaStatus('', '');
+  renderJournalMediaSection();
+}
+
+async function addJournalMediaFromUrl() {
+  const input = document.getElementById('journalMediaUrlInput');
+  if (!input) return;
+  const url = input.value.trim();
+  if (!url) return;
+  if (!journalEditingId) return;
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  if (!Array.isArray(entry.media)) entry.media = [];
+  if (entry.media.length >= MAX_JOURNAL_MEDIA) {
+    setJournalMediaStatus('Up to ' + MAX_JOURNAL_MEDIA + ' items per entry — remove one to add another.', 'error');
+    return;
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch (e) {
+    setJournalMediaStatus('That doesn\'t look like a valid link.', 'error');
+    return;
+  }
+  if (!/^https?:$/.test(parsed.protocol)) {
+    setJournalMediaStatus('Links need to start with http:// or https://', 'error');
+    return;
+  }
+  setJournalMediaStatus('Fetching…', '');
+  try {
+    const result = await uploadRemoteUrlToCloudinary(url);
+    // Can't know the size (or confirm it's actually within Cloudinary's own
+    // cap) until after it's already been fetched server-side — clean up the
+    // orphaned asset rather than leaving something oversized hosted for nothing.
+    const sizeCap = result.resourceType === 'video' ? MAX_VIDEO_BYTES : MAX_RAW_BYTES;
+    if (result.sizeKB * 1024 > sizeCap) {
+      deleteFromCloudinary(result.publicId, result.resourceType);
+      setJournalMediaStatus('That file is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit.', 'error');
+      return;
+    }
+    const newImg = { id: 'jmedia_' + Date.now(), type: result.resourceType, caption: '', source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
+    entry.media.push(newImg);
+    entry.updatedAt = Date.now();
+    const ok = await persistJournalEntry(entry);
+    if (!ok) {
+      entry.media = entry.media.filter((m) => m !== newImg); // revert
+      setJournalMediaStatus('Failed to save — check your connection and try again.', 'error');
+      return;
+    }
+    input.value = '';
+    setJournalMediaStatus('', '');
+    renderJournalMediaSection();
+  } catch (err) {
+    console.error('Remote fetch failed:', err);
+    const reason = (err && err.message) ? err.message : 'unknown error';
+    setJournalMediaStatus('Couldn\'t fetch that link — ' + reason + '.', 'error');
+  }
+}
+
+// Opens a journal entry's media in the same fullscreen zoom/pan/pinch viewer
+// as Trades/Strategy — video playback (native <video> controls) and the
+// dropup caption editor already work generically there off mediaType()/
+// mediaCaption(), so nothing viewer-side needed changing for Phase 4; this
+// reuses that component entirely via the onDelete/onReplace/onCaptionSave
+// contract, mirroring openViewerForTrade exactly (each entry is its own row,
+// so direct mutate-then-persistJournalEntry is safe, no re-fetch dance needed).
+function openViewerForJournal(index) {
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  if (!Array.isArray(entry.media)) entry.media = [];
+  openViewer(entry.media, index, {
+    editable: true,
+    onDelete: async (imgIndex) => {
+      const removedImg = entry.media[imgIndex];
+      entry.media.splice(imgIndex, 1);
+      entry.updatedAt = Date.now();
+      const ok = await persistJournalEntry(entry);
+      if (ok && removedImg && removedImg.source === 'cloudinary' && removedImg.publicId) deleteFromCloudinary(removedImg.publicId, mediaType(removedImg));
+      renderJournalMediaSection();
+      if (!ok) alert('Failed to delete this item — check your connection and try again.');
+    },
+    onReplace: async (imgIndex, newImg) => {
+      const oldImg = entry.media[imgIndex];
+      entry.media[imgIndex] = newImg;
+      entry.updatedAt = Date.now();
+      const ok = await persistJournalEntry(entry);
+      if (ok && oldImg && oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId, mediaType(oldImg));
+      renderJournalMediaSection();
+      if (!ok) alert('Failed to save the replacement — check your connection and try again.');
+    },
+    onCaptionSave: async (imgIndex, caption, imgId) => {
+      const img = entry.media.find((i) => i.id === imgId) || entry.media[imgIndex];
+      if (!img) return false;
+      img.caption = caption;
+      entry.updatedAt = Date.now();
+      const ok = await persistJournalEntry(entry);
+      if (!ok) console.error('Failed to autosave caption for journal entry', entry.id);
+      return ok;
+    },
+  });
 }
 
 // ================= CONFLUENCE MANAGER (persists in Supabase — table: confluences) =================
@@ -4502,7 +6010,7 @@ function openStrategyView(strategyId) {
   const gallery = images.length
     ? '<div class="trade-img-grid" style="margin-top:8px;">' +
         images.map((img, idx) =>
-          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', false)"><img src="' + img.url + '" alt="' + escapeHtml(s.name) + ' reference" /></div>'
+          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', false)"><img src="' + gridThumbSrc(img).replace(/"/g,'&quot;') + '" alt="' + escapeHtml(s.name) + ' reference" />' + mediaBadgesHtml(img) + '</div>'
         ).join('') +
       '</div>'
     : '<p class="sub" style="font-size:11px; margin:0;">No reference charts yet.</p>';
@@ -4540,7 +6048,7 @@ function openStrategyView(strategyId) {
 // for why it's not shown inline in the Settings list. previousScreenBeforeStrategyDetail
 // remembers which tab was active so "Back" can return there even if it wasn't Settings.
 let previousScreenBeforeStrategyDetail = 'settings';
-function openStrategyEditModal(strategyId) {
+async function openStrategyEditModal(strategyId) {
   const activeScreen = document.querySelector('.screen.active');
   if (activeScreen && activeScreen.id !== 'strategyDetail') previousScreenBeforeStrategyDetail = activeScreen.id;
   strategyNotesEditingId = null;
@@ -4553,6 +6061,15 @@ function openStrategyEditModal(strategyId) {
   if (saveBtn) saveBtn.textContent = 'Save & Back to ' + originLabel;
   renderStrategyEditModal();
   showScreen('strategyDetail', null);
+  // Journal Entries backlink (Phase 5) needs allJournalEntries — the Journal
+  // tab may never have been visited this session, so load it lazily here
+  // and re-render once it lands, rather than blocking the page from opening
+  // on it. Guard against the user having already navigated elsewhere by the
+  // time the fetch resolves.
+  if (!journalEntriesLoaded) {
+    await loadAllJournalEntries();
+    if (String(page.dataset.strategyId) === String(strategyId)) renderStrategyEditModal();
+  }
 }
 
 // Saves the notepad and closes the modal — this is the ONE point where Strategy notes
@@ -4658,27 +6175,57 @@ function renderStrategyEditModal() {
     '</div>' +
     '<div style="margin-top:16px;">' +
       '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Chart Gallery</label>' +
-      '<input type="file" id="strategyImageInput_' + s.id + '" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display:none;" onchange="handleStrategyImageSelect(event, ' + idArg + ')" />' +
+      '<input type="file" id="strategyImageInput_' + s.id + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleStrategyImageSelect(event, ' + idArg + ')" />' +
       ((s.images || []).length < MAX_STRATEGY_IMAGES
-        ? '<div class="upload-drop" style="padding:12px;" ' +
+        ? '<div class="upload-drop" style="padding:12px;" tabindex="0" data-strategy-image-drop="' + String(s.id) + '" ' +
             'onclick="document.getElementById(\'strategyImageInput_' + s.id + '\').click()" ' +
             'ondragover="event.preventDefault(); this.classList.add(\'dragover\');" ' +
             'ondragleave="this.classList.remove(\'dragover\');" ' +
             'ondrop="event.preventDefault(); this.classList.remove(\'dragover\'); handleStrategyImageSelect(event, ' + idArg + ');">' +
             '<div class="upload-icon" style="font-size:16px; margin-bottom:2px;">🖼</div>' +
-            '<div class="upload-label" style="font-size:11.5px;">Tap to add reference charts</div>' +
-            '<div class="upload-sub">Up to ' + MAX_STRATEGY_IMAGES + ' · PNG, JPG, WEBP, GIF</div>' +
+            '<div class="upload-label" style="font-size:11.5px;">Tap to add, drop, or paste (Ctrl+V) a chart or video</div>' +
+            '<div class="upload-sub">Up to ' + MAX_STRATEGY_IMAGES + ' · PNG, JPG, WEBP, GIF, MP4, MOV, WEBM</div>' +
+          '</div>' +
+          '<div class="url-paste-row">' +
+            '<input id="strategyImageUrlInput_' + s.id + '" placeholder="Or paste an image/video link…" onkeydown="if(event.key===\'Enter\'){event.preventDefault(); addStrategyImageFromUrl(' + idArg + ');}" />' +
+            '<button class="url-add-btn" onclick="addStrategyImageFromUrl(' + idArg + ')">Add</button>' +
           '</div>'
         : '<span class="muted" style="font-size:11px;">' + MAX_STRATEGY_IMAGES + '/' + MAX_STRATEGY_IMAGES + ' — remove one to add another.</span>') +
       '<div id="strategyImageStatus_' + s.id + '" class="extract-status"></div>' +
       '<div class="trade-img-grid" style="margin-top:8px;">' +
         (s.images || []).map((img, idx) =>
-          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', true)"><img src="' + img.url + '" alt="' + escapeHtml(s.name) + ' reference" />' +
+          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', true)"><img src="' + gridThumbSrc(img).replace(/"/g,'&quot;') + '" alt="' + escapeHtml(s.name) + ' reference" />' +
+            mediaBadgesHtml(img) +
             '<div class="trade-thumb-size">' + img.sizeKB + ' KB</div>' +
           '</div>'
         ).join('') +
       '</div>' +
+    '</div>' +
+    '<div style="margin-top:16px;">' +
+      '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Journal Entries</label>' +
+      journalEntriesSectionHtml(s.name) +
     '</div>';
+}
+
+// Roadmap Phase 5 backlink — derived, not stored: a Strategy's "promoted
+// from these ideas" list is a live lookup against allJournalEntries rather
+// than a second stored reference on the strategy, same reasoning the
+// roadmap gives for Trade backlinks (one source of truth, no sync risk).
+// Journal entries load lazily (openStrategyEditModal awaits
+// loadAllJournalEntries() the first time this page is opened this session),
+// so this can render before that finishes — shown as "Loading…" until then.
+function journalEntriesSectionHtml(strategyName) {
+  if (!journalEntriesLoaded) return '<span class="muted" style="font-size:11px;">Loading…</span>';
+  const linked = allJournalEntries.filter((e) => e.strategy === strategyName);
+  if (!linked.length) return '<span class="muted" style="font-size:11px;">No journal entries linked yet.</span>';
+  return linked.map((e) => {
+    const meta = JOURNAL_STATUS_META[e.status] || JOURNAL_STATUS_META.idea;
+    const eIdArg = escapeHtml(JSON.stringify(e.id));
+    return '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--bg); border-radius:6px; padding:8px 10px; margin-bottom:6px; cursor:pointer;" onclick="openJournalEntry(' + eIdArg + ')">' +
+      '<span style="font-size:12px;">' + escapeHtml(e.title || 'Untitled') + '</span>' +
+      '<span style="flex-shrink:0; font-size:10px; font-weight:600; padding:2px 8px; border-radius:999px; color:' + meta.color + '; border:1px solid ' + meta.color + ';">' + meta.label + '</span>' +
+    '</div>';
+  }).join('');
 }
 
 // Grows a textarea to fit its full content instead of scrolling inside a fixed-height
@@ -4915,6 +6462,17 @@ async function renameStrategy(id) {
     if (!ok) failedCount++;
   }
 
+  // Same cascade for Journal (Phase 5) — an entry's `strategy` field is the
+  // same plain-name convention as trade.strategy, so it needs the same
+  // rewrite or its "linked to <old name>" backlink would silently go stale.
+  await loadAllJournalEntries();
+  const affectedEntries = allJournalEntries.filter((e) => e.strategy === oldName);
+  let failedEntryCount = 0;
+  for (const e of affectedEntries) {
+    const ok = await updateJournalEntry(e.id, { strategy: newName });
+    if (!ok) failedEntryCount++;
+  }
+
   renderStrategyManagerList();
   renderStrategyEditModal();
   renderInsightsStrategySelectOptions();
@@ -4924,6 +6482,9 @@ async function renameStrategy(id) {
   if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
   if (failedCount > 0) {
     alert(failedCount + ' of ' + affected.length + ' trade(s) failed to update with the new strategy name — check your connection and try again for those.');
+  }
+  if (failedEntryCount > 0) {
+    alert(failedEntryCount + ' of ' + affectedEntries.length + ' journal entr' + (affectedEntries.length === 1 ? 'y' : 'ies') + ' failed to update with the new strategy name — check your connection and try again for those.');
   }
 }
 
@@ -4961,7 +6522,7 @@ async function deleteStrategy(id) {
   // above promises) — so its whole Chart Gallery goes with it. Clean up
   // every image that was in it, not just the confirm dialog's narrower claim.
   (freshStrategy.images || []).forEach((img) => {
-    if (img.source === 'cloudinary' && img.publicId) deleteFromCloudinary(img.publicId);
+    if (img.source === 'cloudinary' && img.publicId) deleteFromCloudinary(img.publicId, mediaType(img));
   });
   renderStrategyManagerList();
   // Navigate away rather than re-render — the strategy this page was showing no longer exists.
@@ -5621,6 +7182,57 @@ function setSaveTradeBanner(message, kind, code) {
   showTopBanner(message, kind, code);
 }
 
+// Brief win/loss color pulse on the Save Trade button right after a
+// successful save — purely cosmetic, skipped for 'pending' since there's no
+// outcome yet to celebrate/acknowledge. Removes any previous flash class
+// first so back-to-back saves (win then loss) always restart the animation
+// instead of silently no-op'ing because the class never changed.
+function flashSaveResult(result) {
+  const btn = document.getElementById('saveTradeBtn');
+  if (!btn || (result !== 'win' && result !== 'loss')) return;
+  btn.classList.remove('save-flash-win', 'save-flash-loss');
+  // Force a reflow so re-adding the same class after remove() still replays.
+  void btn.offsetWidth;
+  btn.classList.add(result === 'win' ? 'save-flash-win' : 'save-flash-loss');
+  btn.addEventListener('animationend', () => {
+    btn.classList.remove('save-flash-win', 'save-flash-loss');
+  }, { once: true });
+}
+
+// ---- celebrateNewRecord(message) — milestone/streak celebration (roadmap #9) ----
+// A one-off confetti burst plus a celebratory top banner, meant to fire only
+// when a caller has already determined something is a genuinely NEW record
+// (not just re-rendering an existing one) — see the bestWinStreak check in
+// renderStreaksCard() for the "was this just newly hit?" comparison this
+// depends on. This function itself is dumb: given a message, it always
+// celebrates once.
+//
+// Confetti pieces are plain divs, each given randomized horizontal drift
+// (--dx) and rotation (--rot) via inline style so the burst doesn't look
+// mechanically identical piece-to-piece. Skipped under prefers-reduced-motion
+// — the banner text alone still delivers the news without the motion.
+function celebrateNewRecord(message) {
+  showTopBanner(message, 'celebrate');
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colors = ['#EE82B3', '#F5A623', '#00C896', '#7C9EF5', '#B279B2'];
+  const overlay = document.createElement('div');
+  overlay.className = 'confetti-overlay';
+  for (let i = 0; i < 24; i++) {
+    const piece = document.createElement('div');
+    piece.className = 'confetti-piece';
+    piece.style.left = (Math.random() * 100) + 'vw';
+    piece.style.background = colors[i % colors.length];
+    piece.style.setProperty('--dx', (Math.random() * 160 - 80) + 'px');
+    piece.style.setProperty('--rot', (Math.random() * 360) + 'deg');
+    piece.style.animationDelay = (Math.random() * 250) + 'ms';
+    overlay.appendChild(piece);
+  }
+  document.body.appendChild(overlay);
+  // Longer than the 1.1s fall animation so every piece's forwards-filled end
+  // state is actually visible for a beat before the whole overlay vanishes.
+  setTimeout(() => overlay.remove(), 1600);
+}
+
 // Highlights the specific field a validation error refers to — red
 // border/focus/scroll-into-view — so the user's eye (and, for real inputs,
 // their keyboard) goes straight to what needs fixing instead of just
@@ -5678,7 +7290,14 @@ async function saveTrade() {
     highlightFieldError('highestRAtInput');
     return;
   }
-  const id = editingTradeId || ('trade_' + Date.now());
+  // ID collision fix: Date.now() alone is millisecond-precision, so two
+  // people saving a new trade under the same shared login in the same
+  // millisecond could generate the same id — and since this goes through
+  // upsert() below (not a plain insert), a collision would silently
+  // overwrite one trade with the other instead of erroring. The random
+  // suffix makes that collision astronomically unlikely without changing
+  // the readable 'trade_<timestamp>' shape the rest of the app expects.
+  const id = editingTradeId || ('trade_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   const targetRR = getTargetRR();
   const highestRR = isPending ? null : getHighestRR();
   const result = getTradeResult();
@@ -5754,8 +7373,9 @@ async function saveTrade() {
     const { error } = await supabaseClient.from('trades').upsert(tradeToRow(trade));
     if (error) throw error;
     setSyncState('synced');
-    droppedImages.forEach(img => deleteFromCloudinary(img.publicId));
+    droppedImages.forEach(img => deleteFromCloudinary(img.publicId, mediaType(img)));
     setSaveTradeBanner('✓ Trade saved.', 'success');
+    flashSaveResult(result);
     await loadAllTrades();
     if (document.getElementById('statTotalTrades')) {
       await refreshDashboardTradeSummary();
@@ -5883,7 +7503,7 @@ async function deleteTradeRecord(id) {
   }
   setSyncState('synced');
   ((trade && trade.images) || []).forEach(img => {
-    if (img.source === 'cloudinary' && img.publicId) deleteFromCloudinary(img.publicId);
+    if (img.source === 'cloudinary' && img.publicId) deleteFromCloudinary(img.publicId, mediaType(img));
   });
   await loadAllTrades();
   // Without this, the live Dashboard cards (Net P/L, Win Rate, streaks, By
@@ -6010,6 +7630,15 @@ function tradeMatchesDurationBucket(trade, bucket) {
   return true;
 }
 
+// Direction filter: trades default to 'buy' when unset (matches the toggle's
+// own default and how direction is rendered elsewhere), so an explicit
+// 'sell' value is required to match Sell.
+function tradeMatchesDirection(trade, direction) {
+  if (!direction) return true;
+  const tradeDir = trade.direction === 'sell' ? 'sell' : 'buy';
+  return tradeDir === direction;
+}
+
 function getFilteredTrades() {
   const pair = document.getElementById('filterPair').value;
   const model = document.getElementById('filterModel').value;
@@ -6021,6 +7650,7 @@ function getFilteredTrades() {
   const afterImg = document.getElementById('filterAfterImg').value;
   const highestRTime = document.getElementById('filterHighestRTime').value;
   const durationBucket = document.getElementById('filterDurationBucket').value;
+  const direction = document.getElementById('filterDirection').value;
   return allTrades.filter(t =>
     (!pair || t.pair === pair) &&
     (!model || t.model === model) &&
@@ -6032,6 +7662,7 @@ function getFilteredTrades() {
     tradeMatchesImageSlot(t, 'after', afterImg) &&
     tradeMatchesHighestRTime(t, highestRTime) &&
     tradeMatchesDurationBucket(t, durationBucket) &&
+    tradeMatchesDirection(t, direction) &&
     tradeMatchesSearchText(t, tradeSearchQuery)
   );
 }
@@ -6080,7 +7711,7 @@ function parseRRValue(rr) {
 }
 
 const TRADE_FILTER_IDS = ['filterPair', 'filterModel', 'filterConfluence', 'filterMonth', 'filterStrategy', 'filterOutcome',
-   'filterBeforeImg', 'filterAfterImg', 'filterHighestRTime', 'filterDurationBucket'];
+   'filterDirection', 'filterBeforeImg', 'filterAfterImg', 'filterHighestRTime', 'filterDurationBucket'];
 
 function clearTradeFilters() {
   TRADE_FILTER_IDS.forEach(id => document.getElementById(id).value = '');
@@ -6148,6 +7779,40 @@ function thumbSrc(img) {
   return (img && img.url) ? img.url : '';
 }
 
+// Roadmap Step 1: normalizes the shared media-item shape. Legacy entries saved
+// before this change have no .type/.caption — treat missing .type as 'image'
+// (the only kind that existed then) rather than requiring a data migration.
+// Steps 3–6 (thumbnails, viewer, dropup) should read through this instead of
+// checking .type directly, so old and new entries behave the same way.
+function mediaType(item) {
+  return (item && item.type === 'video') ? 'video' : 'image';
+}
+function mediaCaption(item) {
+  return (item && typeof item.caption === 'string') ? item.caption : '';
+}
+
+// Roadmap Step 3: Cloudinary generates a poster frame for any video URL just
+// by swapping the file extension for an image one — so_0 pins it to the very
+// first frame (rather than an arbitrary auto-picked one) for a consistent,
+// predictable thumbnail. Falls back to the plain url() for images.
+function videoPosterUrl(url) {
+  if (!url) return '';
+  return url.replace('/upload/', '/upload/so_0/').replace(/\.[a-zA-Z0-9]+(\?.*)?$/, '.jpg$1');
+}
+function gridThumbSrc(item) {
+  const src = thumbSrc(item);
+  return mediaType(item) === 'video' ? videoPosterUrl(src) : src;
+}
+// ▶ badge for video, 📝 dot for a saved caption — appended alongside the <img>
+// wherever a .trade-thumb is rendered, so grid/list/side-panel thumbs all show
+// the same overlays without duplicating the check-and-build logic per site.
+function mediaBadgesHtml(item) {
+  let out = '';
+  if (mediaType(item) === 'video') out += '<div class="trade-thumb-play">▶</div>';
+  if (mediaCaption(item)) out += '<div class="trade-thumb-caption-dot" title="Has notes">📝</div>';
+  return out;
+}
+
 // Trades tab list/grid badge. Milestone 4.4: same fix as classifyTrade() — reads
 // trade.result directly instead of re-scanning trade.outcomes (this had its own
 // "any win tag wins" bug independently of classifyTrade, since it didn't call it).
@@ -6183,8 +7848,45 @@ function computeTradeDuration(trade) {
   return ms;
 }
 
+// Builds the placeholder rows shown in the Trades list while the initial
+// loadAllTrades() fetch is still in flight — count is just enough to fill a
+// typical phone screen without over-rendering.
+function buildTradeListSkeleton(count) {
+  const row = '<div class="trade-row-skeleton">' +
+    '<div class="skeleton-block thumb"></div>' +
+    '<div class="skeleton-lines">' +
+      '<div class="skeleton-block line w60"></div>' +
+      '<div class="skeleton-block line w35"></div>' +
+      '<div class="skeleton-block line w80"></div>' +
+    '</div>' +
+  '</div>';
+  return row.repeat(count || 5);
+}
+
+// Journal Phase 8: same skeleton-row idea as buildTradeListSkeleton() above,
+// reusing the exact same .trade-row-skeleton/.skeleton-block CSS (no new
+// classes needed — the shimmer/sizing already reads fine for a journal card).
+function buildJournalListSkeleton(count) {
+  const row = '<div class="trade-row-skeleton">' +
+    '<div class="skeleton-block thumb"></div>' +
+    '<div class="skeleton-lines">' +
+      '<div class="skeleton-block line w60"></div>' +
+      '<div class="skeleton-block line w80"></div>' +
+      '<div class="skeleton-block line w35"></div>' +
+    '</div>' +
+  '</div>';
+  return row.repeat(count || 5);
+}
+
 async function renderTradeList() {
-  if (!allTrades.length) await loadAllTrades();
+  // First load only (allTrades still empty) — show a skeleton in place of
+  // the blank list while loadAllTrades() resolves, instead of nothing.
+  const isFirstLoad = !allTrades.length;
+  if (isFirstLoad && currentTradeView === 'list') {
+    const wrap = document.getElementById('tradeListWrap');
+    if (wrap) wrap.innerHTML = buildTradeListSkeleton();
+  }
+  if (isFirstLoad) await loadAllTrades();
   populateFilterOptions();
   const filtered = getFilteredTrades();
   document.getElementById('tradeCountNote').textContent =
@@ -6211,7 +7913,7 @@ async function renderTradeList() {
       const beforeImg = (t.images || []).find(i => i.slot === 'before' && i.url);
       const afterImg = (t.images || []).find(i => i.slot === 'after' && i.url);
       const slotThumb = (img, label) => '<div class="trade-row-thumb">' +
-        (img ? '<img src="' + thumbSrc(img).replace(/"/g,'&quot;') + '" />' : '<span class="trade-row-thumb-missing">' + label + '</span>') +
+        (img ? '<img src="' + gridThumbSrc(img).replace(/"/g,'&quot;') + '" />' : '<span class="trade-row-thumb-missing">' + label + '</span>') +
         '</div>';
       return '<div class="trade-row" onclick="openSidePanel(\'' + t.id + '\')">' +
         '<div class="trade-row-thumb-pair">' + slotThumb(beforeImg, 'B') + slotThumb(afterImg, 'A') + '</div>' +
@@ -6231,6 +7933,13 @@ async function renderTradeList() {
         '</div>' +
       '</div>';
     }).join('');
+    // Roadmap #6: stagger each row's fade/slide-in via inline animation-delay
+    // (capped at 20 rows' worth) — set here in JS rather than CSS nth-child
+    // since the row set is fully rebuilt on every filter/sort/search change.
+    wrap.querySelectorAll('.trade-row').forEach((row, i) => {
+      row.classList.add('trade-row-enter');
+      row.style.animationDelay = (Math.min(i, 20) * 15) + 'ms';
+    });
   } else {
     updateGridSlotToggle();
     const wrap = document.getElementById('tradeGridWrap');
@@ -6244,11 +7953,284 @@ async function renderTradeList() {
       return;
     }
     wrap.innerHTML = '<div class="screenshot-grid">' + allImages.map((entry, i) =>
-      '<div class="trade-thumb" onclick="openViewerFromGrid(' + i + ')"><img src="' + thumbSrc(entry.img).replace(/"/g,'&quot;') + '" />' +
+      '<div class="trade-thumb" onclick="openViewerFromGrid(' + i + ')"><img src="' + gridThumbSrc(entry.img).replace(/"/g,'&quot;') + '" />' +
+        mediaBadgesHtml(entry.img) +
         '<div class="trade-thumb-size">' + escapeHtml(entry.trade.pair || 'Unknown') + (entry.trade.date ? ' · ' + escapeHtml(entry.trade.date) : '') + '</div>' +
       '</div>'
     ).join('') + '</div>';
     window._gridImages = allImages;
+  }
+}
+
+// ================= WATCHLIST SHARE (PNG) =================
+// "Watchlist" = trades marked Pending (classifyTrade() 'unresolved'). Renders
+// them as a single branded PNG card via Canvas 2D — no html2canvas needed —
+// so the person can share it directly instead of stitching together screenshots.
+function loadImageAsync(src) {
+  return new Promise((resolve) => {
+    if (!src) { resolve(null); return; }
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null); // logo is decorative — never block export on it
+    img.src = src;
+  });
+}
+
+// Greedy word-wrap against a measuring context; caps at maxLines and adds an
+// ellipsis to the last line if the text doesn't fit (mirrors the notes
+// truncation pattern used elsewhere in the app).
+function wrapTextLines(ctx, text, font, maxWidth, maxLines) {
+  ctx.font = font;
+  const words = String(text).replace(/\s+/g, ' ').trim().split(' ');
+  const lines = [];
+  let line = '';
+  let wordIndex = 0;
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const test = line ? line + ' ' + w : w;
+    if (line && ctx.measureText(test).width > maxWidth) {
+      lines.push(line);
+      wordIndex = i;
+      line = w;
+      if (lines.length === maxLines) break;
+    } else {
+      line = test;
+      wordIndex = i + 1;
+    }
+  }
+  if (lines.length < maxLines && line) { lines.push(line); wordIndex = words.length; }
+  if (lines.length === maxLines && wordIndex < words.length) {
+    let last = lines[maxLines - 1];
+    while (last.length && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1).trim();
+    lines[maxLines - 1] = last + '…';
+  }
+  return lines;
+}
+
+// Wraps small pill badges across rows (like text-wrap, but for chips) so a
+// trade with many tags degrades to a second row instead of overflowing.
+function layoutBadgeRows(ctx, labels, font, maxWidth, padX, gap) {
+  ctx.font = font;
+  const rows = [[]];
+  let x = 0;
+  labels.forEach((label) => {
+    const w = ctx.measureText(label).width + padX * 2;
+    if (x > 0 && x + gap + w > maxWidth) {
+      rows.push([]);
+      x = 0;
+    }
+    const row = rows[rows.length - 1];
+    row.push({ label, width: w });
+    x += (row.length > 1 ? gap : 0) + w;
+  });
+  return rows;
+}
+
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+async function renderWatchlistPNG(trades) {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const palette = isLight
+    ? { bg: '#F1EEF7', surface2: '#EBE6F2', border: '#D9D2E6', text: '#191320', muted: '#635C72' }
+    : { bg: '#0B0E14', surface2: '#1B2030', border: '#242938', text: '#F7F8FA', muted: '#94A3B8' };
+  const win = '#00C896', loss = '#FF5C5C', brand = '#EE82B3';
+
+  const width = 720;
+  const padX = 24;
+  const contentW = width - padX * 2;
+  const cardPad = 16;
+  const cardGap = 12;
+
+  const measure = document.createElement('canvas').getContext('2d');
+  const pairFont = '700 15px "Space Grotesk", sans-serif';
+  const dirFont = '600 11px "JetBrains Mono", monospace';
+  const dateFont = '500 11px "JetBrains Mono", monospace';
+  const badgeFont = '500 11px "Inter", sans-serif';
+  const rrFont = '600 12.5px "JetBrains Mono", monospace';
+  const notesFont = '400 12.5px "Inter", sans-serif';
+
+  // Pre-compute per-card layout so we know the total canvas height up front.
+  const cards = trades.map((t) => {
+    const badgeLabels = [];
+    if (t.model) badgeLabels.push(t.model);
+    if (t.htf) badgeLabels.push(t.htf + ' POI');
+    if (t.poiType) badgeLabels.push(t.poiType);
+    if (t.session) badgeLabels.push(t.session);
+    const badgeRows = badgeLabels.length ? layoutBadgeRows(measure, badgeLabels, badgeFont, contentW - cardPad * 2, 8, 6) : [];
+    const notesLines = t.notes ? wrapTextLines(measure, t.notes, notesFont, contentW - cardPad * 2, 2) : [];
+
+    let h = cardPad; // top padding
+    h += 20; // pair + direction row
+    if (badgeRows.length) h += 6 + badgeRows.length * 22;
+    if (t.targetRR) h += 6 + 16;
+    if (notesLines.length) h += 8 + notesLines.length * 17;
+    h += cardPad; // bottom padding
+    return { trade: t, badgeRows, notesLines, height: h };
+  });
+
+  const headerH = 96;
+  const footerH = 40;
+  const totalCardsH = cards.reduce((s, c) => s + c.height, 0) + cardGap * Math.max(0, cards.length - 1);
+  const height = headerH + totalCardsH + footerH + padX;
+
+  const scale = 2; // export at 2x for crisp sharing on any screen
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.textBaseline = 'alphabetic';
+
+  // Background
+  ctx.fillStyle = palette.bg;
+  ctx.fillRect(0, 0, width, height);
+
+  // Header — logo, title, meta line
+  const logoImg = await loadImageAsync((document.querySelector('.brand img') || {}).src);
+  let titleX = padX;
+  if (logoImg) {
+    ctx.drawImage(logoImg, padX, 24, 32, 32);
+    titleX = padX + 32 + 10;
+  }
+  ctx.fillStyle = palette.text;
+  ctx.font = '700 20px "Space Grotesk", sans-serif';
+  ctx.fillText('Watchlist', titleX, 44);
+  ctx.fillStyle = brand;
+  ctx.font = '600 11.5px "Space Grotesk", sans-serif';
+  ctx.fillText('DANWAVES ANALYTICS', titleX, 59);
+
+  ctx.fillStyle = palette.muted;
+  ctx.font = '500 11.5px "JetBrains Mono", monospace';
+  const dateStr = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  const metaText = trades.length + ' trade' + (trades.length === 1 ? '' : 's') + ' pending · ' + dateStr;
+  ctx.fillText(metaText, padX, 82);
+
+  ctx.strokeStyle = palette.border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padX, headerH);
+  ctx.lineTo(width - padX, headerH);
+  ctx.stroke();
+
+  // Cards
+  let y = headerH + 12;
+  cards.forEach(({ trade: t, badgeRows, notesLines, height: cardH }) => {
+    roundRectPath(ctx, padX, y, contentW, cardH, 10);
+    ctx.fillStyle = palette.surface2;
+    ctx.fill();
+    ctx.strokeStyle = palette.border;
+    ctx.stroke();
+
+    let cy = y + cardPad;
+
+    // Pair + direction (left), date (right)
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = palette.text;
+    ctx.font = pairFont;
+    const pairLabel = t.pair || 'Unknown';
+    ctx.fillText(pairLabel, padX + cardPad, cy + 14);
+    const pairW = ctx.measureText(pairLabel).width;
+
+    const dir = (t.direction || '').toUpperCase();
+    if (dir) {
+      ctx.font = dirFont;
+      ctx.fillStyle = t.direction === 'sell' ? loss : win;
+      ctx.fillText(dir, padX + cardPad + pairW + 8, cy + 13);
+    }
+
+    ctx.font = dateFont;
+    ctx.fillStyle = palette.muted;
+    const dateLabel = t.date || '';
+    const dateW = ctx.measureText(dateLabel).width;
+    ctx.fillText(dateLabel, padX + contentW - cardPad - dateW, cy + 13);
+
+    cy += 20;
+
+    // Badges (model / POI / session), wrapped across rows
+    if (badgeRows.length) {
+      cy += 6;
+      badgeRows.forEach((row) => {
+        let bx = padX + cardPad;
+        row.forEach(({ label, width: bw }) => {
+          roundRectPath(ctx, bx, cy, bw, 18, 9);
+          ctx.fillStyle = palette.bg;
+          ctx.fill();
+          ctx.fillStyle = palette.muted;
+          ctx.font = badgeFont;
+          ctx.fillText(label, bx + 8, cy + 13);
+          bx += bw + 6;
+        });
+        cy += 22;
+      });
+    }
+
+    // Target R:R
+    if (t.targetRR) {
+      cy += 6;
+      ctx.font = rrFont;
+      ctx.fillStyle = palette.text;
+      ctx.fillText('Target ' + t.targetRR, padX + cardPad, cy + 12);
+      cy += 16;
+    }
+
+    // Notes (up to 2 lines)
+    if (notesLines.length) {
+      cy += 8;
+      ctx.font = notesFont;
+      ctx.fillStyle = palette.muted;
+      notesLines.forEach((line) => {
+        ctx.fillText(line, padX + cardPad, cy + 12);
+        cy += 17;
+      });
+    }
+
+    y += cardH + cardGap;
+  });
+
+  // Footer
+  ctx.textAlign = 'center';
+  ctx.fillStyle = palette.muted;
+  ctx.font = '500 10.5px "Inter", sans-serif';
+  ctx.fillText('Generated with Danwaves Analytics', width / 2, height - padX / 2);
+  ctx.textAlign = 'left';
+
+  return canvas.toDataURL('image/png');
+}
+
+async function shareWatchlistPNG() {
+  if (!allTrades.length) await loadAllTrades();
+  const watchlist = allTrades
+    .filter((t) => classifyTrade(t) === 'unresolved')
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (!watchlist.length) {
+    alert('Your watchlist is empty — mark a trade "Pending" and it\'ll show up here.');
+    return;
+  }
+
+  const btn = document.getElementById('shareWatchlistBtn');
+  if (btn) { btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
+  try {
+    const dataUrl = await renderWatchlistPNG(watchlist);
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = 'watchlist-' + new Date().toISOString().slice(0, 10) + '.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (e) {
+    console.error('Failed to generate watchlist image:', e);
+    alert('Could not generate the watchlist image — try again.');
+  } finally {
+    if (btn) { btn.style.opacity = ''; btn.style.pointerEvents = ''; }
   }
 }
 
@@ -6257,6 +8239,20 @@ function openViewerFromGrid(i) {
   openViewer(entries.map(e => e.img), i, {
     editable: false,
     trades: entries.map(e => e.trade),
+    // Roadmap Step 6: captions are editable "everywhere media appears," not
+    // gated by `editable` (that flag only governs Replace/Delete visibility)
+    // — each grid entry already carries its own trade, and a trade is its
+    // own row, so this is the same direct-write pattern as openViewerForTrade.
+    onCaptionSave: async (imgIndex, caption, imgId) => {
+      const entry = entries[imgIndex];
+      if (!entry || !entry.trade) return false;
+      const img = (entry.trade.images || []).find((im) => im.id === imgId) || entry.img;
+      if (!img) return false;
+      img.caption = caption;
+      const ok = await persistTrade(entry.trade);
+      if (!ok) console.error('Failed to autosave caption for trade', entry.trade.id);
+      return ok;
+    },
   });
 }
 
@@ -6267,7 +8263,7 @@ function viewerGoToTrade() {
   openSidePanel(trade.id);
 }
 
-function openSidePanel(id) {
+async function openSidePanel(id) {
   const trade = allTrades.find(t => t.id === id);
   if (!trade) return;
   const panel = document.getElementById('sidePanel');
@@ -6280,7 +8276,7 @@ function openSidePanel(id) {
         '<div class="trade-thumb" style="display:flex; align-items:center; justify-content:center; aspect-ratio:1;"><span class="sub" style="font-size:11px;">None</span></div></div>';
     }
     return '<div><div class="sub" style="font-size:10.5px; margin-bottom:4px;">' + label + '</div>' +
-      '<div class="trade-thumb" onclick="openViewerForTrade(\'' + trade.id + '\', ' + idx + ')"><img src="' + thumbSrc(tradeImgs[idx]).replace(/"/g,'&quot;') + '" /></div></div>';
+      '<div class="trade-thumb" onclick="openViewerForTrade(\'' + trade.id + '\', ' + idx + ')"><img src="' + gridThumbSrc(tradeImgs[idx]).replace(/"/g,'&quot;') + '" />' + mediaBadgesHtml(tradeImgs[idx]) + '</div></div>';
   };
   const thumbs = '<div style="display:flex; gap:10px;">' +
     '<div style="flex:1;">' + slotThumb(beforeIdx, 'Before') + '</div>' +
@@ -6317,11 +8313,42 @@ function openSidePanel(id) {
     '</div>' +
     '<h2 style="margin-top:10px;">Screenshots</h2>' +
     thumbs +
+    '<div style="margin-top:14px;">' +
+      '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Journal Origin</label>' +
+      journalOriginSectionHtml(trade.id) +
+    '</div>' +
     '<div style="display:flex; gap:8px; margin-top:20px;">' +
       '<button class="btn-primary" style="flex:1;" onclick="loadTradeIntoForm(\'' + trade.id + '\')">✎ Edit</button>' +
       '<button style="flex:1; padding:12px; background:rgba(255,92,92,0.1); border:1px solid var(--loss); border-radius:8px; color:var(--loss); font-weight:600; cursor:pointer;" onclick="deleteTradeFromList(\'' + trade.id + '\')">🗑 Delete</button>' +
     '</div>';
   document.getElementById('sidePanelOverlay').classList.add('show');
+  // Roadmap Phase 6 backlink — same lazy-load-then-re-render approach as the
+  // Strategy detail page's Journal Entries section: allJournalEntries may
+  // not be loaded yet this session, so fetch it now and refresh this panel
+  // once it lands rather than blocking the panel from opening on it.
+  if (!journalEntriesLoaded) {
+    await loadAllJournalEntries();
+    const stillOpen = document.getElementById('sidePanelOverlay').classList.contains('show');
+    if (stillOpen && allTrades.find(t => t.id === id) === trade) openSidePanel(id);
+  }
+}
+
+// Derived, not stored — a Trade's "originated from this idea" backlink is a
+// live lookup against allJournalEntries.linkedTradeIds rather than a second
+// stored reference on the trade, same reasoning the roadmap gives for the
+// Strategy backlink (one source of truth, no sync risk).
+function journalOriginSectionHtml(tradeId) {
+  if (!journalEntriesLoaded) return '<span class="muted" style="font-size:11px;">Loading…</span>';
+  const origins = allJournalEntries.filter((e) => (e.linkedTradeIds || []).includes(tradeId));
+  if (!origins.length) return '<span class="muted" style="font-size:11px;">Not linked to a journal entry.</span>';
+  return origins.map((e) => {
+    const meta = JOURNAL_STATUS_META[e.status] || JOURNAL_STATUS_META.idea;
+    const eIdArg = escapeHtml(JSON.stringify(e.id));
+    return '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; background:var(--bg); border-radius:6px; padding:8px 10px; margin-bottom:6px; cursor:pointer;" onclick="closeSidePanel(); openJournalEntry(' + eIdArg + ')">' +
+      '<span style="font-size:12px;">' + escapeHtml(e.title || 'Untitled') + '</span>' +
+      '<span style="flex-shrink:0; font-size:10px; font-weight:600; padding:2px 8px; border-radius:999px; color:' + meta.color + '; border:1px solid ' + meta.color + ';">' + meta.label + '</span>' +
+    '</div>';
+  }).join('');
 }
 
 function closeSidePanel() {
@@ -6337,7 +8364,7 @@ function openViewerForTrade(tradeId, index) {
       const removedImg = trade.images[imgIndex];
       trade.images.splice(imgIndex, 1);
       const ok = await persistTrade(trade);
-      if (ok && removedImg && removedImg.source === 'cloudinary' && removedImg.publicId) deleteFromCloudinary(removedImg.publicId);
+      if (ok && removedImg && removedImg.source === 'cloudinary' && removedImg.publicId) deleteFromCloudinary(removedImg.publicId, mediaType(removedImg));
       await loadAllTrades();
       openSidePanel(trade.id);
       if (!ok) alert('Failed to delete the screenshot — check your connection and try again.');
@@ -6346,10 +8373,24 @@ function openViewerForTrade(tradeId, index) {
       const oldImg = trade.images[imgIndex];
       trade.images[imgIndex] = newImg; // overwritten in the trade record — old Cloudinary asset is cleaned up below on success
       const ok = await persistTrade(trade);
-      if (ok && oldImg && oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId);
+      if (ok && oldImg && oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId, mediaType(oldImg));
       await loadAllTrades();
       openSidePanel(trade.id);
       if (!ok) alert('Failed to save the replacement screenshot — check your connection and try again.');
+    },
+    // Roadmap Step 6: a trade is its own row (unlike the strategy list below),
+    // so no re-fetch-before-write dance is needed — just write the caption
+    // onto this trade's own copy and upsert it. Deliberately skips
+    // loadAllTrades()/openSidePanel() re-render (unlike onDelete/onReplace
+    // above) so autosaving on blur doesn't visibly disrupt the viewer while
+    // you're still browsing.
+    onCaptionSave: async (imgIndex, caption, imgId) => {
+      const img = trade.images.find((i) => i.id === imgId) || trade.images[imgIndex];
+      if (!img) return false;
+      img.caption = caption;
+      const ok = await persistTrade(trade);
+      if (!ok) console.error('Failed to autosave caption for trade', trade.id);
+      return ok;
     },
   });
 }
@@ -6401,10 +8442,28 @@ function openViewerForStrategy(strategyId, index, editable) {
         renderStrategyEditModal();
         return;
       }
-      if (oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId);
+      if (oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId, mediaType(oldImg));
       renderStrategyManagerList();
       renderStrategyEditModal();
     } : undefined,
+    // Roadmap Step 6: strategies share ONE row (config: strategyList), so —
+    // same reasoning as onReplace above — re-fetch the real list right
+    // before writing to avoid clobbering a concurrent edit from another
+    // tab/device, then match by image id (not index).
+    onCaptionSave: async (imgIndex, caption, imgId) => {
+      await loadStrategyList();
+      if (!strategyListLoaded) { console.error('Could not confirm the latest strategy list before autosaving caption'); return false; }
+      const freshStrategy = strategyList.find((s) => s.id === strategyId);
+      if (!freshStrategy) return false;
+      const freshImg = (freshStrategy.images || []).find((i) => i.id === imgId);
+      if (!freshImg) return false;
+      freshImg.caption = caption;
+      const ok = await saveStrategyList();
+      if (!ok) { console.error('Failed to autosave caption for strategy', strategyId); return false; }
+      renderStrategyManagerList();
+      renderStrategyEditModal();
+      return true;
+    },
   });
 }
 
@@ -6413,6 +8472,8 @@ let viewerImages = [], viewerIndex = 0, viewerOpts = {};
 let viewerScale = 1, viewerX = 0, viewerY = 0;
 let viewerDragging = false, viewerDragStart = null;
 let viewerPinchDist = null, viewerPinchStartScale = 1;
+let viewerDropupOpen = false; // Roadmap Step 5
+let viewerCaptionDirty = false; // Roadmap Step 6
 
 function openViewer(images, index, opts) {
   if (!images || !images.length) return;
@@ -6423,24 +8484,124 @@ function openViewer(images, index, opts) {
   document.getElementById('viewerReplaceBtn').style.display = viewerOpts.editable ? 'flex' : 'none';
   document.getElementById('viewerDeleteBtn').style.display = viewerOpts.editable ? 'flex' : 'none';
   document.getElementById('viewerGoToTradeBtn').style.display = (viewerOpts.trades && viewerOpts.trades.length) ? 'flex' : 'none';
+  viewerDropupOpen = false; // Roadmap Step 5: start closed on every fresh open; stays as-is across next/prev within the session
+  updateViewerDropupUI();
   renderViewerImage();
   document.addEventListener('keydown', viewerKeyHandler);
 }
 
 function closeViewer() {
+  flushViewerCaption(); // Roadmap Step 6: don't lose an unsaved edit if the viewer closes before blur fires
   document.getElementById('viewerOverlay').style.display = 'none';
+  const videoEl = document.getElementById('viewerVideo');
+  videoEl.pause();
   document.removeEventListener('keydown', viewerKeyHandler);
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
 }
 
+// Roadmap Step 4: branches between the <img> and <video> elements based on the
+// item's type. Zoom/pan only makes sense for images — video gets its own
+// native controls (scrub bar, tap-to-play, pinch-to-fullscreen on most
+// browsers) — so those buttons hide and the pan/zoom transform is skipped
+// entirely while a video is showing (see initViewerGestures below).
 function renderViewerImage() {
   const img = viewerImages[viewerIndex];
-  document.getElementById('viewerImg').src = thumbSrc(img);
+  const isVideo = mediaType(img) === 'video';
+  const imgEl = document.getElementById('viewerImg');
+  const videoEl = document.getElementById('viewerVideo');
+  if (isVideo) {
+    videoEl.pause();
+    imgEl.style.display = 'none';
+    imgEl.removeAttribute('src');
+    videoEl.style.display = 'block';
+    videoEl.src = thumbSrc(img);
+    videoEl.load();
+  } else {
+    videoEl.pause();
+    videoEl.removeAttribute('src');
+    videoEl.style.display = 'none';
+    imgEl.style.display = 'block';
+    imgEl.src = thumbSrc(img);
+  }
+  ['viewerZoomInBtn', 'viewerZoomOutBtn', 'viewerResetZoomBtn'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = isVideo ? 'none' : 'flex';
+  });
   document.getElementById('viewerCounter').textContent = (viewerIndex + 1) + ' / ' + viewerImages.length;
-  viewerResetZoom();
+  // Roadmap Step 5: refresh the dropup textarea for whichever item is now
+  // showing — same panel, per-item content, works identically for image or
+  // video since it's keyed off the item, not the media type.
+  document.getElementById('viewerDropupTextarea').value = mediaCaption(img);
+  document.getElementById('viewerDropupSaveState').textContent = ''; // Roadmap Step 6: clear any stale "Saved"/"Saving…" left over from the previous item
+  viewerCaptionDirty = false;
+  if (!isVideo) viewerResetZoom();
+}
+
+// Roadmap Step 5: toggles the dropup open/closed and flips the tab's arrow.
+// Kept as a separate function from renderViewerImage so opening/closing
+// doesn't re-trigger image/video src changes.
+function toggleViewerDropup() {
+  viewerDropupOpen = !viewerDropupOpen;
+  if (!viewerDropupOpen) flushViewerCaption(); // Roadmap Step 6: closing the tab blurs the textarea in most browsers, but don't rely on it
+  updateViewerDropupUI();
+}
+function updateViewerDropupUI() {
+  document.getElementById('viewerDropup').classList.toggle('open', viewerDropupOpen);
+  document.getElementById('viewerDropupIcon').textContent = viewerDropupOpen ? '▼' : '▲';
+}
+// Roadmap Step 5: writes straight into the live item object (viewerImages[i]
+// is the same object reference the underlying trade/strategy array holds,
+// not a copy), so the write-up shows immediately if you reopen the viewer
+// or look at the thumbnail dot — no save/reload needed to see it locally.
+function onViewerCaptionInput() {
+  const img = viewerImages[viewerIndex];
+  if (!img) return;
+  img.caption = document.getElementById('viewerDropupTextarea').value;
+  viewerCaptionDirty = true;
+  document.getElementById('viewerDropupSaveState').textContent = '';
+}
+
+// Roadmap Step 6: autosave — fires on blur (tabbing/clicking away from the
+// textarea), not on every keystroke, so typing doesn't hammer Supabase with
+// a write per character.
+function onViewerCaptionBlur() {
+  flushViewerCaption();
+}
+
+// Roadmap Step 6: the actual write to Supabase, via whichever onCaptionSave
+// the current entry point supplied (openViewerForTrade / openViewerForStrategy
+// / openViewerFromGrid) — captures idx/img/caption synchronously before the
+// async call, so it's safe to fire-and-forget from viewerNav/closeViewer
+// without blocking navigation on the network round trip.
+function flushViewerCaption() {
+  if (!viewerCaptionDirty) return;
+  const idx = viewerIndex;
+  const img = viewerImages[idx];
+  viewerCaptionDirty = false;
+  if (!img || !viewerOpts.onCaptionSave) return;
+  const stateEl = document.getElementById('viewerDropupSaveState');
+  const isStillCurrent = () => viewerImages[viewerIndex] === img; // guards against updating the label after nav'ing away
+  if (isStillCurrent() && stateEl) stateEl.textContent = 'Saving…';
+  Promise.resolve(viewerOpts.onCaptionSave(idx, img.caption || '', img.id))
+    .then((ok) => {
+      if (!isStillCurrent() || !stateEl) return;
+      stateEl.textContent = ok === false ? 'Save failed' : 'Saved';
+    })
+    .catch((e) => {
+      console.error('Caption autosave failed:', e);
+      if (isStillCurrent() && stateEl) stateEl.textContent = 'Save failed';
+    });
+}
+
+// Roadmap Step 4: current-item type check used to gate pan/zoom gestures and
+// the download extension — kept as one small helper rather than repeating
+// `mediaType(viewerImages[viewerIndex]) === 'video'` at every call site.
+function viewerCurrentIsVideo() {
+  return mediaType(viewerImages[viewerIndex]) === 'video';
 }
 
 function viewerNav(delta) {
+  flushViewerCaption(); // Roadmap Step 6: save the item we're leaving before switching away from it
   viewerIndex = (viewerIndex + delta + viewerImages.length) % viewerImages.length;
   renderViewerImage();
 }
@@ -6463,6 +8624,14 @@ function viewerResetZoom() {
 
 function viewerKeyHandler(e) {
   if (document.getElementById('viewerOverlay').style.display === 'none') return;
+  // Roadmap Step 5: while typing a caption, don't let keystrokes double as
+  // viewer shortcuts (typing "-" zooming out, arrow keys jumping items,
+  // etc.) — Escape still works, but blurs the textarea first rather than
+  // closing the viewer, so one more Escape is needed to actually close.
+  if (document.activeElement && document.activeElement.id === 'viewerDropupTextarea') {
+    if (e.key === 'Escape') document.activeElement.blur();
+    return;
+  }
   if (e.key === 'Escape') closeViewer();
   else if (e.key === 'ArrowRight') viewerNav(1);
   else if (e.key === 'ArrowLeft') viewerNav(-1);
@@ -6479,17 +8648,21 @@ function viewerToggleFullscreen() {
 
 function viewerDownload() {
   const img = viewerImages[viewerIndex];
-  // Cloudinary-hosted images are cross-origin, so a plain <a download> link
-  // gets ignored by the browser (it just opens the image in a new tab
-  // instead of saving it). Fetch the bytes first, then download from a same-
-  // origin blob URL, which forces a real save.
-  fetch(thumbSrc(img))
+  // Cloudinary-hosted images/videos are cross-origin, so a plain <a download> link
+  // gets ignored by the browser (it just opens the file in a new tab instead of
+  // saving it). Fetch the bytes first, then download from a same-origin blob URL,
+  // which forces a real save. Extension comes from the actual file where possible
+  // (falls back to a type-appropriate default) rather than always assuming .jpg.
+  const src = thumbSrc(img);
+  const urlExt = (src.split('?')[0].match(/\.([a-zA-Z0-9]+)$/) || [])[1];
+  const ext = urlExt || (mediaType(img) === 'video' ? 'mp4' : 'jpg');
+  fetch(src)
     .then((r) => r.blob())
     .then((blob) => {
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = blobUrl;
-      a.download = (img.name || 'screenshot') + '.jpg';
+      a.download = (img.name || 'screenshot') + '.' + ext;
       a.click();
       URL.revokeObjectURL(blobUrl);
     })
@@ -6512,14 +8685,26 @@ function viewerReplace() {
   if (!viewerOpts.editable || !viewerOpts.onReplace) return;
   const input = document.createElement('input');
   input.type = 'file';
-  input.accept = 'image/png,image/jpeg,image/webp,image/gif';
+  input.accept = 'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v';
   input.onchange = async () => {
     const file = input.files[0];
     if (!file) return;
+    if (!isAcceptedFile(file)) { alert('Unsupported file type — use PNG, JPG, WEBP, GIF, MP4, MOV, or WEBM.'); return; }
+    const sizeCap = isVideoFile(file) ? MAX_VIDEO_BYTES : MAX_RAW_BYTES;
+    if (file.size > sizeCap) { alert('File is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit.'); return; }
     try {
       const result = await uploadFileToCloudinary(file);
-      const newImg = { id: 'img_' + Date.now(), source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: file.name };
       const idx = viewerIndex;
+      const newImg = {
+        id: 'img_' + Date.now(),
+        type: result.resourceType, // Roadmap Step 2/4: 'image' or 'video', straight from Cloudinary
+        caption: mediaCaption(viewerImages[idx]), // preserve the write-up across a replace, not just the slot
+        source: 'cloudinary',
+        url: result.url,
+        publicId: result.publicId,
+        sizeKB: result.sizeKB,
+        name: file.name,
+      };
       if (viewerImages[idx] && viewerImages[idx].slot) newImg.slot = viewerImages[idx].slot; // preserve Before/After tag on replace
       viewerOpts.onReplace(idx, newImg); // old screenshot is overwritten, never kept around
       viewerImages[idx] = newImg;
@@ -6531,10 +8716,13 @@ function viewerReplace() {
   input.click();
 }
 
-// Pan by dragging (mouse) + pinch/drag on touch
+// Pan by dragging (mouse) + pinch/drag on touch — skipped entirely when the
+// current viewer item is a video, since native video controls (scrub bar,
+// tap-to-play, etc.) need those same pointer events uncontested.
 (function initViewerGestures() {
   const stage = document.getElementById('viewerStage');
   stage.addEventListener('mousedown', (e) => {
+    if (viewerCurrentIsVideo()) return;
     viewerDragging = true;
     viewerDragStart = { x: e.clientX - viewerX, y: e.clientY - viewerY };
     stage.style.cursor = 'grabbing';
@@ -6547,10 +8735,14 @@ function viewerReplace() {
   });
   window.addEventListener('mouseup', () => { viewerDragging = false; stage.style.cursor = 'grab'; });
   stage.addEventListener('wheel', (e) => {
+    if (viewerCurrentIsVideo()) return;
     e.preventDefault();
     viewerZoom(e.deltaY < 0 ? 1.15 : 1/1.15);
   }, { passive: false });
-  stage.addEventListener('dblclick', () => viewerScale > 1 ? viewerResetZoom() : viewerZoom(2));
+  stage.addEventListener('dblclick', () => {
+    if (viewerCurrentIsVideo()) return;
+    viewerScale > 1 ? viewerResetZoom() : viewerZoom(2);
+  });
 
   function dist(touches) {
     const dx = touches[0].clientX - touches[1].clientX;
@@ -6558,6 +8750,7 @@ function viewerReplace() {
     return Math.hypot(dx, dy);
   }
   stage.addEventListener('touchstart', (e) => {
+    if (viewerCurrentIsVideo()) return;
     if (e.touches.length === 2) {
       viewerPinchDist = dist(e.touches);
       viewerPinchStartScale = viewerScale;
@@ -6567,6 +8760,7 @@ function viewerReplace() {
     }
   }, { passive: true });
   stage.addEventListener('touchmove', (e) => {
+    if (viewerCurrentIsVideo()) return;
     if (e.touches.length === 2 && viewerPinchDist) {
       const newDist = dist(e.touches);
       viewerScale = Math.min(6, Math.max(1, viewerPinchStartScale * (newDist / viewerPinchDist)));
@@ -7474,11 +9668,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const aiBtn = document.getElementById('aiPlayBtn');
     if (aiBtn) { aiBtn.textContent = '🔇 Voice unavailable'; aiBtn.disabled = true; aiBtn.title = "This browser doesn't support voice playback."; }
   }
-  const tradesReady = loadAllTrades().then(() => { populateFilterOptions(); renderPairSelectOptions(); refreshDashboardTradeSummary(); refreshWeeklyYoY(); refreshWeeklyTimeframe(); });
+  const tradesReady = loadAllTrades().then(() => { populateFilterOptions(); renderPairSelectOptions(); refreshDashboardTradeSummary(); refreshWeeklyYoY(); refreshWeeklyTimeframe(); renderJournalTradesSection(); });
   const confluencesReady = loadConfluenceList().then(() => { renderConfluenceManagerList(); renderConfluenceSuggestions(); renderConfluencePicker(); renderNewStrategyConfluencePicker(); renderAdvancedFilterOptions(); });
   const timeframesReady = loadTimeframeList().then(() => { renderTimeframeManagerList(); renderTimeframeSelects(); renderAdvancedFilterOptions(); populateWeeklyTimeframeHtfLtfSelects(); refreshWeeklyTimeframe(); });
   const poiTypesReady = loadPoiTypeList().then(() => { renderPoiTypeManagerList(); renderPoiTypeSelect(); });
-  const strategiesReady = loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderConfluencePicker(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); updateOnboardingBanner(); });
+  const strategiesReady = loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderConfluencePicker(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); updateOnboardingBanner(); renderJournalStrategySection(); });
   // Loader overlay stays up until every one of these has genuinely resolved —
   // not a fixed delay, so it never hides too early on a slow connection or
   // lingers too long on a fast one. minDisplay just avoids an instant flash
@@ -7697,6 +9891,7 @@ function renderInsightsCards() {
   renderPoiEntryPerformance(document.getElementById('poiEntryPerformanceBody'), analyzePoiEntryPerformance(insightsScopedTrades));
   renderSessionPerformance(analyzeSessionPerformance(insightsScopedTrades));
   renderDirectionPerformance(document.getElementById('directionPerformanceBody'), analyzeDirectionPerformance(insightsScopedTrades));
+  renderJournalOriginPerformance(document.getElementById('journalOriginPerformanceBody'), analyzeJournalOriginPerformance(insightsScopedTrades));
   renderStreaksCard(computeStreaks(insightsScopedTrades));
   renderBestPeriods(analyzeBestPeriods(insightsScopedTrades));
   renderBestDaysOfWeek(document.getElementById('bestDaysOfWeekBody'), analyzeBestDaysOfWeek(insightsScopedTrades));
@@ -8150,6 +10345,24 @@ function renderCompareEquityCurve() {
     };
   });
 
+  // Roadmap #8: a plain Chart.js line chart already animates its y-values
+  // in on load, but every point moves at once — it reads more like a
+  // "grow" than a hand-drawn line. This makes each point (across every
+  // dataset) reveal left-to-right in sequence instead, capped so a
+  // longer-than-usual trade history still finishes in ~1s rather than
+  // dragging out point-by-point. Standard Chart.js "progressive line"
+  // recipe: x gets a per-point delay so points appear in order; y is given
+  // the *previous* point's y as its animation start so the segment between
+  // them visibly draws rather than just fading in.
+  const maxPoints = Math.max(1, ...chartDatasets.map((ds) => ds.data.length));
+  const perPointDelay = Math.min(40, 900 / maxPoints);
+  const previousPointY = (ctx) => {
+    if (ctx.index === 0) return ctx.chart.scales.y.getPixelForValue(ctx.chart.data.datasets[ctx.datasetIndex].data[0]);
+    const meta = ctx.chart.getDatasetMeta(ctx.datasetIndex);
+    const prevPoint = meta.data[ctx.index - 1];
+    return prevPoint ? prevPoint.getProps(['y'], true).y : undefined;
+  };
+
   compareEquityChartInstance = new Chart(canvas, {
     type: 'line',
     data: { labels, datasets: chartDatasets },
@@ -8157,6 +10370,16 @@ function renderCompareEquityCurve() {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'nearest', intersect: false },
+      animation: {
+        x: {
+          type: 'number', easing: 'linear', duration: 400, from: NaN,
+          delay: (ctx) => (ctx.type === 'data' ? ctx.index * perPointDelay : 0),
+        },
+        y: {
+          type: 'number', easing: 'linear', duration: 0, from: previousPointY,
+          delay: (ctx) => (ctx.type === 'data' ? ctx.index * perPointDelay : 0),
+        },
+      },
       plugins: {
         legend: { display: true },
         tooltip: {
@@ -9993,9 +12216,49 @@ function renderRaceRowCrowns(profileRaceBars, leading) {
 // identical in spirit to renderRaceBars()'s formatting. When leading is
 // null (nothing eligible yet), the Leading Target / Net Profit cards fall
 // back to an em dash rather than showing a stale or misleading pick.
+// ---- animateStatNumber(el, endValue, formatFn, duration) ----
+// Roadmap #7: tweens a stat card's displayed number from whatever it
+// currently shows to endValue, instead of snapping via textContent =.
+// formatFn receives the in-progress numeric value each frame and returns
+// the string to display (so callers keep control of %, $, commas, sign,
+// etc. — this helper only owns the number itself).
+//
+// Starting point is parsed back out of the element's current text (strips
+// everything but digits/./-) rather than tracked in a separate variable,
+// so this works as a drop-in replacement at any existing `el.textContent =`
+// call site with no extra state to wire up. Falls back to 0 when nothing
+// parseable is there yet (first load, or a placeholder like "—") so first
+// paint still gets a count-up instead of just materializing.
+//
+// Respects prefers-reduced-motion, and cancels any still-running tween on
+// the same element first — refreshDashboardTradeSummary() can fire again
+// (rapid filter changes) before a previous animation finishes, and without
+// this two rAF loops would fight over the same textContent.
+function animateStatNumber(el, endValue, formatFn, duration) {
+  if (!el) return;
+  if (!isFinite(endValue)) { el.textContent = formatFn(endValue); return; }
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = formatFn(endValue);
+    return;
+  }
+  if (el._statAnimFrame) cancelAnimationFrame(el._statAnimFrame);
+  const parsed = parseFloat(String(el.textContent || '').replace(/[^0-9.-]/g, ''));
+  const startValue = isFinite(parsed) ? parsed : 0;
+  if (startValue === endValue) { el.textContent = formatFn(endValue); return; }
+  const dur = duration || 500;
+  const startTime = performance.now();
+  function tick(now) {
+    const progress = Math.min((now - startTime) / dur, 1);
+    const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+    el.textContent = formatFn(startValue + (endValue - startValue) * eased);
+    el._statAnimFrame = progress < 1 ? requestAnimationFrame(tick) : null;
+  }
+  el._statAnimFrame = requestAnimationFrame(tick);
+}
+
 function renderLeadingTargetBanner(elements, leading, totalTradesLogged) {
   if (elements.totalTrades) {
-    elements.totalTrades.textContent = totalTradesLogged;
+    animateStatNumber(elements.totalTrades, totalTradesLogged, (v) => Math.round(v).toString());
   }
 
   if (!leading) {
@@ -10011,7 +12274,8 @@ function renderLeadingTargetBanner(elements, leading, totalTradesLogged) {
   }
 
   if (elements.bestWinRate) {
-    elements.bestWinRate.textContent = leading.winRate === null ? '—' : Math.round(leading.winRate) + '%';
+    if (leading.winRate === null) elements.bestWinRate.textContent = '—';
+    else animateStatNumber(elements.bestWinRate, leading.winRate, (v) => Math.round(v) + '%');
   }
   if (elements.leadingLabel) {
     elements.leadingLabel.textContent = '🏆 Leading Target · ' + leading.riskProfile.label;
@@ -10024,7 +12288,7 @@ function renderLeadingTargetBanner(elements, leading, totalTradesLogged) {
   }
   if (elements.netProfitValue) {
     const sign = leading.netPL >= 0 ? '+' : '−';
-    elements.netProfitValue.textContent = sign + '$' + Math.round(Math.abs(leading.netPL)).toLocaleString('en-US');
+    animateStatNumber(elements.netProfitValue, Math.abs(leading.netPL), (v) => sign + '$' + Math.round(v).toLocaleString('en-US'));
     elements.netProfitValue.classList.toggle('win', leading.netPL >= 0);
     elements.netProfitValue.classList.toggle('loss', leading.netPL < 0);
   }
@@ -11133,23 +13397,23 @@ function toggleSeasonalNetPLSort(th, containerId, target, period) {
 // Accepts any Race table element (Standard or Conservative) and the
 // summarizeAccountTargets().targets object. Reads only the supplied summary
 // object — no engine calls, no buildAccountBalanceHistories(),
-// no calculateAccountBalanceEngine(), no calculation. Writes only: Trades
-// (from totalTrades), Balance (from balance), Profit (from profit), Loss
-// (from loss), Net P/L (from netPL), W / L (from wins/losses), Max DD
-// (from maxDrawdownPercent), and Status (from status, displayed exactly as
+// no calculateAccountBalanceEngine(), no calculation. Writes: Trades (from
+// totalTrades), Balance (from balance), Profit (from profit), Loss (from
+// loss), Net P/L (from netPL), W / L (from wins/losses), Win Rate (derived
+// from wins/losses, resolved trades only — "—" when none), Max DD (from
+// maxDrawdownPercent), and Status (from status, displayed exactly as
 // supplied). Balance, Profit, Loss, and Net P/L are formatted as
 // whole-dollar currency to match the table's existing style, e.g.
-// "$11,840". Win Rate and every other column, plus the race-row bars above
-// the table, are left untouched.
+// "$11,840". Every other column, plus the race-row bars above the table,
+// is left untouched.
 // ---- sortRaceDetailsTable(th) — click-to-sort for the Race Details table ----
 // Reads the clicked header's own column index, parses each row's existing
-// *displayed* cell text into a number (so sorting always matches what's
-// on screen, even for the Win Rate column which renderAccountRaceTable()
-// doesn't rewrite), and reorders the actual <tr> elements in the DOM.
-// Only moves rows — never touches cell content, so it composes cleanly
-// with renderAccountRaceTable(): a later dashboard refresh rewrites the
-// numbers in place without resetting whatever sort order is currently on
-// screen. Toggles asc/desc on repeat clicks of the same header; clicking a
+// *displayed* cell text into a number (so sorting always matches what's on
+// screen), and reorders the actual <tr> elements in the DOM. Only moves
+// rows — never touches cell content, so it composes cleanly with
+// renderAccountRaceTable(): a later dashboard refresh rewrites the numbers
+// in place without resetting whatever sort order is currently on screen.
+// Toggles asc/desc on repeat clicks of the same header; clicking a
 // different header resets to ascending and moves the arrow indicator.
 function sortRaceDetailsTable(th) {
   if (!th.classList.contains('sortable')) return;
@@ -11197,6 +13461,7 @@ function renderAccountRaceTable(tableElement, summaryTargets) {
   const lossIdx = rrHeaderIndex(tableElement, 'Loss');
   const netPLIdx = rrHeaderIndex(tableElement, 'Net P/L');
   const wlIdx = rrHeaderIndex(tableElement, 'W / L');
+  const winRateIdx = rrHeaderIndex(tableElement, 'Win Rate');
   const maxDDIdx = rrHeaderIndex(tableElement, 'Max DD');
   const statusIdx = rrHeaderIndex(tableElement, 'Status');
   tableElement.querySelectorAll('tbody tr').forEach(row => {
@@ -11238,6 +13503,19 @@ function renderAccountRaceTable(tableElement, summaryTargets) {
       );
     }
     rrSetCell(row, wlIdx, s.wins + ' / ' + s.losses);
+    // Win Rate: previously left as whatever the static demo row happened to
+    // be hardcoded with (e.g. "60.7%") — never recalculated from the real
+    // account's wins/losses, so it stayed stuck at the sample number
+    // forever regardless of actual trade data. Same "resolved trades only"
+    // rule as summarizeRaceBars()'s winRate (wins / (wins + losses)) — a
+    // trade still Pending has no result yet, so it's excluded from both
+    // sides of the ratio rather than silently counting as a loss. Shows
+    // "—" (not "0.0%") when there are no resolved trades yet, so an
+    // all-Pending account reads as "not enough data" rather than "0% win
+    // rate," which would misleadingly imply losing trades.
+    const resolvedTrades = s.wins + s.losses;
+    const winRate = resolvedTrades > 0 ? (s.wins / resolvedTrades) * 100 : null;
+    rrSetCell(row, winRateIdx, winRate === null ? '—' : winRate.toFixed(1) + '%');
     rrSetCell(row, maxDDIdx, s.maxDrawdownPercent.toFixed(1) + '%');
     // Max DD gets the same treatment for the same reason — it was also
     // stuck on its static demo class ("lead") no matter what the real
@@ -11668,6 +13946,57 @@ function renderDirectionPerformance(container, ranked) {
   )).join('');
 }
 
+// ---- Idea Hit-Rate (Phase 9) — exact same shape as Direction Performance
+// above (2 groups, same evaluateTradeAtInsightsTarget()-driven columns),
+// just grouped by journal origin instead of buy/sell. "Origin" is a live
+// lookup against allJournalEntries[*].linkedTradeIds rather than anything
+// stored on the trade — same "backlinks are derived, not stored" contract
+// as journalOriginSectionHtml() on the Trade side panel (Phase 6).
+function analyzeJournalOriginPerformance(trades) {
+  const target = getInsightsTarget();
+  const linkedTradeIds = new Set();
+  allJournalEntries.forEach((e) => (e.linkedTradeIds || []).forEach((id) => linkedTradeIds.add(id)));
+  const groups = {
+    fromIdea: { key: 'From Journal Idea', wins: 0, losses: 0, total: 0, winR: 0, lossR: 0, netR: 0 },
+    noOrigin: { key: 'No Journal Origin', wins: 0, losses: 0, total: 0, winR: 0, lossR: 0, netR: 0 },
+  };
+  (Array.isArray(trades) ? trades : []).forEach((t) => {
+    const ev = evaluateTradeAtInsightsTarget(t, target);
+    if (!ev) return;
+    const g = linkedTradeIds.has(t.id) ? groups.fromIdea : groups.noOrigin;
+    g.total++;
+    if (ev.win) { g.wins++; g.winR += ev.rValue; } else { g.losses++; g.lossR += Math.abs(ev.rValue); }
+    g.netR += ev.rValue;
+  });
+  return Object.values(groups)
+    .map((g) => ({ ...g, winRate: (g.wins + g.losses) ? (g.wins / (g.wins + g.losses)) * 100 : 0 }))
+    .filter((g) => g.total > 0)
+    .sort((a, b) => b.netR - a.netR);
+}
+
+function renderJournalOriginPerformance(container, ranked) {
+  if (!container) return;
+  if (!journalEntriesLoaded) {
+    container.innerHTML = '<tr><td colspan="7" class="muted mono" style="font-size:12px;">Loading…</td></tr>';
+    return;
+  }
+  if (!ranked.length) {
+    container.innerHTML = '<tr><td colspan="7" class="muted mono" style="font-size:12px;">Log a few trades at or above the selected target, then attach some to a Journal entry (Phase 6), to see this breakdown.</td></tr>';
+    return;
+  }
+  container.innerHTML = ranked.map((g, i) => (
+    '<tr>' +
+      '<td style="font-weight:600;' + (i === 0 ? ' color:var(--lead);' : '') + '">' + g.key + (i === 0 ? ' 🏆' : '') + '</td>' +
+      '<td class="mono">' + g.total + '</td>' +
+      '<td class="mono">' + g.wins + ' / ' + g.losses + '</td>' +
+      '<td class="mono ' + (g.winRate >= 50 ? 'win' : 'loss') + '">' + g.winRate.toFixed(1) + '%</td>' +
+      '<td class="mono win">' + fmtR(g.winR, false) + '</td>' +
+      '<td class="mono loss">' + fmtR(g.lossR, false) + '</td>' +
+      '<td class="mono ' + (g.netR >= 0 ? 'win' : 'loss') + '">' + fmtR(g.netR, true) + '</td>' +
+    '</tr>'
+  )).join('');
+}
+
 // ---- Streaks (reader — pure function, no DOM) ----
 // Same win/loss walk computeLiveStats() already does for the Dashboard's
 // Current Streak / Best Win Streak, extended with a Worst Loss Streak.
@@ -11697,6 +14026,13 @@ function computeStreaks(trades) {
   return { current, currentType, bestWinStreak: bestWin, worstLossStreak: worstLoss };
 }
 
+// Per-scope (target + pair filter + strategy filter) best-win-streak
+// baseline seen so far this session — see the celebration check in
+// renderStreaksCard() below. Deliberately in-memory only (resets on page
+// reload): this only needs to catch a record set during the current
+// session, not adjudicate history against a persisted high score.
+let bestWinStreakSeenByScope = {};
+
 // ---- Streaks: pure rendering only — writes to the Insights Streaks stat cards ----
 function renderStreaksCard(streaks) {
   const currentEl = document.getElementById('insightsCurrentStreak');
@@ -11708,8 +14044,22 @@ function renderStreaksCard(streaks) {
     if (streaks.currentType === 'win') currentEl.classList.add('win');
     else if (streaks.currentType === 'loss') currentEl.classList.add('loss');
   }
-  if (bestEl) bestEl.textContent = streaks.bestWinStreak;
-  if (worstEl) worstEl.textContent = streaks.worstLossStreak;
+  if (bestEl) {
+    // Roadmap #9: celebrate only a genuinely NEW record for this exact
+    // scope, not the pre-existing one on first view — keyed by
+    // target+pair+strategy since switching any of those can jump the
+    // number without a new streak actually having happened. The first time
+    // a given scope is ever seen this session, seenBefore is undefined, so
+    // it just records the baseline instead of firing on page load.
+    const scopeKey = getInsightsTarget() + '|' + (getInsightsPairFilter() || '') + '|' + (getInsightsStrategyFilter() || '');
+    const seenBefore = bestWinStreakSeenByScope[scopeKey];
+    if (seenBefore !== undefined && streaks.bestWinStreak > seenBefore) {
+      celebrateNewRecord('🔥 New best win streak: ' + streaks.bestWinStreak + ' in a row!');
+    }
+    bestWinStreakSeenByScope[scopeKey] = streaks.bestWinStreak;
+    animateStatNumber(bestEl, streaks.bestWinStreak, (v) => Math.round(v).toString());
+  }
+  if (worstEl) animateStatNumber(worstEl, streaks.worstLossStreak, (v) => Math.round(v).toString());
 }
 
 // ---- Confluence Combos: Pair + Strategy scoping ----
