@@ -1,4 +1,5 @@
-// POST { publicId: string } -> deletes that asset from Cloudinary.
+// POST { publicId: string, resourceType?: 'image'|'video' } -> deletes that
+// asset from Cloudinary.
 //
 // Uploads from the client use an UNSIGNED preset (see CLOUDINARY_UPLOAD_PRESET
 // in app.html) — that's fine for uploads, but Cloudinary's delete endpoint
@@ -17,6 +18,15 @@
 // is "this publicId no longer exists in Cloudinary," and it doesn't matter
 // whether that's because we just deleted it or because it was already gone
 // (e.g. a retry after a network blip on a previous attempt).
+//
+// Roadmap Step 4d: resourceType now selects which destroy endpoint gets hit
+// (image vs video) — Cloudinary treats these as separate asset namespaces,
+// so an asset uploaded as resource_type 'video' is never found (and never
+// actually deleted, silently) by the image/destroy endpoint. Defaults to
+// 'image' when the client doesn't send one, matching the old behavior for
+// anything uploaded before this field existed. Per Cloudinary's signed-
+// request rules, resource_type is deliberately NOT part of the signed
+// param string below (same as api_key and file) — only its URL path.
 
 const crypto = require('crypto');
 
@@ -36,6 +46,7 @@ exports.handler = async (event) => {
   if (!publicId || typeof publicId !== 'string') {
     return { statusCode: 400, body: JSON.stringify({ error: 'publicId (string) is required' }) };
   }
+  const resourceType = body.resourceType === 'video' ? 'video' : 'image';
 
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const apiKey = process.env.CLOUDINARY_API_KEY;
@@ -62,7 +73,7 @@ exports.handler = async (event) => {
   form.append('signature', signature);
 
   try {
-    const res = await fetch('https://api.cloudinary.com/v1_1/' + cloudName + '/image/destroy', {
+    const res = await fetch('https://api.cloudinary.com/v1_1/' + cloudName + '/' + resourceType + '/destroy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: form.toString(),
@@ -70,7 +81,7 @@ exports.handler = async (event) => {
     const data = await res.json().catch(() => ({}));
 
     if (!res.ok || (data.result !== 'ok' && data.result !== 'not found')) {
-      console.error('delete-image: Cloudinary destroy failed for', publicId, data);
+      console.error('delete-image: Cloudinary destroy failed for', publicId, '(' + resourceType + ')', data);
       return {
         statusCode: 502,
         body: JSON.stringify({ error: (data.error && data.error.message) || 'Cloudinary delete failed', result: data.result }),
