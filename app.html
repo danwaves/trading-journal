@@ -383,6 +383,21 @@
      badge so it never blocks the existing click-to-open-viewer behavior. */
   .trade-thumb-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); font-size: 20px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,0.7); pointer-events: none; }
   .trade-thumb-caption-dot { position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 50%; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--light); font-size: 9px; display: flex; align-items: center; justify-content: center; }
+  /* Roadmap Phase 11: shared image/video ID badge — sits under the remove (✕)
+     button when one is present (top:4px;right:4px, 20x20) so they never
+     overlap; when there's no remove button (read-only contexts) it just
+     shows alone in the same top-right corner. */
+  .trade-thumb-id-badge { position: absolute; top: 26px; right: 4px; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--muted); font-size: 8px; font-family: 'JetBrains Mono', monospace; padding: 1px 4px; border-radius: 4px; letter-spacing: 0.3px; pointer-events: none; }
+  /* Roadmap Phase 14: reorder handle — mirrors the id badge's left/right
+     symmetry (caption dot top-left, this sits below it; remove sits
+     top-right, id badge sits below that). Drag-and-drop itself works on the
+     whole thumbnail (draggable="true" on .trade-thumb) — this button is the
+     touch-friendly fallback that opens a "move to position" prompt. Only
+     rendered when there's more than one item to reorder against. */
+  .trade-thumb-reorder-btn { position: absolute; top: 26px; left: 4px; width: 18px; height: 18px; border-radius: 4px; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--light); font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .trade-thumb[draggable="true"] { cursor: grab; }
+  .trade-thumb.dragging { opacity: 0.4; }
+  .trade-thumb.drag-over { outline: 2px dashed var(--light); outline-offset: -2px; }
 
   /* Roadmap Step 5: fullscreen viewer dropup — tab always visible at the
      bottom edge, sliding the body up on toggle. Kept viewer-scoped rather
@@ -2092,6 +2107,7 @@
 <div id="viewerOverlay" style="display:none; position:fixed; inset:0; background:rgba(5,7,12,0.97); z-index:200; touch-action:none;">
   <div style="position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding:12px 16px; z-index:5; background:linear-gradient(rgba(5,7,12,0.8), transparent);">
     <span id="viewerCounter" class="mono muted" style="font-size:12px;"></span>
+    <span id="viewerMediaIdLabel" class="mono muted" style="font-size:11px; margin-left:8px; opacity:0.75;"></span>
     <div style="display:flex; gap:8px;">
       <div id="viewerZoomInBtn" class="icon-btn" onclick="viewerZoom(1.4)" title="Zoom in">＋</div>
       <div id="viewerZoomOutBtn" class="icon-btn" onclick="viewerZoom(1/1.4)" title="Zoom out">－</div>
@@ -2474,6 +2490,15 @@
       <div class="field">
         <label>Media <span class="muted" style="font-weight:400;">(optional — images or video)</span></label>
         <div id="journalMediaSection"></div>
+      </div>
+      <!-- Roadmap Phase 12: dated sub-notes nested under this entry — a
+           lightweight thread so a trade idea's story (entering, invalidated,
+           stopped out, etc.) can be built up over multiple days without
+           spawning separate unrelated journal entries. Same "locked until
+           the entry has an id" dependency as Media/Strategy/Trades above. -->
+      <div class="field">
+        <label>Updates <span class="muted" style="font-weight:400;">(optional — dated sub-notes under this entry)</span></label>
+        <div id="journalSubNotesSection"></div>
       </div>
       <!-- Roadmap Phase 5: link this idea to a Strategy, or promote it into a
            brand-new one. Locked until the entry has an id, same dependency
@@ -3391,12 +3416,27 @@ function renderImageGrid() {
     const grid = document.getElementById(slot === 'before' ? 'tradeImgGridBefore' : 'tradeImgGridAfter');
     if (!grid) return;
     grid.innerHTML = '';
-    imagesForSlot(slot).forEach(img => {
+    const slotImages = imagesForSlot(slot);
+    const total = slotImages.length;
+    const reorderKey = 'tradeSlot:' + slot;
+    slotImages.forEach((img, idx) => {
       const wrap = document.createElement('div');
       wrap.className = 'trade-thumb';
+      // Roadmap Phase 14: drag-and-drop reorder — built via addEventListener
+      // here (not inline on* attribute strings) since this grid is already
+      // assembled with document.createElement rather than string concat.
+      wrap.draggable = true;
+      wrap.dataset.reorderKey = reorderKey;
+      wrap.dataset.reorderIndex = String(idx);
+      wrap.addEventListener('dragstart', onMediaDragStart);
+      wrap.addEventListener('dragover', onMediaDragOver);
+      wrap.addEventListener('dragleave', onMediaDragLeave);
+      wrap.addEventListener('drop', onMediaDrop);
+      wrap.addEventListener('dragend', onMediaDragEnd);
       wrap.innerHTML =
         '<img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Trade screenshot" />' +
         mediaBadgesHtml(img) +
+        mediaReorderHandleHtml(reorderKey, idx, total) +
         '<div class="trade-thumb-remove" onclick="removeImage(\'' + img.id + '\')">✕</div>' +
         '<div class="trade-thumb-size">' + (img.sizeKB ? img.sizeKB + ' KB' : 'hosted') + '</div>';
       grid.appendChild(wrap);
@@ -3458,6 +3498,7 @@ async function handleFileSelect(event, slot) {
       const result = await uploadFileToCloudinary(accepted[i]);
       tradeImages.push({
         id: 'img_' + Date.now() + '_' + i,
+        displayId: nextMediaSeq(), // Roadmap Phase 11
         slot,
         type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
         caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
@@ -3506,6 +3547,7 @@ async function addImageFromUrl(slot) {
     const result = await uploadRemoteUrlToCloudinary(url);
     tradeImages.push({
       id: 'img_' + Date.now(),
+      displayId: nextMediaSeq(), // Roadmap Phase 11
       slot,
       type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
       caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
@@ -3564,7 +3606,7 @@ async function addStrategyImageFromUrl(strategyId) {
     const result = await uploadRemoteUrlToCloudinary(url);
     // type/caption match the tradeImages shape (Roadmap Step 1) — no `slot` here since
     // the strategy gallery is a flat list, not before/after.
-    const newImg = { id: 'simg_' + Date.now(), type: result.resourceType, caption: '', source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
+    const newImg = { id: 'simg_' + Date.now(), displayId: nextMediaSeq(), type: result.resourceType, caption: '', source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
     await loadStrategyList();
     if (!strategyListLoaded) {
       setStrategyImageStatus(strategyId, 'Could not confirm the latest strategy list — check your connection and try again.', 'error');
@@ -3689,6 +3731,7 @@ async function handleStrategyImageSelect(event, strategyId) {
       // the strategy gallery is a flat list, not before/after.
       const newImg = {
         id: 'simg_' + Date.now() + '_' + i,
+        displayId: nextMediaSeq(), // Roadmap Phase 11
         type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
         caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
         source: 'cloudinary',
@@ -4188,6 +4231,11 @@ async function loadAllTrades() {
     const trades = (data || []).map(rowToTrade);
     trades.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
     allTrades = trades;
+    // Roadmap Phase 11: legacy trades saved before display IDs existed get
+    // one assigned now, in memory only — the next time each trade is saved
+    // (an edit, an image add/remove, etc.) persists it, same convention as
+    // normalizeStrategyList() below.
+    allTrades.forEach((t) => backfillMediaDisplayIds(t.images));
   } catch (e) {
     console.error('Failed to load trades:', e);
     allTrades = [];
@@ -4228,6 +4276,7 @@ function journalEntryToRow(e) {
     strategy: e.strategy,
     linked_trade_ids: e.linkedTradeIds,
     media: e.media,
+    sub_notes: e.subNotes, // Roadmap Phase 12: nested dated updates, same array-of-objects storage as media
   };
 }
 
@@ -4244,6 +4293,7 @@ function rowToJournalEntry(r) {
     strategy: r.strategy || '',
     linkedTradeIds: r.linked_trade_ids || [],
     media: r.media || [],
+    subNotes: r.sub_notes || [], // Roadmap Phase 12
   };
 }
 
@@ -4263,6 +4313,8 @@ async function loadAllJournalEntries() {
       .order('updated_at', { ascending: false });
     if (error) throw error;
     allJournalEntries = (data || []).map(rowToJournalEntry);
+    // Roadmap Phase 11: same in-memory-only backfill as trades above.
+    allJournalEntries.forEach((e) => backfillMediaDisplayIds(e.media));
     journalEntriesLoaded = true;
   } catch (e) {
     // Real fetch error (network/auth hiccup) — leave whatever was already
@@ -4298,6 +4350,7 @@ async function createJournalEntry(fields) {
     strategy: fields.strategy || '',
     linkedTradeIds: fields.linkedTradeIds || [],
     media: fields.media || [],
+    subNotes: fields.subNotes || [], // Roadmap Phase 12
   };
   const ok = await persistJournalEntry(entry);
   if (!ok) return null;
@@ -4333,6 +4386,13 @@ async function deleteJournalEntry(id) {
   setSyncState('synced');
   ((entry && entry.media) || []).forEach((m) => {
     if (m.source === 'cloudinary' && m.publicId) deleteFromCloudinary(m.publicId, m.type);
+  });
+  // Roadmap Phase 12: sub-note media rides the same Cloudinary refs — clean
+  // those up too so deleting an entry never leaves orphaned assets behind.
+  ((entry && entry.subNotes) || []).forEach((sn) => {
+    (sn.media || []).forEach((m) => {
+      if (m.source === 'cloudinary' && m.publicId) deleteFromCloudinary(m.publicId, m.type);
+    });
   });
   allJournalEntries = allJournalEntries.filter((e) => e.id !== id);
   return true;
@@ -4435,9 +4495,19 @@ function renderJournalFilterOptions() {
   }
 }
 
+// Roadmap Phase 13: also searches media captions (top-level and inside
+// sub-notes), sub-note text, and both display-ID forms — previously only
+// title/body/pair were searchable, so a note living only on a media caption
+// or a sub-note was invisible to search.
 function journalMatchesSearchText(entry, query) {
   if (!query) return true;
-  const haystack = [entry.title, entry.body, entry.pair].filter(Boolean).join(' ').toLowerCase();
+  const haystack = [
+    entry.title,
+    entry.body,
+    entry.pair,
+    ...mediaListSearchTokens(entry.media),
+    ...(entry.subNotes || []).reduce((acc, sn) => acc.concat(sn.body || '', mediaListSearchTokens(sn.media)), []),
+  ].filter(Boolean).join(' ').toLowerCase();
   return haystack.includes(query);
 }
 
@@ -4602,6 +4672,7 @@ async function renderJournalList() {
 function openNewJournalEntry() {
   journalEditingId = null;
   journalFieldsDirty = false;
+  journalSubNoteDraft = ''; // Roadmap Phase 12: don't leak a draft between entries
   document.getElementById('journalTitleInput').value = '';
   document.getElementById('journalStatusInput').value = 'idea';
   document.getElementById('journalPairInput').value = '';
@@ -4612,6 +4683,7 @@ function openNewJournalEntry() {
   renderJournalMediaSection(); // Phase 3: shows the "save notes first" placeholder until this entry gets an id
   renderJournalStrategySection(); // Phase 5: same placeholder, until this entry gets an id
   renderJournalTradesSection(); // Phase 6: same placeholder, until this entry gets an id
+  renderJournalSubNotesSection(); // Phase 12: same placeholder, until this entry gets an id
   showScreen('journalEntry');
   document.getElementById('journalTitleInput').focus();
 }
@@ -4621,6 +4693,7 @@ function openJournalEntry(id) {
   if (!e) return;
   journalEditingId = id;
   journalFieldsDirty = false;
+  journalSubNoteDraft = ''; // Roadmap Phase 12: don't leak a draft between entries
   document.getElementById('journalTitleInput').value = e.title || '';
   document.getElementById('journalStatusInput').value = e.status || 'idea';
   document.getElementById('journalPairInput').value = e.pair || '';
@@ -4631,6 +4704,7 @@ function openJournalEntry(id) {
   renderJournalMediaSection(); // Phase 3: shows this entry's existing images (if any)
   renderJournalStrategySection(); // Phase 5: shows this entry's current Strategy link (if any)
   renderJournalTradesSection(); // Phase 6: shows this entry's attached trades (if any)
+  renderJournalSubNotesSection(); // Phase 12: shows this entry's existing sub-notes (if any)
   showScreen('journalEntry');
 }
 
@@ -4963,7 +5037,10 @@ async function detachTradeFromJournalEntry(tradeId) {
 // progress) replaces the old plain "Uploading…" status text for the same
 // reason — Trade/Strategy uploads stay on the simpler fetch-based
 // uploadFileToCloudinary() since their images are small and don't need it.
-const MAX_JOURNAL_MEDIA = 20;
+// Roadmap Phase 12: journal media is unlimited — removed the old
+// MAX_JOURNAL_MEDIA cap entirely (it was inherited from the base64/Supabase-
+// blob era; media is Cloudinary-hosted now, so there's no meaningful
+// localStorage bloat risk from letting this grow without bound).
 
 function setJournalMediaStatus(msg, cls) {
   const el = document.getElementById('journalMediaStatus');
@@ -5003,33 +5080,34 @@ function renderJournalMediaSection() {
   const entry = allJournalEntries.find((e) => e.id === journalEditingId);
   if (!entry) { container.innerHTML = ''; return; }
   if (!Array.isArray(entry.media)) entry.media = [];
-  const uploaderHtml = entry.media.length < MAX_JOURNAL_MEDIA
-    ? '<div class="upload-drop" style="padding:12px;" tabindex="0" data-journal-media-drop="true" ' +
-        'onclick="document.getElementById(\'journalMediaInput\').click()" ' +
-        'ondragover="event.preventDefault(); this.classList.add(\'dragover\');" ' +
-        'ondragleave="this.classList.remove(\'dragover\');" ' +
-        'ondrop="event.preventDefault(); this.classList.remove(\'dragover\'); handleJournalMediaSelect(event);">' +
-        '<div class="upload-icon" style="font-size:16px; margin-bottom:2px;">🖼</div>' +
-        '<div class="upload-label" style="font-size:11.5px;">Tap to add, drop, or paste (Ctrl+V) an image or video</div>' +
-        '<div class="upload-sub">Up to ' + MAX_JOURNAL_MEDIA + ' · PNG, JPG, WEBP, GIF, MP4, MOV, WEBM</div>' +
-      '</div>' +
-      '<div class="url-paste-row">' +
-        '<input id="journalMediaUrlInput" placeholder="Or paste an image/video link…" onkeydown="if(event.key===\'Enter\'){event.preventDefault(); addJournalMediaFromUrl();}" />' +
-        '<button class="url-add-btn" onclick="addJournalMediaFromUrl()">Add</button>' +
-      '</div>' +
-      '<div id="journalUploadProgressWrap" class="compress-progress-wrap">' +
-        '<div id="journalUploadProgressLabel" class="compress-progress-label">Uploading…</div>' +
-        '<div class="compress-progress-track"><div id="journalUploadProgressFill" class="compress-progress-fill"></div></div>' +
-      '</div>'
-    : '<span class="muted" style="font-size:11px;">' + MAX_JOURNAL_MEDIA + '/' + MAX_JOURNAL_MEDIA + ' — remove one to add another.</span>';
+  // Roadmap Phase 12: uploader is always shown now — no cap to hit.
+  const uploaderHtml =
+    '<div class="upload-drop" style="padding:12px;" tabindex="0" data-journal-media-drop="true" ' +
+      'onclick="document.getElementById(\'journalMediaInput\').click()" ' +
+      'ondragover="event.preventDefault(); this.classList.add(\'dragover\');" ' +
+      'ondragleave="this.classList.remove(\'dragover\');" ' +
+      'ondrop="event.preventDefault(); this.classList.remove(\'dragover\'); handleJournalMediaSelect(event);">' +
+      '<div class="upload-icon" style="font-size:16px; margin-bottom:2px;">🖼</div>' +
+      '<div class="upload-label" style="font-size:11.5px;">Tap to add, drop, or paste (Ctrl+V) an image or video</div>' +
+      '<div class="upload-sub">PNG, JPG, WEBP, GIF, MP4, MOV, WEBM</div>' +
+    '</div>' +
+    '<div class="url-paste-row">' +
+      '<input id="journalMediaUrlInput" placeholder="Or paste an image/video link…" onkeydown="if(event.key===\'Enter\'){event.preventDefault(); addJournalMediaFromUrl();}" />' +
+      '<button class="url-add-btn" onclick="addJournalMediaFromUrl()">Add</button>' +
+    '</div>' +
+    '<div id="journalUploadProgressWrap" class="compress-progress-wrap">' +
+      '<div id="journalUploadProgressLabel" class="compress-progress-label">Uploading…</div>' +
+      '<div class="compress-progress-track"><div id="journalUploadProgressFill" class="compress-progress-fill"></div></div>' +
+    '</div>';
   container.innerHTML =
     '<input type="file" id="journalMediaInput" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleJournalMediaSelect(event)" />' +
     uploaderHtml +
     '<div id="journalMediaStatus" class="extract-status"></div>' +
     '<div class="trade-img-grid" style="margin-top:8px;">' +
       entry.media.map((img, idx) =>
-        '<div class="trade-thumb" onclick="openViewerForJournal(' + idx + ')"><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Journal media" />' +
+        '<div class="trade-thumb" ' + mediaThumbDragAttrs('journalMedia', idx) + ' onclick="openViewerForJournal(' + idx + ')"><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Journal media" />' +
           mediaBadgesHtml(img) +
+          mediaReorderHandleHtml('journalMedia', idx, entry.media.length) +
           '<div class="trade-thumb-size">' + (img.sizeKB ? img.sizeKB + ' KB' : 'hosted') + '</div>' +
         '</div>'
       ).join('') +
@@ -5048,10 +5126,6 @@ async function handleJournalMediaSelect(event) {
 
   const accepted = [];
   for (const file of files) {
-    if (entry.media.length + accepted.length >= MAX_JOURNAL_MEDIA) {
-      setJournalMediaStatus('Up to ' + MAX_JOURNAL_MEDIA + ' items per entry — remove one to add another.', 'error');
-      break;
-    }
     if (!isAcceptedFile(file)) {
       setJournalMediaStatus('"' + file.name + '" isn\'t a supported type — use PNG, JPG, WEBP, GIF, MP4, MOV, or WEBM.', 'error');
       continue;
@@ -5082,6 +5156,7 @@ async function handleJournalMediaSelect(event) {
       });
       newImgs.push({
         id: 'jmedia_' + Date.now() + '_' + i,
+        displayId: nextMediaSeq(), // Roadmap Phase 11
         type: result.resourceType, // 'image' or 'video', straight from Cloudinary
         caption: '', // editable via the viewer's dropup panel, same as Trades/Strategy
         source: 'cloudinary',
@@ -5126,10 +5201,6 @@ async function addJournalMediaFromUrl() {
   const entry = allJournalEntries.find((e) => e.id === journalEditingId);
   if (!entry) return;
   if (!Array.isArray(entry.media)) entry.media = [];
-  if (entry.media.length >= MAX_JOURNAL_MEDIA) {
-    setJournalMediaStatus('Up to ' + MAX_JOURNAL_MEDIA + ' items per entry — remove one to add another.', 'error');
-    return;
-  }
   let parsed;
   try {
     parsed = new URL(url);
@@ -5153,7 +5224,7 @@ async function addJournalMediaFromUrl() {
       setJournalMediaStatus('That file is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit.', 'error');
       return;
     }
-    const newImg = { id: 'jmedia_' + Date.now(), type: result.resourceType, caption: '', source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
+    const newImg = { id: 'jmedia_' + Date.now(), displayId: nextMediaSeq(), type: result.resourceType, caption: '', source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
     entry.media.push(newImg);
     entry.updatedAt = Date.now();
     const ok = await persistJournalEntry(entry);
@@ -5215,7 +5286,248 @@ function openViewerForJournal(index) {
   });
 }
 
-// ================= CONFLUENCE MANAGER (persists in Supabase — table: confluences) =================
+// ================= JOURNAL SUB-NOTES (Roadmap Phase 12) =================
+// A lightweight dated thread nested under one journal entry — e.g. "entered",
+// "price hit my zone", "stopped out, here's why" — each with its own text and
+// optional media, so a trade idea's story stays under the original entry
+// instead of scattering across separate top-level entries. Sub-note media
+// reuses the exact same media-item shape/upload pipeline/viewer as top-level
+// journal media (mediaType()/mediaCaption()/mediaDisplayId() all work on it
+// unmodified) — only the storage location (entry.subNotes[i].media instead
+// of entry.media) differs. Unbounded, same philosophy as the top-level list.
+let journalSubNoteDraft = '';
+
+function setJournalSubNoteStatus(msg, cls) {
+  const el = document.getElementById('journalSubNoteStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'extract-status' + (cls ? ' ' + cls : '');
+}
+
+function journalSubNoteDateLabel(ts) {
+  if (!ts) return '';
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' · ' + new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+// Renders each existing sub-note (chronological, oldest first — reads like a
+// thread) plus the compose box for adding the next one. Media inside a
+// sub-note is only offered once the sub-note itself exists (mirrors the
+// "save notes first" dependency Media/Strategy/Trades have on the entry
+// itself existing) — a brand-new sub-note is created from the compose box's
+// text before any media can attach to it.
+function renderJournalSubNotesSection() {
+  const container = document.getElementById('journalSubNotesSection');
+  if (!container) return;
+  if (!journalEditingId) {
+    container.innerHTML = '<span class="muted" style="font-size:11px;">Save some notes above first, then add dated updates here.</span>';
+    return;
+  }
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) { container.innerHTML = ''; return; }
+  if (!Array.isArray(entry.subNotes)) entry.subNotes = [];
+
+  const notesHtml = entry.subNotes.length
+    ? entry.subNotes.map((sn) => journalSubNoteHtml(sn)).join('')
+    : '';
+
+  container.innerHTML =
+    notesHtml +
+    '<div style="background:var(--bg); border-radius:6px; padding:8px 10px;">' +
+      '<textarea id="journalSubNoteComposeInput" class="mono" style="width:100%; min-height:60px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:8px; color:var(--light); font-size:12.5px; resize:vertical;" ' +
+        'oninput="journalSubNoteDraft = this.value" ' +
+        'placeholder="Add a dated update — price hit my zone, stopped out, etc…">' + escapeHtml(journalSubNoteDraft) + '</textarea>' +
+      '<div style="display:flex; justify-content:flex-end; margin-top:6px;">' +
+        '<button class="url-add-btn" onclick="addJournalSubNote()">+ Post update</button>' +
+      '</div>' +
+    '</div>' +
+    '<div id="journalSubNoteStatus" class="extract-status"></div>';
+}
+
+function journalSubNoteHtml(sn) {
+  const media = Array.isArray(sn.media) ? sn.media : [];
+  const reorderKey = 'subNoteMedia:' + sn.id;
+  const mediaHtml = media.length
+    ? '<div class="trade-img-grid" style="margin-top:8px;">' +
+        media.map((img, idx) =>
+          '<div class="trade-thumb" ' + mediaThumbDragAttrs(reorderKey, idx) + ' onclick="openViewerForSubNote(\'' + sn.id + '\', ' + idx + ')"><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Update media" />' +
+            mediaBadgesHtml(img) +
+            mediaReorderHandleHtml(reorderKey, idx, media.length) +
+            '<div class="trade-thumb-size">' + (img.sizeKB ? img.sizeKB + ' KB' : 'hosted') + '</div>' +
+          '</div>'
+        ).join('') +
+      '</div>'
+    : '';
+  return '<div style="background:var(--bg); border-radius:6px; padding:8px 10px; margin-bottom:8px;">' +
+    '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">' +
+      '<span class="mono muted" style="font-size:10.5px;">' + escapeHtml(journalSubNoteDateLabel(sn.createdAt)) + '</span>' +
+      '<span class="muted" style="cursor:pointer; font-size:12px;" onclick="deleteJournalSubNote(\'' + sn.id + '\')" title="Delete update">✕</span>' +
+    '</div>' +
+    '<textarea class="mono" style="width:100%; min-height:44px; background:transparent; border:none; padding:6px 0 0; color:var(--light); font-size:12.5px; resize:vertical;" ' +
+      'onblur="onJournalSubNoteBodyBlur(\'' + sn.id + '\', this.value)">' + escapeHtml(sn.body || '') + '</textarea>' +
+    mediaHtml +
+    '<div style="margin-top:8px;">' +
+      '<div class="upload-drop" style="padding:8px;" tabindex="0" data-subnote-media-drop="' + sn.id + '" ' +
+        'onclick="document.getElementById(\'subNoteMediaInput_' + sn.id + '\').click()" ' +
+        'ondragover="event.preventDefault(); this.classList.add(\'dragover\');" ' +
+        'ondragleave="this.classList.remove(\'dragover\');" ' +
+        'ondrop="event.preventDefault(); this.classList.remove(\'dragover\'); handleSubNoteMediaSelect(event, \'' + sn.id + '\');">' +
+        '<div class="upload-label" style="font-size:10.5px;">Tap to add, drop, or paste an image or video</div>' +
+      '</div>' +
+      '<input type="file" id="subNoteMediaInput_' + sn.id + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleSubNoteMediaSelect(event, \'' + sn.id + '\')" />' +
+    '</div>' +
+  '</div>';
+}
+
+async function addJournalSubNote() {
+  if (!journalEditingId) return;
+  const input = document.getElementById('journalSubNoteComposeInput');
+  const body = input ? input.value.trim() : '';
+  if (!body) return; // mirrors the top-level entry: nothing is saved from an empty draft
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  if (!Array.isArray(entry.subNotes)) entry.subNotes = [];
+  const subNote = { id: 'jsub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), createdAt: Date.now(), body, media: [] };
+  const updated = [...entry.subNotes, subNote];
+  journalSubNoteDraft = '';
+  const ok = await updateJournalEntry(journalEditingId, { subNotes: updated });
+  if (!ok) { setJournalSubNoteStatus('Failed to save — check your connection and try again.', 'error'); return; }
+  setJournalSubNoteStatus('', '');
+  renderJournalSubNotesSection();
+}
+
+async function onJournalSubNoteBodyBlur(subNoteId, value) {
+  if (!journalEditingId) return;
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  const sn = (entry.subNotes || []).find((s) => s.id === subNoteId);
+  if (!sn || sn.body === value) return; // no-op if unchanged, same as other autosave-on-blur fields
+  sn.body = value;
+  entry.updatedAt = Date.now();
+  const ok = await persistJournalEntry(entry);
+  if (!ok) { setJournalSubNoteStatus('Failed to save — check your connection and try again.', 'error'); }
+}
+
+async function deleteJournalSubNote(subNoteId) {
+  if (!journalEditingId) return;
+  if (!confirm('Delete this update? This also removes any media attached to it.')) return;
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  const sn = (entry.subNotes || []).find((s) => s.id === subNoteId);
+  const remaining = (entry.subNotes || []).filter((s) => s.id !== subNoteId);
+  const ok = await updateJournalEntry(journalEditingId, { subNotes: remaining });
+  if (!ok) { setJournalSubNoteStatus('Failed to delete — check your connection and try again.', 'error'); return; }
+  ((sn && sn.media) || []).forEach((m) => {
+    if (m.source === 'cloudinary' && m.publicId) deleteFromCloudinary(m.publicId, m.type);
+  });
+  renderJournalSubNotesSection();
+}
+
+async function handleSubNoteMediaSelect(event, subNoteId) {
+  event.preventDefault && event.preventDefault();
+  const rawFiles = (event.dataTransfer && event.dataTransfer.files) || (event.target && event.target.files) || [];
+  const files = Array.from(rawFiles);
+  if (event.target) event.target.value = '';
+  if (!journalEditingId) return;
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  const sn = (entry.subNotes || []).find((s) => s.id === subNoteId);
+  if (!sn) return;
+  if (!Array.isArray(sn.media)) sn.media = [];
+
+  const accepted = [];
+  for (const file of files) {
+    if (!isAcceptedFile(file)) {
+      setJournalSubNoteStatus('"' + file.name + '" isn\'t a supported type — use PNG, JPG, WEBP, GIF, MP4, MOV, or WEBM.', 'error');
+      continue;
+    }
+    const sizeCap = isVideoFile(file) ? MAX_VIDEO_BYTES : MAX_RAW_BYTES;
+    if (file.size > sizeCap) {
+      setJournalSubNoteStatus('"' + file.name + '" is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit — use a smaller file.', 'error');
+      continue;
+    }
+    accepted.push(file);
+  }
+  if (!accepted.length) return;
+
+  const newImgs = [];
+  for (const file of accepted) {
+    try {
+      const result = await uploadFileToCloudinary(file);
+      newImgs.push({
+        id: 'jsubmedia_' + Date.now() + '_' + newImgs.length,
+        displayId: nextMediaSeq(),
+        type: result.resourceType,
+        caption: '',
+        source: 'cloudinary',
+        url: result.url,
+        publicId: result.publicId,
+        sizeKB: result.sizeKB,
+        name: file.name,
+      });
+    } catch (err) {
+      console.error('Sub-note media upload failed:', err);
+      const reason = (err && err.message) ? err.message : 'unknown error';
+      setJournalSubNoteStatus('Couldn\'t upload "' + file.name + '" — ' + reason + '.', 'error');
+    }
+  }
+  if (!newImgs.length) return;
+
+  sn.media.push(...newImgs);
+  entry.updatedAt = Date.now();
+  const ok = await persistJournalEntry(entry);
+  if (!ok) {
+    sn.media = sn.media.filter((m) => !newImgs.includes(m));
+    setJournalSubNoteStatus('Failed to save — check your connection and try again.', 'error');
+    renderJournalSubNotesSection();
+    return;
+  }
+  setJournalSubNoteStatus('', '');
+  renderJournalSubNotesSection();
+}
+
+// Reuses the same fullscreen viewer as top-level journal media — see
+// openViewerForJournal above for why this contract (onDelete/onReplace/
+// onCaptionSave) is safe to reuse as-is.
+function openViewerForSubNote(subNoteId, index) {
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  const sn = (entry.subNotes || []).find((s) => s.id === subNoteId);
+  if (!sn) return;
+  if (!Array.isArray(sn.media)) sn.media = [];
+  openViewer(sn.media, index, {
+    editable: true,
+    onDelete: async (imgIndex) => {
+      const removedImg = sn.media[imgIndex];
+      sn.media.splice(imgIndex, 1);
+      entry.updatedAt = Date.now();
+      const ok = await persistJournalEntry(entry);
+      if (ok && removedImg && removedImg.source === 'cloudinary' && removedImg.publicId) deleteFromCloudinary(removedImg.publicId, mediaType(removedImg));
+      renderJournalSubNotesSection();
+      if (!ok) alert('Failed to delete this item — check your connection and try again.');
+    },
+    onReplace: async (imgIndex, newImg) => {
+      const oldImg = sn.media[imgIndex];
+      sn.media[imgIndex] = newImg;
+      entry.updatedAt = Date.now();
+      const ok = await persistJournalEntry(entry);
+      if (ok && oldImg && oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId, mediaType(oldImg));
+      renderJournalSubNotesSection();
+      if (!ok) alert('Failed to save the replacement — check your connection and try again.');
+    },
+    onCaptionSave: async (imgIndex, caption, imgId) => {
+      const img = sn.media.find((i) => i.id === imgId) || sn.media[imgIndex];
+      if (!img) return false;
+      img.caption = caption;
+      entry.updatedAt = Date.now();
+      const ok = await persistJournalEntry(entry);
+      if (!ok) console.error('Failed to autosave caption for sub-note', sn.id);
+      return ok;
+    },
+  });
+}
+
+
 // The global managed list of confluence names — the source strategies pick
 // from (see confluenceIds on each strategy) and the editable chip list on
 // the Confluence Manager screen. New Trade no longer reads this list
@@ -5906,12 +6218,16 @@ async function loadStrategyList() {
 // every call site. Does not write back by itself — the next saveStrategyList()
 // (from any edit) persists the normalized shape.
 function normalizeStrategyList(list) {
-  return (Array.isArray(list) ? list : []).map((s) => ({
-    ...s,
-    notes: s.notes || '',
-    images: Array.isArray(s.images) ? s.images : [],
-    confluenceIds: Array.isArray(s.confluenceIds) ? s.confluenceIds : [],
-  }));
+  return (Array.isArray(list) ? list : []).map((s) => {
+    const images = Array.isArray(s.images) ? s.images : [];
+    backfillMediaDisplayIds(images); // Roadmap Phase 11: same in-memory-only backfill as trades/journal
+    return {
+      ...s,
+      notes: s.notes || '',
+      images,
+      confluenceIds: Array.isArray(s.confluenceIds) ? s.confluenceIds : [],
+    };
+  });
 }
 
 async function saveStrategyList() {
@@ -6194,8 +6510,9 @@ function renderStrategyEditModal() {
       '<div id="strategyImageStatus_' + s.id + '" class="extract-status"></div>' +
       '<div class="trade-img-grid" style="margin-top:8px;">' +
         (s.images || []).map((img, idx) =>
-          '<div class="trade-thumb" onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', true)"><img src="' + gridThumbSrc(img).replace(/"/g,'&quot;') + '" alt="' + escapeHtml(s.name) + ' reference" />' +
+          '<div class="trade-thumb" ' + mediaThumbDragAttrs('strategyImages:' + String(s.id), idx) + ' onclick="openViewerForStrategy(' + idArg + ', ' + idx + ', true)"><img src="' + gridThumbSrc(img).replace(/"/g,'&quot;') + '" alt="' + escapeHtml(s.name) + ' reference" />' +
             mediaBadgesHtml(img) +
+            mediaReorderHandleHtml('strategyImages:' + String(s.id), idx, (s.images || []).length) +
             '<div class="trade-thumb-size">' + img.sizeKB + ' KB</div>' +
           '</div>'
         ).join('') +
@@ -7680,6 +7997,8 @@ function debounce(fn, wait) {
   };
 }
 
+// Roadmap Phase 13: also searches this trade's image/video captions and
+// display IDs, same treatment as journalMatchesSearchText() above.
 function tradeMatchesSearchText(trade, query) {
   if (!query) return true;
   const haystack = [
@@ -7687,7 +8006,8 @@ function tradeMatchesSearchText(trade, query) {
     trade.model,
     trade.strategy,
     trade.notes,
-    ...(trade.confluences || [])
+    ...(trade.confluences || []),
+    ...mediaListSearchTokens(trade.images),
   ].filter(Boolean).join(' ').toLowerCase();
   return haystack.includes(query);
 }
@@ -7779,7 +8099,7 @@ function thumbSrc(img) {
   return (img && img.url) ? img.url : '';
 }
 
-// Roadmap Step 1: normalizes the shared media-item shape. Legacy entries saved
+// Roadmap Phase 11: normalizes the shared media-item shape. Legacy entries saved
 // before this change have no .type/.caption — treat missing .type as 'image'
 // (the only kind that existed then) rather than requiring a data migration.
 // Steps 3–6 (thumbnails, viewer, dropup) should read through this instead of
@@ -7789,6 +8109,70 @@ function mediaType(item) {
 }
 function mediaCaption(item) {
   return (item && typeof item.caption === 'string') ? item.caption : '';
+}
+
+// Roadmap Phase 11: one shared numeric sequence for every image/video ever
+// uploaded across Trades/Journal/Strategy — same tag for both images and
+// videos, so the highest number in use tells you total media ever uploaded,
+// not just "currently attached." There's no separate counter row anywhere:
+// Supabase is the single source of truth for the data itself (see TRADE
+// STORAGE / JOURNAL / STRATEGY MANAGER sections above), so "next" is derived
+// by scanning whatever media is currently loaded in memory rather than
+// trusting a local-only counter that could drift or collide across devices.
+let mediaSeqCounter = 0;
+function scannedMaxMediaSeq() {
+  let max = 0;
+  const scan = (list) => {
+    (list || []).forEach((m) => {
+      if (m && typeof m.displayId === 'number' && m.displayId > max) max = m.displayId;
+    });
+  };
+  allTrades.forEach((t) => scan(t.images));
+  allJournalEntries.forEach((e) => scan(e.media));
+  strategyList.forEach((s) => scan(s.images));
+  scan(tradeImages); // in-progress New Trade screen — not in allTrades until saved
+  return max;
+}
+// Call once per new upload to reserve the next number. Deliberately re-scans
+// (cheap — these lists are small and already fully in memory) and takes the
+// max against the running counter, so it stays correct even if another list
+// finishes loading later in the session with higher legacy numbers already
+// backfilled onto it.
+function nextMediaSeq() {
+  mediaSeqCounter = Math.max(mediaSeqCounter, scannedMaxMediaSeq()) + 1;
+  return mediaSeqCounter;
+}
+function formatMediaDisplayId(n) {
+  return (typeof n === 'number' && isFinite(n)) ? String(n).padStart(5, '0') : '';
+}
+function mediaDisplayId(item) {
+  return formatMediaDisplayId(item && item.displayId);
+}
+// Assigns a display ID to any media item that doesn't already have one.
+// Mutates in place, doesn't write back by itself — mirrors
+// normalizeStrategyList()'s convention: the next natural save of that record
+// (trade/entry/strategy) persists the backfilled numbers. Called once per
+// list right after it loads.
+function backfillMediaDisplayIds(list) {
+  (list || []).forEach((m) => {
+    if (m && typeof m.displayId !== 'number') m.displayId = nextMediaSeq();
+  });
+}
+
+// Roadmap Phase 13: flattens one media item's searchable text — its caption
+// plus both forms of its display ID ("00042" and "#00042") so typing either
+// finds it — for folding into journalMatchesSearchText()/tradeMatchesSearchText()
+// below. Shared here rather than duplicated per call site.
+function mediaSearchTokens(item) {
+  const tokens = [];
+  const cap = mediaCaption(item);
+  if (cap) tokens.push(cap);
+  const did = mediaDisplayId(item);
+  if (did) { tokens.push(did); tokens.push('#' + did); }
+  return tokens;
+}
+function mediaListSearchTokens(list) {
+  return (list || []).reduce((acc, m) => acc.concat(mediaSearchTokens(m)), []);
 }
 
 // Roadmap Step 3: Cloudinary generates a poster frame for any video URL just
@@ -7810,7 +8194,154 @@ function mediaBadgesHtml(item) {
   let out = '';
   if (mediaType(item) === 'video') out += '<div class="trade-thumb-play">▶</div>';
   if (mediaCaption(item)) out += '<div class="trade-thumb-caption-dot" title="Has notes">📝</div>';
+  // Roadmap Phase 11: visible, searchable ID — same badge style/position
+  // regardless of which screen the thumbnail is rendered on.
+  const did = mediaDisplayId(item);
+  if (did) out += '<div class="trade-thumb-id-badge" title="Media ID">#' + did + '</div>';
   return out;
+}
+
+// ================= MEDIA REORDER (Roadmap Phase 14) =================
+// One shared drag-and-drop + fallback mechanism for every editable media
+// grid in the app (trade before/after slots, journal media, journal
+// sub-note media, strategy chart gallery) — same reasoning as
+// mediaBadgesHtml()/mediaType() above: build it once here, call it from
+// each render site, instead of duplicating drag logic per screen.
+//
+// Each thumbnail wrapper gets draggable="true" plus a small "⋮" button
+// (mediaReorderHandleHtml) as a touch-friendly fallback that prompts for a
+// target position — useful since HTML5 drag-and-drop doesn't work well on
+// touch. "key" identifies which grid a drag belongs to (see the per-key
+// branches in applyMediaReorder below) so dragging never crosses between
+// two different grids on screen at once.
+let mediaDragKey = null;
+let mediaDragFromIndex = null;
+
+// Moves the item at fromIndex to sit at toIndex, in place. Shared by both
+// the drag-and-drop drop handler and the "⋮ → move to position" fallback.
+function moveMediaItem(list, fromIndex, toIndex) {
+  if (!Array.isArray(list)) return false;
+  if (fromIndex < 0 || fromIndex >= list.length) return false;
+  const clamped = Math.max(0, Math.min(toIndex, list.length - 1));
+  if (fromIndex === clamped) return false;
+  const [item] = list.splice(fromIndex, 1);
+  list.splice(clamped, 0, item);
+  return true;
+}
+
+function mediaThumbDragAttrs(key, index) {
+  return 'draggable="true" data-reorder-key="' + key + '" data-reorder-index="' + index + '" ' +
+    'ondragstart="onMediaDragStart(event)" ondragover="onMediaDragOver(event)" ' +
+    'ondragleave="onMediaDragLeave(event)" ondrop="onMediaDrop(event)" ondragend="onMediaDragEnd(event)"';
+}
+
+// Rendered only when there's more than one item — nothing to reorder against
+// with just one.
+function mediaReorderHandleHtml(key, index, total) {
+  if (total < 2) return '';
+  return '<div class="trade-thumb-reorder-btn" title="Move…" onclick="event.stopPropagation(); promptMediaReorder(\'' + key + '\', ' + index + ', ' + total + ');">⋮</div>';
+}
+
+function onMediaDragStart(event) {
+  const wrap = event.currentTarget;
+  mediaDragKey = wrap.dataset.reorderKey;
+  mediaDragFromIndex = parseInt(wrap.dataset.reorderIndex, 10);
+  event.dataTransfer.effectAllowed = 'move';
+  try { event.dataTransfer.setData('text/plain', String(mediaDragFromIndex)); } catch (e) { /* Firefox needs setData called; value itself is unused */ }
+  wrap.classList.add('dragging');
+}
+function onMediaDragOver(event) {
+  const wrap = event.currentTarget;
+  if (wrap.dataset.reorderKey !== mediaDragKey) return; // ignore drags wandering into a different grid
+  event.preventDefault(); // required to allow a drop at all
+  wrap.classList.add('drag-over');
+}
+function onMediaDragLeave(event) {
+  event.currentTarget.classList.remove('drag-over');
+}
+function onMediaDrop(event) {
+  event.preventDefault();
+  const wrap = event.currentTarget;
+  wrap.classList.remove('drag-over');
+  const key = wrap.dataset.reorderKey;
+  const fromIndex = mediaDragFromIndex;
+  const toIndex = parseInt(wrap.dataset.reorderIndex, 10);
+  mediaDragKey = null;
+  mediaDragFromIndex = null;
+  if (key === null || key === undefined || fromIndex === null || fromIndex === toIndex) return;
+  applyMediaReorder(key, fromIndex, toIndex);
+}
+function onMediaDragEnd(event) {
+  event.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.trade-thumb.drag-over').forEach((el) => el.classList.remove('drag-over'));
+  mediaDragKey = null;
+  mediaDragFromIndex = null;
+}
+
+// Touch/keyboard-accessible fallback for the "⋮" button — same destination
+// as a drag-and-drop drop, just reached by typing a position instead.
+function promptMediaReorder(key, index, total) {
+  const input = prompt('Move to position (1-' + total + '):', String(index + 1));
+  if (input === null) return; // cancelled
+  const n = parseInt(input, 10);
+  if (!Number.isFinite(n) || n < 1 || n > total) return;
+  applyMediaReorder(key, index, n - 1);
+}
+
+// Dispatches a reorder to the right backing array + persistence call for
+// whichever grid it came from. Reordering never touches Cloudinary, ids, or
+// display ids — only the array's order — so unlike delete/replace there's
+// no asset cleanup to worry about here.
+async function applyMediaReorder(key, fromIndex, toIndex) {
+  if (key === 'tradeSlot:before' || key === 'tradeSlot:after') {
+    const slot = key.split(':')[1];
+    // imagesForSlot() returns a filtered COPY, not a live view — reorder that
+    // copy, then write the new relative order back into tradeImages at the
+    // same positions this slot's items already occupied there, leaving the
+    // other slot's items exactly where they were.
+    const subset = imagesForSlot(slot);
+    if (!moveMediaItem(subset, fromIndex, toIndex)) return;
+    const positions = [];
+    tradeImages.forEach((img, i) => { if (img.slot === slot) positions.push(i); });
+    subset.forEach((img, i) => { tradeImages[positions[i]] = img; });
+    renderImageGrid();
+    return;
+  }
+  if (key === 'journalMedia') {
+    if (!journalEditingId) return;
+    const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+    if (!entry || !moveMediaItem(entry.media, fromIndex, toIndex)) return;
+    entry.updatedAt = Date.now();
+    const ok = await persistJournalEntry(entry);
+    if (!ok) setJournalMediaStatus('Failed to save the new order — check your connection and try again.', 'error');
+    renderJournalMediaSection();
+    return;
+  }
+  if (key.indexOf('subNoteMedia:') === 0) {
+    if (!journalEditingId) return;
+    const subNoteId = key.slice('subNoteMedia:'.length);
+    const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+    const sn = entry && (entry.subNotes || []).find((s) => s.id === subNoteId);
+    if (!sn || !moveMediaItem(sn.media, fromIndex, toIndex)) return;
+    entry.updatedAt = Date.now();
+    const ok = await persistJournalEntry(entry);
+    if (!ok) setJournalSubNoteStatus('Failed to save the new order — check your connection and try again.', 'error');
+    renderJournalSubNotesSection();
+    return;
+  }
+  if (key.indexOf('strategyImages:') === 0) {
+    const strategyId = key.slice('strategyImages:'.length);
+    const strategy = strategyList.find((s) => String(s.id) === strategyId);
+    if (!strategy || !moveMediaItem(strategy.images, fromIndex, toIndex)) return;
+    // Deliberately skips the reload-before-write dance removeStrategyImage()/
+    // onReplace above use — that guards against clobbering a concurrent
+    // delete/upload from another tab; a pure reorder can't lose anyone's
+    // data the same way, so a direct save here is enough.
+    const ok = await saveStrategyList();
+    if (!ok) setStrategyImageStatus(strategy.id, 'Failed to save the new order — check your connection and try again.', 'error');
+    renderStrategyEditModal();
+    return;
+  }
 }
 
 // Trades tab list/grid badge. Milestone 4.4: same fix as classifyTrade() — reads
@@ -8472,8 +9003,20 @@ let viewerImages = [], viewerIndex = 0, viewerOpts = {};
 let viewerScale = 1, viewerX = 0, viewerY = 0;
 let viewerDragging = false, viewerDragStart = null;
 let viewerPinchDist = null, viewerPinchStartScale = 1;
-let viewerDropupOpen = false; // Roadmap Step 5
+const VIEWER_DROPUP_OPEN_KEY = 'danwaves_viewer_dropup_open';
+// Roadmap Phase 10: persisted across sessions so the notes panel stays however
+// you last left it, instead of force-closing every time the viewer opens.
+let viewerDropupOpen = loadViewerDropupOpen();
 let viewerCaptionDirty = false; // Roadmap Step 6
+
+function loadViewerDropupOpen() {
+  try { return localStorage.getItem(VIEWER_DROPUP_OPEN_KEY) === '1'; }
+  catch (e) { return false; }
+}
+function saveViewerDropupOpen() {
+  try { localStorage.setItem(VIEWER_DROPUP_OPEN_KEY, viewerDropupOpen ? '1' : '0'); }
+  catch (e) { /* storage unavailable */ }
+}
 
 function openViewer(images, index, opts) {
   if (!images || !images.length) return;
@@ -8484,7 +9027,9 @@ function openViewer(images, index, opts) {
   document.getElementById('viewerReplaceBtn').style.display = viewerOpts.editable ? 'flex' : 'none';
   document.getElementById('viewerDeleteBtn').style.display = viewerOpts.editable ? 'flex' : 'none';
   document.getElementById('viewerGoToTradeBtn').style.display = (viewerOpts.trades && viewerOpts.trades.length) ? 'flex' : 'none';
-  viewerDropupOpen = false; // Roadmap Step 5: start closed on every fresh open; stays as-is across next/prev within the session
+  // Roadmap Phase 10: no longer force-closed here — viewerDropupOpen carries
+  // over from the last session (loaded via loadViewerDropupOpen() at startup)
+  // and across next/prev within the session, same as before.
   updateViewerDropupUI();
   renderViewerImage();
   document.addEventListener('keydown', viewerKeyHandler);
@@ -8528,6 +9073,11 @@ function renderViewerImage() {
     if (el) el.style.display = isVideo ? 'none' : 'flex';
   });
   document.getElementById('viewerCounter').textContent = (viewerIndex + 1) + ' / ' + viewerImages.length;
+  // Roadmap Phase 11: shows the shared image/video sequence number so this
+  // item can be found again via search (Phase 13) without opening the viewer.
+  const midLabel = document.getElementById('viewerMediaIdLabel');
+  const did = mediaDisplayId(img);
+  if (midLabel) midLabel.textContent = did ? ('#' + did) : '';
   // Roadmap Step 5: refresh the dropup textarea for whichever item is now
   // showing — same panel, per-item content, works identically for image or
   // video since it's keyed off the item, not the media type.
@@ -8543,6 +9093,7 @@ function renderViewerImage() {
 function toggleViewerDropup() {
   viewerDropupOpen = !viewerDropupOpen;
   if (!viewerDropupOpen) flushViewerCaption(); // Roadmap Step 6: closing the tab blurs the textarea in most browsers, but don't rely on it
+  saveViewerDropupOpen(); // Roadmap Phase 10: remember this choice for next time
   updateViewerDropupUI();
 }
 function updateViewerDropupUI() {
@@ -8697,6 +9248,7 @@ function viewerReplace() {
       const idx = viewerIndex;
       const newImg = {
         id: 'img_' + Date.now(),
+        displayId: nextMediaSeq(), // Roadmap Phase 11: a replace uploads a new Cloudinary asset, so it counts as new media and gets a fresh number
         type: result.resourceType, // Roadmap Step 2/4: 'image' or 'video', straight from Cloudinary
         caption: mediaCaption(viewerImages[idx]), // preserve the write-up across a replace, not just the slot
         source: 'cloudinary',
