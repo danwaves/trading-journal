@@ -894,6 +894,121 @@
   .screenshot-grid .trade-thumb { cursor: pointer; }
   .empty-state { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 16px; }
 
+  /* ===== Journal redesign — list cards, entry header, and the sub-note
+     timeline ("subfolder"). Kept on the app's existing tokens (surface/
+     border/brand, Space Grotesk + Inter + JetBrains Mono) rather than a
+     new palette, since this lives inside the same product. Signature
+     move: sub-notes are a dated log, so they get an actual connected
+     timeline rail instead of a plain stack of collapsible boxes — the
+     structure reflects that these are chronological, not reorderable. */
+
+  /* -- List cards -- */
+  .journal-card {
+    position: relative; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 14px 14px 18px; margin-bottom: 10px;
+    cursor: pointer; display: flex; gap: 12px; align-items: flex-start;
+    transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  }
+  .journal-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent, var(--border)); border-radius: 12px 0 0 12px;
+  }
+  .journal-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px -14px rgba(0,0,0,0.5); border-color: var(--accent, var(--border)); }
+  .journal-card:active { transform: translateY(0); box-shadow: none; }
+  .journal-card-thumb { width: 52px; height: 52px; flex-shrink: 0; border-radius: 10px; overflow: hidden; }
+  .journal-card-body { flex: 1; min-width: 0; }
+  .journal-card-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .journal-card-title { font-size: 13.5px; font-weight: 600; color: var(--light); line-height: 1.35; }
+  .journal-status-pill {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+    font-size: 10px; font-weight: 600; letter-spacing: .2px;
+    padding: 3px 9px 3px 7px; border-radius: 999px;
+    background: var(--accent-bg, var(--surface)); color: var(--accent, var(--muted));
+  }
+  .journal-status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent, var(--muted)); flex-shrink: 0; }
+  .journal-card-meta { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 10.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .journal-card-meta .meta-sep { opacity: .5; }
+  .journal-card-snippet {
+    font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  }
+
+  /* -- Rich empty state (truly-empty case only; the "no filter matches"
+     case keeps the plain .empty-state text — different message, not a
+     call to action). -- */
+  .journal-empty {
+    text-align: center; padding: 48px 20px; color: var(--muted);
+  }
+  .journal-empty-icon {
+    font-size: 30px; width: 60px; height: 60px; margin: 0 auto 14px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 16px; background: var(--surface2); border: 1px solid var(--border);
+  }
+  .journal-empty-title { font-family: 'Space Grotesk'; font-size: 15px; font-weight: 600; color: var(--light); margin-bottom: 4px; }
+  .journal-empty-sub { font-size: 12.5px; max-width: 280px; margin: 0 auto; line-height: 1.5; }
+
+  /* -- Journal Entry: refined section headers (Media/Updates/Strategy/
+     Trades) — same info as the old plain <label>, just with an icon and
+     a hairline rule so each section reads as its own block on a long
+     entry page. -- */
+  .journal-field-label {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 11.5px; font-weight: 600; color: var(--light);
+    text-transform: uppercase; letter-spacing: .4px;
+    margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  }
+  .journal-field-label .icon { font-size: 13px; }
+  .journal-field-label .hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); font-size: 11px; }
+  .journal-back-link {
+    display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+    font-size: 12.5px; color: var(--muted); margin-bottom: 14px;
+    padding: 6px 10px 6px 6px; border-radius: 8px;
+    transition: color .15s ease, background-color .15s ease, transform .15s ease;
+  }
+  .journal-back-link:hover { color: var(--light); background: var(--surface2); }
+  .journal-back-link:active { transform: translateX(-2px); }
+
+  /* -- Sub-note timeline ("Updates" / the subfolder) -- */
+  .journal-subnotes-timeline { position: relative; margin-bottom: 10px; }
+  .journal-subnotes-timeline::before {
+    content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px; width: 2px;
+    background: linear-gradient(var(--border), var(--border) 85%, transparent);
+  }
+  .journal-subnote { position: relative; padding-left: 32px; margin-bottom: 8px; }
+  .journal-subnote-dot {
+    position: absolute; left: 8px; top: 15px; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--border);
+    transition: border-color .2s ease, background-color .2s ease, box-shadow .2s ease;
+  }
+  .journal-subnote.has-media .journal-subnote-dot { background: var(--brand); border-color: var(--brand); }
+  .journal-subnote.expanded .journal-subnote-dot { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(238,130,179,0.18); }
+  .journal-subnote-card { background: var(--bg); border: 1px solid transparent; border-radius: 8px; padding: 8px 10px; transition: border-color .2s ease; }
+  .journal-subnote.expanded .journal-subnote-card { border-color: var(--border); }
+  .journal-subnote-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; }
+  .journal-subnote-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+  .journal-subnote-chevron { font-size: 9px; color: var(--muted); flex-shrink: 0; display: inline-block; transform: rotate(0deg); transition: transform .2s ease; }
+  .journal-subnote.expanded .journal-subnote-chevron { transform: rotate(90deg); color: var(--brand); }
+  .journal-subnote-date { font-size: 10.5px; color: var(--muted); flex-shrink: 0; }
+  .journal-subnote-summary { font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .journal-subnote.expanded .journal-subnote-summary { display: none; }
+  .journal-subnote-delete { color: var(--muted); cursor: pointer; font-size: 12px; flex-shrink: 0; padding: 4px; border-radius: 6px; transition: color .15s ease, background-color .15s ease; }
+  .journal-subnote-delete:hover { color: var(--loss); background: rgba(255,92,92,0.1); }
+  /* Smooth expand/collapse without measuring pixel heights: grid-rows
+     0fr -> 1fr animates cleanly and needs no JS height calculation, but
+     it only animates if the class flip happens on an already-mounted
+     node — see toggleJournalSubNote()'s direct classList.toggle(). */
+  .journal-subnote-body { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .22s ease, opacity .18s ease; }
+  .journal-subnote-body > div { overflow: hidden; min-height: 0; }
+  .journal-subnote.expanded .journal-subnote-body { grid-template-rows: 1fr; opacity: 1; }
+  .journal-subnote-textarea { width: 100%; min-height: 44px; background: transparent; border: none; padding: 8px 0 0; color: var(--light); font-size: 12.5px; resize: vertical; }
+  .journal-subnote-composer {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 10px;
+    margin-top: 4px;
+  }
+  .journal-subnote-composer-head { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+  .journal-subnote-composer textarea { width: 100%; min-height: 56px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px; color: var(--light); font-size: 12.5px; resize: vertical; }
+
+
   /* Every wide stats/history table sits inside an inline overflow-x:auto
      wrapper (23 of them, across History/Insights/Compare) — this catches
      all of them by attribute rather than needing a shared class on each.
@@ -973,17 +1088,28 @@
   <button class="app-tab is-hidden" onclick="showScreen('history', this); inheritDashboardFiltersToHistory(); restoreHistoryCardCollapseState(); refreshDashboardTradeSummary();">History</button>
   <div class="more-tab-wrapper is-hidden" id="moreTabWrapper">
     <button id="tabMore" class="app-tab is-hidden" onclick="toggleMoreMenu(event)">More ▾</button>
-    <div id="moreMenu" class="more-menu">
-      <button onclick="closeMoreMenu(); showScreen('compare', this); renderCompareTable();">Compare</button>
-      <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
-      <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal</button>
-      <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
-    </div>
   </div>
   <div class="sync-indicator is-hidden" id="syncIndicator" title="Data sync status">
     <span class="sync-dot"></span><span class="sync-label" id="syncLabel">Synced</span>
   </div>
   <button type="button" class="theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle light/dark theme">🌙</button>
+</div>
+<!-- #moreMenu lives outside .preview-tabs on purpose. iOS Safari (unlike
+     Chrome/desktop) treats a position:fixed descendant of a scrolling
+     ancestor (.preview-tabs has overflow-x:auto) as if it were contained
+     by that ancestor instead of the real viewport, so the dropdown could
+     end up positioned/clipped somewhere a finger can't reach even though
+     its 'open' class toggles correctly and it renders fine elsewhere.
+     Being a sibling of .preview-tabs instead of a descendant sidesteps
+     that entirely; toggleMoreMenu() still points it at the trigger button
+     via getBoundingClientRect(), and the outside-click handler below
+     matches on this element directly since it's no longer nested inside
+     #moreTabWrapper. -->
+<div id="moreMenu" class="more-menu">
+  <button onclick="closeMoreMenu(); showScreen('compare', this); renderCompareTable();">Compare</button>
+  <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
+  <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal</button>
+  <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
 </div>
 
 <!-- LOGIN -->
@@ -2453,7 +2579,7 @@
      so nothing is lost if you navigate away mid-thought; there's no separate
      "Save" button to remember to press. -->
 <div id="journalEntry" class="screen">
-  <a class="muted" style="display:inline-block; margin-bottom:14px; cursor:pointer; font-size:13px;" onclick="closeJournalEntry()">← Back</a>
+  <a class="journal-back-link" onclick="closeJournalEntry()">← Back</a>
   <div class="card">
     <div style="padding-top:0;">
       <div class="field">
@@ -2488,7 +2614,7 @@
            Locked until the entry has an id (first blur above creates it),
            same dependency Strategy's gallery has on the strategy existing. -->
       <div class="field">
-        <label>Media <span class="muted" style="font-weight:400;">(optional — images or video)</span></label>
+        <div class="journal-field-label"><span class="icon">🖼️</span>Media<span class="hint">— images or video</span></div>
         <div id="journalMediaSection"></div>
       </div>
       <!-- Roadmap Phase 12: dated sub-notes nested under this entry — a
@@ -2497,7 +2623,7 @@
            spawning separate unrelated journal entries. Same "locked until
            the entry has an id" dependency as Media/Strategy/Trades above. -->
       <div class="field">
-        <label>Updates <span class="muted" style="font-weight:400;">(optional — dated sub-notes under this entry)</span></label>
+        <div class="journal-field-label"><span class="icon">🕓</span>Updates<span class="hint">— dated sub-notes under this entry</span></div>
         <div id="journalSubNotesSection"></div>
       </div>
       <!-- Roadmap Phase 5: link this idea to a Strategy, or promote it into a
@@ -2505,14 +2631,14 @@
            the Media section above has on the entry existing — see
            renderJournalStrategySection()/promoteJournalEntryToStrategy(). -->
       <div class="field">
-        <label>Strategy <span class="muted" style="font-weight:400;">(optional)</span></label>
+        <div class="journal-field-label"><span class="icon">🎯</span>Strategy<span class="hint">— optional</span></div>
         <div id="journalStrategySection"></div>
       </div>
       <!-- Roadmap Phase 6: attach real Trades this idea led to. Locked until
            the entry has an id, same dependency as Media/Strategy above — see
            renderJournalTradesSection(). -->
       <div class="field">
-        <label>Trades <span class="muted" style="font-weight:400;">(optional — link the trades this idea led to)</span></label>
+        <div class="journal-field-label"><span class="icon">📈</span>Trades<span class="hint">— trades this idea led to</span></div>
         <div id="journalTradesSection"></div>
       </div>
       <button id="journalDeleteBtn" style="display:none; width:100%; padding:12px; margin-top:10px; background:rgba(255,92,92,0.1); border:1px solid var(--loss); border-radius:8px; color:var(--loss); font-weight:600; font-size:14px; cursor:pointer;" onclick="confirmDeleteJournalEntry()">🗑 Delete Entry</button>
@@ -2592,6 +2718,8 @@ function parseLocalDate(dateStr) {
   return datePart ? new Date(datePart[0] + 'T00:00:00') : new Date(dateStr);
 }
 
+let currentScreenId = null; // which screen is active — kept in sync by showScreen(), read by the mobile back-button handler
+
 function showScreen(id, btn) {
   // Auth gate (backlog #9): every screen but 'login' requires an active session.
   if (id !== 'login' && !isAuthenticated) {
@@ -2603,6 +2731,7 @@ function showScreen(id, btn) {
   if (typeof aiPlaying !== 'undefined' && aiPlaying && id !== 'insights') {
     stopAiPlayback();
   }
+  currentScreenId = id; // tracked for the mobile back-button handler below
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.preview-tabs button').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -2651,9 +2780,72 @@ function closeMoreMenu() {
 window.addEventListener('resize', closeMoreMenu);
 
 document.addEventListener('click', (e) => {
+  // #moreMenu is a sibling of #moreTabWrapper now (see the HTML comment by
+  // its markup), not a descendant, so both have to be checked here.
   const wrapper = document.getElementById('moreTabWrapper');
-  if (wrapper && !wrapper.contains(e.target)) closeMoreMenu();
+  const menu = document.getElementById('moreMenu');
+  const insideTrigger = wrapper && wrapper.contains(e.target);
+  const insideMenu = menu && menu.contains(e.target);
+  if (!insideTrigger && !insideMenu) closeMoreMenu();
 });
+
+// ================= MOBILE BACK BUTTON =================
+// This app never touched the History API, so the hardware/gesture back
+// button on mobile had nothing of ours to catch — it just exited the page.
+// Fix: keep exactly one extra history entry queued up while there's
+// something "back" could reasonably close. On popstate, check what's
+// actually open right now (the media viewer, the trade side panel, a
+// filter drawer, the More menu, the pair-rename modal, or a nested screen
+// like a Journal entry / Strategy detail) and undo just that one layer,
+// then queue a fresh guard entry so the next back press is caught too.
+// Once nothing is left open and we're already on a bare top-level screen
+// (or logged out), we stop intercepting and a further back press behaves
+// like a normal browser back (i.e. leaves the app), same as pressing back
+// at the root of any native app.
+function navGuardPush() {
+  history.pushState({ danwavesNavGuard: true }, '');
+}
+
+function handleMobileBackButton() {
+  const hasClass = (id, cls) => {
+    const el = document.getElementById(id);
+    return !!(el && el.classList.contains(cls));
+  };
+  const viewerEl = document.getElementById('viewerOverlay');
+
+  if (viewerEl && viewerEl.style.display === 'block') {
+    closeViewer();
+  } else if (hasClass('sidePanelOverlay', 'show')) {
+    closeSidePanel();
+  } else if (hasClass('pairModal', 'show')) {
+    closePairModal();
+  } else if (hasClass('moreMenu', 'open')) {
+    closeMoreMenu();
+  } else if (hasClass('filtersBody', 'open')) {
+    toggleFilters();
+  } else if (hasClass('tradeFiltersBody', 'open')) {
+    toggleTradeFilters();
+  } else if (hasClass('journalFiltersBody', 'open')) {
+    toggleJournalFilters();
+  } else if (currentScreenId === 'journalEntry') {
+    closeJournalEntry();
+  } else if (currentScreenId === 'strategyDetail') {
+    closeStrategyEditModal();
+  } else if (currentScreenId && currentScreenId !== 'dashboard' && currentScreenId !== 'login' && isAuthenticated) {
+    showScreen('dashboard', document.querySelector('.preview-tabs button.app-tab'));
+  } else {
+    return false; // nothing left of ours to close — let the browser handle this back press natively
+  }
+  return true;
+}
+
+window.addEventListener('popstate', () => {
+  if (handleMobileBackButton()) navGuardPush();
+});
+
+function initMobileBackButton() {
+  navGuardPush();
+}
 
 // ================= SYNC INDICATOR (item #6) =================
 // Global, always-visible signal of whether data is actually reaching
@@ -4414,11 +4606,11 @@ let journalSearchQuery = '';
 const JOURNAL_FILTER_IDS = ['filterJournalPair', 'filterJournalStrategy', 'filterJournalHasImage', 'filterJournalHasVideo'];
 
 const JOURNAL_STATUS_META = {
-  idea:        { label: 'Idea',        color: 'var(--lead)' },
-  watching:    { label: 'Watching',    color: 'var(--brand)' },
-  promoted:    { label: 'Promoted',    color: 'var(--win)' },
-  invalidated: { label: 'Invalidated', color: 'var(--loss)' },
-  archived:    { label: 'Archived',    color: 'var(--muted)' },
+  idea:        { label: 'Idea',        color: 'var(--lead)',  hex: '#F5A623', bg: 'rgba(245,166,35,0.14)' },
+  watching:    { label: 'Watching',    color: 'var(--brand)', hex: '#EE82B3', bg: 'rgba(238,130,179,0.14)' },
+  promoted:    { label: 'Promoted',    color: 'var(--win)',   hex: '#00C896', bg: 'rgba(0,200,150,0.14)' },
+  invalidated: { label: 'Invalidated', color: 'var(--loss)',  hex: '#FF5C5C', bg: 'rgba(255,92,92,0.14)' },
+  archived:    { label: 'Archived',    color: 'var(--muted)', hex: '#94A3B8', bg: 'rgba(148,163,184,0.14)' },
 };
 
 function setJournalStatusFilter(value) {
@@ -4625,12 +4817,17 @@ async function renderJournalList() {
   );
 
   if (!entries.length) {
-    // Phase 8: reuses the same .empty-state block Trades/Screenshots already
-    // use, instead of a plain muted span, so all three empty states look and
-    // space themselves identically.
-    container.innerHTML = '<div class="empty-state">'
-      + (anyFilterActive ? 'No entries match these filters.' : 'No journal entries yet — tap "+ New Entry" to log your first idea.')
-      + '</div>';
+    // Phase 8 (baseline)/redesign: a filtered-empty result keeps the plain
+    // text state (it's a "narrow your filters" message, not an invitation
+    // to act) but the truly-empty case gets the richer icon empty state —
+    // different message for a different situation.
+    container.innerHTML = anyFilterActive
+      ? '<div class="empty-state">No entries match these filters.</div>'
+      : '<div class="journal-empty">' +
+          '<div class="journal-empty-icon">📝</div>' +
+          '<div class="journal-empty-title">No ideas logged yet</div>' +
+          '<div class="journal-empty-sub">Capture a thesis while it\'s fresh — tap "+ New Entry" above to start your first one.</div>' +
+        '</div>';
     return;
   }
 
@@ -4645,25 +4842,27 @@ async function renderJournalList() {
     // as every other thumbnail grid in the app.
     const firstMedia = (e.media && e.media[0]) || null;
     const thumbHtml = firstMedia
-      ? '<div class="trade-thumb" style="width:52px; height:52px; flex-shrink:0;"><img src="' + gridThumbSrc(firstMedia).replace(/"/g, '&quot;') + '" alt="" />' + mediaBadgesHtml(firstMedia) + '</div>'
+      ? '<div class="journal-card-thumb trade-thumb"><img src="' + gridThumbSrc(firstMedia).replace(/"/g, '&quot;') + '" alt="" />' + mediaBadgesHtml(firstMedia) + '</div>'
       : '';
-    return '<div class="journal-entry-card" style="background:var(--surface2); border-radius:8px; padding:14px; margin-bottom:12px; cursor:pointer; display:flex; gap:12px; align-items:flex-start;" onclick="openJournalEntry(' + idArg + ')">' +
+    return '<div class="journal-card" style="--accent:' + meta.hex + '; --accent-bg:' + meta.bg + ';" onclick="openJournalEntry(' + idArg + ')">' +
       thumbHtml +
-      '<div style="flex:1; min-width:0;">' +
-        '<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">' +
-          '<div style="font-size:13px; font-weight:600;">' + escapeHtml(e.title || 'Untitled') + '</div>' +
-          '<span style="flex-shrink:0; font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:999px; color:' + meta.color + '; border:1px solid ' + meta.color + ';">' + meta.label + '</span>' +
+      '<div class="journal-card-body">' +
+        '<div class="journal-card-title-row">' +
+          '<div class="journal-card-title">' + escapeHtml(e.title || 'Untitled') + '</div>' +
+          '<span class="journal-status-pill">' + meta.label + '</span>' +
         '</div>' +
-        (e.pair ? '<div class="mono muted" style="font-size:11px; margin-top:4px;">' + escapeHtml(e.pair) + '</div>' : '') +
-        (snippet ? '<div class="sub" style="font-size:12px; margin-top:6px;">' + escapeHtml(snippet) + '</div>' : '') +
-        '<div class="mono muted" style="font-size:10.5px; margin-top:8px;">' + dateLabel + '</div>' +
+        '<div class="journal-card-meta">' +
+          (e.pair ? '<span>' + escapeHtml(e.pair) + '</span><span class="meta-sep">·</span>' : '') +
+          '<span>' + dateLabel + '</span>' +
+        '</div>' +
+        (snippet ? '<div class="journal-card-snippet">' + escapeHtml(snippet) + '</div>' : '') +
       '</div>' +
     '</div>';
   }).join('');
   // Phase 8: same stagger-in as renderTradeList()'s .trade-row-enter — reuses
   // that exact animation/keyframe (it's generic opacity+translateY, nothing
   // trade-specific about it) rather than defining a near-duplicate for cards.
-  container.querySelectorAll('.journal-entry-card').forEach((card, i) => {
+  container.querySelectorAll('.journal-card').forEach((card, i) => {
     card.classList.add('trade-row-enter');
     card.style.animationDelay = (Math.min(i, 20) * 15) + 'ms';
   });
@@ -5328,13 +5527,14 @@ function renderJournalSubNotesSection() {
   if (!Array.isArray(entry.subNotes)) entry.subNotes = [];
 
   const notesHtml = entry.subNotes.length
-    ? entry.subNotes.map((sn) => journalSubNoteHtml(sn)).join('')
+    ? '<div class="journal-subnotes-timeline">' + entry.subNotes.map((sn) => journalSubNoteHtml(sn)).join('') + '</div>'
     : '';
 
   container.innerHTML =
     notesHtml +
-    '<div style="background:var(--bg); border-radius:6px; padding:8px 10px;">' +
-      '<textarea id="journalSubNoteComposeInput" class="mono" style="width:100%; min-height:60px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:8px; color:var(--light); font-size:12.5px; resize:vertical;" ' +
+    '<div class="journal-subnote-composer">' +
+      '<div class="journal-subnote-composer-head"><span>✏️</span><span>Add an update</span></div>' +
+      '<textarea id="journalSubNoteComposeInput" class="mono" ' +
         'oninput="journalSubNoteDraft = this.value" ' +
         'placeholder="Add a dated update — price hit my zone, stopped out, etc…">' + escapeHtml(journalSubNoteDraft) + '</textarea>' +
       '<div style="display:flex; justify-content:flex-end; margin-top:6px;">' +
@@ -5344,9 +5544,34 @@ function renderJournalSubNotesSection() {
     '<div id="journalSubNoteStatus" class="extract-status"></div>';
 }
 
+// Roadmap addition: sub-notes are collapsed by default (just the date +
+// a one-line summary of the body/media count) and expand on tap — same
+// pattern as restoreHistoryCardCollapseState() elsewhere in the app.
+// journalSubNoteExpanded is session-only (not persisted), so it resets to
+// all-collapsed on reload, which is the right default for an entry that
+// may accumulate a long list of dated updates over time.
+let journalSubNoteExpanded = new Set();
+
+// Redesign note: this toggles the 'expanded' class directly on the
+// already-mounted .journal-subnote node instead of re-rendering the whole
+// section, so the CSS grid-rows transition (see .journal-subnote-body)
+// actually has an existing element to animate from — a full innerHTML
+// rebuild would just paint the end state instantly with nothing to
+// interpolate. It also means an in-progress edit in a *different* expanded
+// note is never disturbed by toggling this one. Falls back to a full
+// re-render only if the node can't be found (shouldn't normally happen).
+function toggleJournalSubNote(id) {
+  const willExpand = !journalSubNoteExpanded.has(id);
+  if (willExpand) journalSubNoteExpanded.add(id); else journalSubNoteExpanded.delete(id);
+  const el = document.querySelector('.journal-subnote[data-subnote-id="' + CSS.escape(id) + '"]');
+  if (el) el.classList.toggle('expanded', willExpand);
+  else renderJournalSubNotesSection();
+}
+
 function journalSubNoteHtml(sn) {
   const media = Array.isArray(sn.media) ? sn.media : [];
   const reorderKey = 'subNoteMedia:' + sn.id;
+  const expanded = journalSubNoteExpanded.has(sn.id);
   const mediaHtml = media.length
     ? '<div class="trade-img-grid" style="margin-top:8px;">' +
         media.map((img, idx) =>
@@ -5358,23 +5583,40 @@ function journalSubNoteHtml(sn) {
         ).join('') +
       '</div>'
     : '';
-  return '<div style="background:var(--bg); border-radius:6px; padding:8px 10px; margin-bottom:8px;">' +
-    '<div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">' +
-      '<span class="mono muted" style="font-size:10.5px;">' + escapeHtml(journalSubNoteDateLabel(sn.createdAt)) + '</span>' +
-      '<span class="muted" style="cursor:pointer; font-size:12px;" onclick="deleteJournalSubNote(\'' + sn.id + '\')" title="Delete update">✕</span>' +
-    '</div>' +
-    '<textarea class="mono" style="width:100%; min-height:44px; background:transparent; border:none; padding:6px 0 0; color:var(--light); font-size:12.5px; resize:vertical;" ' +
-      'onblur="onJournalSubNoteBodyBlur(\'' + sn.id + '\', this.value)">' + escapeHtml(sn.body || '') + '</textarea>' +
-    mediaHtml +
-    '<div style="margin-top:8px;">' +
-      '<div class="upload-drop" style="padding:8px;" tabindex="0" data-subnote-media-drop="' + sn.id + '" ' +
-        'onclick="document.getElementById(\'subNoteMediaInput_' + sn.id + '\').click()" ' +
-        'ondragover="event.preventDefault(); this.classList.add(\'dragover\');" ' +
-        'ondragleave="this.classList.remove(\'dragover\');" ' +
-        'ondrop="event.preventDefault(); this.classList.remove(\'dragover\'); handleSubNoteMediaSelect(event, \'' + sn.id + '\');">' +
-        '<div class="upload-label" style="font-size:10.5px;">Tap to add, drop, or paste an image or video</div>' +
+  const summaryBits = [];
+  if (sn.body) summaryBits.push(escapeHtml(sn.body.length > 60 ? sn.body.slice(0, 60) + '…' : sn.body));
+  if (media.length) summaryBits.push(media.length + (media.length === 1 ? ' item' : ' items'));
+  const summaryText = summaryBits.length ? summaryBits.join(' · ') : 'No content yet';
+
+  // Content below is always rendered (not conditional on `expanded`) so the
+  // grid-rows collapse/expand transition has something real to animate —
+  // see the .journal-subnote-body CSS comment.
+  return '<div class="journal-subnote' + (expanded ? ' expanded' : '') + (media.length ? ' has-media' : '') + '" data-subnote-id="' + escapeHtml(sn.id) + '">' +
+    '<div class="journal-subnote-dot"></div>' +
+    '<div class="journal-subnote-card">' +
+      '<div class="journal-subnote-head" onclick="toggleJournalSubNote(\'' + sn.id + '\')">' +
+        '<div class="journal-subnote-head-left">' +
+          '<span class="journal-subnote-chevron">▶</span>' +
+          '<span class="journal-subnote-date">' + escapeHtml(journalSubNoteDateLabel(sn.createdAt)) + '</span>' +
+          '<span class="journal-subnote-summary">' + escapeHtml(summaryText) + '</span>' +
+        '</div>' +
+        '<span class="journal-subnote-delete" onclick="event.stopPropagation(); deleteJournalSubNote(\'' + sn.id + '\')" title="Delete update">✕</span>' +
       '</div>' +
-      '<input type="file" id="subNoteMediaInput_' + sn.id + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleSubNoteMediaSelect(event, \'' + sn.id + '\')" />' +
+      '<div class="journal-subnote-body"><div>' +
+        '<textarea class="mono journal-subnote-textarea" ' +
+          'onblur="onJournalSubNoteBodyBlur(\'' + sn.id + '\', this.value)">' + escapeHtml(sn.body || '') + '</textarea>' +
+        mediaHtml +
+        '<div style="margin-top:8px;">' +
+          '<div class="upload-drop" style="padding:8px;" tabindex="0" data-subnote-media-drop="' + sn.id + '" ' +
+            'onclick="document.getElementById(\'subNoteMediaInput_' + sn.id + '\').click()" ' +
+            'ondragover="event.preventDefault(); this.classList.add(\'dragover\');" ' +
+            'ondragleave="this.classList.remove(\'dragover\');" ' +
+            'ondrop="event.preventDefault(); this.classList.remove(\'dragover\'); handleSubNoteMediaSelect(event, \'' + sn.id + '\');">' +
+            '<div class="upload-label" style="font-size:10.5px;">Tap to add, drop, or paste an image or video</div>' +
+          '</div>' +
+          '<input type="file" id="subNoteMediaInput_' + sn.id + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleSubNoteMediaSelect(event, \'' + sn.id + '\')" />' +
+        '</div>' +
+      '</div></div>' +
     '</div>' +
   '</div>';
 }
@@ -5389,6 +5631,7 @@ async function addJournalSubNote() {
   if (!Array.isArray(entry.subNotes)) entry.subNotes = [];
   const subNote = { id: 'jsub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), createdAt: Date.now(), body, media: [] };
   const updated = [...entry.subNotes, subNote];
+  journalSubNoteExpanded.add(subNote.id); // show the update you just posted, not collapsed
   journalSubNoteDraft = '';
   const ok = await updateJournalEntry(journalEditingId, { subNotes: updated });
   if (!ok) { setJournalSubNoteStatus('Failed to save — check your connection and try again.', 'error'); return; }
@@ -10211,6 +10454,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // second browser/session — not Supabase overwriting data, but this load racing
   // ahead of session restoration and coming back empty.
   await initAuth();
+  initMobileBackButton();
   syncThemeToggleIcon();
   syncStickyToolbarOffset();
   populateWeeklyYoYWeekSelects();
