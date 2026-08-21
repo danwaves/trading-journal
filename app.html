@@ -1008,6 +1008,71 @@
   .journal-subnote-composer-head { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
   .journal-subnote-composer textarea { width: 100%; min-height: 56px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px; color: var(--light); font-size: 12.5px; resize: vertical; }
 
+  /* ===== Journal Subfolders — named notepad sections inside an entry.
+     A subfolder card (collapsed like a sub-note) opens into a stream of
+     blocks (text/image/link) rendered with no visible seams between them,
+     so it reads like one continuous page even though it's stored as an
+     ordered block list. Thin "+" insert rows sit between every block so
+     text can be added in between two images, not just appended at the end. */
+  .subfolder-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; transition: border-color .2s ease; }
+  .subfolder-card.expanded { border-color: var(--border); }
+  .subfolder-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; }
+  .subfolder-head-left { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+  .subfolder-chevron { font-size: 9px; color: var(--muted); flex-shrink: 0; display: inline-block; transform: rotate(0deg); transition: transform .2s ease; }
+  .subfolder-card.expanded .subfolder-chevron { transform: rotate(90deg); color: var(--brand); }
+  .subfolder-icon { font-size: 14px; flex-shrink: 0; }
+  .subfolder-name { font-size: 13.5px; font-weight: 600; color: var(--light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .subfolder-count { font-size: 10.5px; color: var(--muted); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
+  .subfolder-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .subfolder-actions span { color: var(--muted); cursor: pointer; font-size: 12px; padding: 4px 6px; border-radius: 6px; transition: color .15s ease, background-color .15s ease; }
+  .subfolder-actions span:hover { color: var(--light); background: var(--surface2); }
+  .subfolder-actions .subfolder-delete:hover { color: var(--loss); background: rgba(255,92,92,0.1); }
+  .subfolder-body { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .22s ease, opacity .18s ease; }
+  .subfolder-body > div { overflow: hidden; min-height: 0; }
+  .subfolder-card.expanded .subfolder-body { grid-template-rows: 1fr; opacity: 1; }
+  .subfolder-pad { padding-top: 10px; }
+
+  .subfolder-block { position: relative; }
+  .subfolder-block-text textarea {
+    width: 100%; min-height: 32px; background: transparent; border: none; padding: 4px 2px;
+    color: var(--light); font-size: 13px; line-height: 1.55; resize: none; overflow: hidden;
+  }
+  .subfolder-block-text textarea::placeholder { color: var(--muted); }
+  .subfolder-block-media { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; }
+  .subfolder-block-media .trade-thumb { width: 92px; height: 92px; flex-shrink: 0; }
+  .subfolder-block-link {
+    display: flex; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; margin: 4px 0; cursor: pointer; transition: border-color .15s ease;
+  }
+  .subfolder-block-link:hover { border-color: var(--accent, var(--brand)); }
+  .subfolder-block-link .link-icon { font-size: 14px; flex-shrink: 0; }
+  .subfolder-block-link .link-text { min-width: 0; flex: 1; }
+  .subfolder-block-link .link-label { font-size: 12.5px; color: var(--light); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .subfolder-block-link .link-url { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .subfolder-block-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .subfolder-block-controls span { color: var(--muted); cursor: pointer; font-size: 11px; padding: 3px 5px; border-radius: 6px; transition: color .15s ease, background-color .15s ease; }
+  .subfolder-block-controls span:hover { color: var(--light); background: var(--surface2); }
+  .subfolder-block-controls .subfolder-block-delete:hover { color: var(--loss); background: rgba(255,92,92,0.1); }
+
+  /* Thin insert row between every block — three small icon buttons for
+     Text / Image / Link, dim until tapped/hovered so the notepad doesn't
+     look cluttered with "+" affordances everywhere. */
+  .subfolder-insert-row { display: flex; align-items: center; gap: 4px; height: 14px; margin: 0 0; opacity: .28; transition: opacity .15s ease; }
+  .subfolder-insert-row:hover, .subfolder-insert-row:focus-within { opacity: 1; }
+  .subfolder-insert-row::before, .subfolder-insert-row::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+  .subfolder-insert-row button {
+    background: none; border: none; color: var(--muted); font-size: 11px; cursor: pointer; padding: 2px 5px;
+    border-radius: 5px; line-height: 1;
+  }
+  .subfolder-insert-row button:hover { color: var(--brand); background: var(--surface2); }
+  .subfolder-empty { font-size: 11.5px; color: var(--muted); padding: 6px 2px; }
+  .subfolder-add-card {
+    background: var(--bg); border: 1px dashed var(--border); border-radius: 10px; padding: 10px 12px;
+    text-align: center; font-size: 12.5px; color: var(--muted); cursor: pointer; transition: border-color .15s ease, color .15s ease;
+  }
+  .subfolder-add-card:hover { border-color: var(--brand); color: var(--light); }
+
 
   /* Every wide stats/history table sits inside an inline overflow-x:auto
      wrapper (23 of them, across History/Insights/Compare) — this catches
@@ -2617,14 +2682,17 @@
         <div class="journal-field-label"><span class="icon">🖼️</span>Media<span class="hint">— images or video</span></div>
         <div id="journalMediaSection"></div>
       </div>
-      <!-- Roadmap Phase 12: dated sub-notes nested under this entry — a
-           lightweight thread so a trade idea's story (entering, invalidated,
-           stopped out, etc.) can be built up over multiple days without
-           spawning separate unrelated journal entries. Same "locked until
-           the entry has an id" dependency as Media/Strategy/Trades above. -->
+      <!-- Subfolders: named notepad sections inside this entry. Each one is
+           its own free-flowing stream of text/image/link blocks in whatever
+           order you put them in — write a paragraph, paste a chart, keep
+           writing right after it — and the subfolders themselves (and the
+           blocks inside each one) can be dragged (or moved via the "⋮"
+           fallback) into any order. Same "locked until the entry has an id"
+           dependency as Media/Strategy/Trades above. Replaces the old dated
+           "Updates" sub-notes feed — see JOURNAL SUBFOLDERS section below. -->
       <div class="field">
-        <div class="journal-field-label"><span class="icon">🕓</span>Updates<span class="hint">— dated sub-notes under this entry</span></div>
-        <div id="journalSubNotesSection"></div>
+        <div class="journal-field-label"><span class="icon">📓</span>Subfolders<span class="hint">— notepad sections inside this entry</span></div>
+        <div id="journalSubfoldersSection"></div>
       </div>
       <!-- Roadmap Phase 5: link this idea to a Strategy, or promote it into a
            brand-new one. Locked until the entry has an id, same dependency
@@ -3849,12 +3917,28 @@ document.addEventListener('paste', (event) => {
   const active = document.activeElement;
   const strategyDrop = active && active.closest && active.closest('[data-strategy-image-drop]');
   const journalDrop = active && active.closest && active.closest('[data-journal-media-drop]');
+  const subfolderCard = active && active.closest && active.closest('.subfolder-card[data-subfolder-id]');
   const beforeDrop = active && active.closest && active.closest('#uploadDropBefore, #imageUrlInputBefore');
   const afterDrop = active && active.closest && active.closest('#uploadDropAfter, #imageUrlInputAfter');
 
   if (strategyDrop) {
     const match = strategyList.find((s) => String(s.id) === String(strategyDrop.dataset.strategyImageDrop));
     if (match) { event.preventDefault(); handleStrategyImageSelect({ target: { files } }, match.id); }
+  } else if (subfolderCard) {
+    // Pasting a screenshot while focus is anywhere inside an expanded
+    // subfolder inserts it right where you're writing — after the block
+    // you're currently in, or at the end of the subfolder if focus isn't in
+    // a specific block (e.g. you just clicked the subfolder header).
+    event.preventDefault();
+    const subfolderId = subfolderCard.dataset.subfolderId;
+    const entryForPaste = currentJournalEntryForEdit();
+    const sf = entryForPaste && (entryForPaste.subfolders || []).find((s) => s.id === subfolderId);
+    if (sf) {
+      const blockEl = active.closest && active.closest('.subfolder-block[data-block-id]');
+      const blockIdx = blockEl ? sf.blocks.findIndex((b) => b.id === blockEl.dataset.blockId) : -1;
+      const atIndex = blockIdx === -1 ? sf.blocks.length : blockIdx + 1;
+      handleSubfolderImageSelect({ target: { files } }, subfolderId, atIndex);
+    }
   } else if (journalDrop || document.getElementById('journalEntry').classList.contains('active')) {
     // Same existence guard as the drop-zone markup itself (see
     // renderJournalMediaSection) — nothing to attach media to until the
@@ -4468,7 +4552,8 @@ function journalEntryToRow(e) {
     strategy: e.strategy,
     linked_trade_ids: e.linkedTradeIds,
     media: e.media,
-    sub_notes: e.subNotes, // Roadmap Phase 12: nested dated updates, same array-of-objects storage as media
+    sub_notes: e.subNotes, // legacy — no longer written to by the UI, kept so old rows still round-trip
+    subfolders: e.subfolders, // notepad sections: array of { id, name, blocks: [...] }, same array-of-objects storage as media
   };
 }
 
@@ -4485,7 +4570,8 @@ function rowToJournalEntry(r) {
     strategy: r.strategy || '',
     linkedTradeIds: r.linked_trade_ids || [],
     media: r.media || [],
-    subNotes: r.sub_notes || [], // Roadmap Phase 12
+    subNotes: r.sub_notes || [], // legacy — read-only now, UI no longer writes to it
+    subfolders: r.subfolders || [],
   };
 }
 
@@ -4542,7 +4628,8 @@ async function createJournalEntry(fields) {
     strategy: fields.strategy || '',
     linkedTradeIds: fields.linkedTradeIds || [],
     media: fields.media || [],
-    subNotes: fields.subNotes || [], // Roadmap Phase 12
+    subNotes: fields.subNotes || [], // legacy
+    subfolders: fields.subfolders || [],
   };
   const ok = await persistJournalEntry(entry);
   if (!ok) return null;
@@ -4579,11 +4666,19 @@ async function deleteJournalEntry(id) {
   ((entry && entry.media) || []).forEach((m) => {
     if (m.source === 'cloudinary' && m.publicId) deleteFromCloudinary(m.publicId, m.type);
   });
-  // Roadmap Phase 12: sub-note media rides the same Cloudinary refs — clean
-  // those up too so deleting an entry never leaves orphaned assets behind.
+  // Legacy sub-note media (if this row predates subfolders) rides the same
+  // Cloudinary refs — clean those up too so deleting an entry never leaves
+  // orphaned assets behind.
   ((entry && entry.subNotes) || []).forEach((sn) => {
     (sn.media || []).forEach((m) => {
       if (m.source === 'cloudinary' && m.publicId) deleteFromCloudinary(m.publicId, m.type);
+    });
+  });
+  // Subfolder image/link blocks can carry their own Cloudinary-hosted media
+  // too — same cleanup.
+  ((entry && entry.subfolders) || []).forEach((sf) => {
+    (sf.blocks || []).forEach((b) => {
+      if (b.media && b.media.source === 'cloudinary' && b.media.publicId) deleteFromCloudinary(b.media.publicId, b.media.type);
     });
   });
   allJournalEntries = allJournalEntries.filter((e) => e.id !== id);
@@ -4699,6 +4794,8 @@ function journalMatchesSearchText(entry, query) {
     entry.pair,
     ...mediaListSearchTokens(entry.media),
     ...(entry.subNotes || []).reduce((acc, sn) => acc.concat(sn.body || '', mediaListSearchTokens(sn.media)), []),
+    ...(entry.subfolders || []).reduce((acc, sf) => acc.concat(sf.name || '', (sf.blocks || []).reduce((bacc, b) =>
+      bacc.concat(b.type === 'text' ? (b.text || '') : b.type === 'link' ? (b.label || '') + ' ' + (b.url || '') : mediaListSearchTokens([b.media])), [])), []),
   ].filter(Boolean).join(' ').toLowerCase();
   return haystack.includes(query);
 }
@@ -4871,7 +4968,7 @@ async function renderJournalList() {
 function openNewJournalEntry() {
   journalEditingId = null;
   journalFieldsDirty = false;
-  journalSubNoteDraft = ''; // Roadmap Phase 12: don't leak a draft between entries
+  journalSubfolderExpanded = new Set(); // don't leak expanded state between entries
   document.getElementById('journalTitleInput').value = '';
   document.getElementById('journalStatusInput').value = 'idea';
   document.getElementById('journalPairInput').value = '';
@@ -4882,7 +4979,7 @@ function openNewJournalEntry() {
   renderJournalMediaSection(); // Phase 3: shows the "save notes first" placeholder until this entry gets an id
   renderJournalStrategySection(); // Phase 5: same placeholder, until this entry gets an id
   renderJournalTradesSection(); // Phase 6: same placeholder, until this entry gets an id
-  renderJournalSubNotesSection(); // Phase 12: same placeholder, until this entry gets an id
+  renderJournalSubfoldersSection(); // same placeholder, until this entry gets an id
   showScreen('journalEntry');
   document.getElementById('journalTitleInput').focus();
 }
@@ -4892,7 +4989,7 @@ function openJournalEntry(id) {
   if (!e) return;
   journalEditingId = id;
   journalFieldsDirty = false;
-  journalSubNoteDraft = ''; // Roadmap Phase 12: don't leak a draft between entries
+  journalSubfolderExpanded = new Set(); // don't leak expanded state between entries
   document.getElementById('journalTitleInput').value = e.title || '';
   document.getElementById('journalStatusInput').value = e.status || 'idea';
   document.getElementById('journalPairInput').value = e.pair || '';
@@ -4903,7 +5000,7 @@ function openJournalEntry(id) {
   renderJournalMediaSection(); // Phase 3: shows this entry's existing images (if any)
   renderJournalStrategySection(); // Phase 5: shows this entry's current Strategy link (if any)
   renderJournalTradesSection(); // Phase 6: shows this entry's attached trades (if any)
-  renderJournalSubNotesSection(); // Phase 12: shows this entry's existing sub-notes (if any)
+  renderJournalSubfoldersSection(); // shows this entry's existing subfolders (if any)
   showScreen('journalEntry');
 }
 
@@ -5970,6 +6067,374 @@ async function deleteConfluence(name) {
   renderConfluenceSuggestions();
   renderConfluencePicker();
   renderNewStrategyConfluencePicker();
+}
+
+// ================= JOURNAL SUBFOLDERS =================
+// Named notepad sections nested under one journal entry. Each subfolder
+// holds an ordered list of blocks (text / image-or-video / link) — write a
+// paragraph, paste a chart, keep writing right after it — stored as
+// entry.subfolders: [{ id, name, createdAt, updatedAt, blocks: [...] }].
+// Blocks reuse the exact same media-item shape/upload pipeline/viewer as
+// top-level journal media (mediaType()/mediaCaption() work on block.media
+// unmodified) — only the storage location differs. Both subfolder order
+// and block order within a subfolder ride the same generic drag/⋮-move
+// reorder machinery as everywhere else in the app (see MEDIA REORDER
+// below) — moveMediaItem() is array-generic, so a heterogeneous blocks
+// array reorders exactly the same way a media grid does. Replaces the old
+// Phase 12 dated sub-notes feed (still readable from old rows, just no
+// longer written to — see journalEntryToRow/rowToJournalEntry above).
+let journalSubfolderExpanded = new Set(); // session-only, resets on entry open
+
+function genSubfolderId() { return 'subfolder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+function genBlockId() { return 'sfblk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
+
+function currentJournalEntryForEdit() {
+  return journalEditingId ? allJournalEntries.find((e) => e.id === journalEditingId) : null;
+}
+
+function setSubfolderStatus(subfolderId, msg, cls) {
+  const el = document.getElementById('subfolderStatus_' + subfolderId);
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'extract-status' + (cls ? ' ' + cls : '');
+}
+
+function renderJournalSubfoldersSection() {
+  const container = document.getElementById('journalSubfoldersSection');
+  if (!container) return;
+  if (!journalEditingId) {
+    container.innerHTML = '<span class="muted" style="font-size:11px;">Save some notes above first, then add subfolders here.</span>';
+    return;
+  }
+  const entry = currentJournalEntryForEdit();
+  if (!entry) { container.innerHTML = ''; return; }
+  if (!Array.isArray(entry.subfolders)) entry.subfolders = [];
+  const cardsHtml = entry.subfolders.map((sf, idx) => subfolderCardHtml(sf, idx, entry.subfolders.length)).join('');
+  container.innerHTML = cardsHtml +
+    '<div class="subfolder-add-card" onclick="addJournalSubfolder()">+ New subfolder</div>';
+  // Expanded text blocks need their height recalculated after innerHTML
+  // reflow — a freshly-set textarea.value doesn't retroactively fire input.
+  container.querySelectorAll('.subfolder-card.expanded .subfolder-block-text textarea').forEach(autoGrowSubfolderText);
+}
+
+function subfolderCardHtml(sf, idx, total) {
+  if (!Array.isArray(sf.blocks)) sf.blocks = [];
+  const expanded = journalSubfolderExpanded.has(sf.id);
+  return '<div class="subfolder-card' + (expanded ? ' expanded' : '') + '" data-subfolder-id="' + escapeHtml(sf.id) + '" ' + mediaThumbDragAttrs('journalSubfolders', idx) + '>' +
+    '<div class="subfolder-head" onclick="toggleJournalSubfolder(\'' + sf.id + '\')">' +
+      '<div class="subfolder-head-left">' +
+        '<span class="subfolder-chevron">▶</span>' +
+        '<span class="subfolder-icon">📁</span>' +
+        '<span class="subfolder-name">' + escapeHtml(sf.name || 'Untitled') + '</span>' +
+        '<span class="subfolder-count">' + sf.blocks.length + '</span>' +
+      '</div>' +
+      '<div class="subfolder-actions">' +
+        mediaReorderHandleHtml('journalSubfolders', idx, total) +
+        '<span onclick="event.stopPropagation(); renameJournalSubfolder(\'' + sf.id + '\')" title="Rename">✎</span>' +
+        '<span class="subfolder-delete" onclick="event.stopPropagation(); deleteJournalSubfolder(\'' + sf.id + '\')" title="Delete subfolder">✕</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="subfolder-body"><div class="subfolder-pad">' +
+      subfolderInsertRow(sf.id, 0) +
+      sf.blocks.map((b, i) => subfolderBlockHtml(sf, b, i) + subfolderInsertRow(sf.id, i + 1)).join('') +
+      (sf.blocks.length ? '' : '<div class="subfolder-empty">Empty — start writing, or paste/add an image or link below.</div>') +
+      '<div id="subfolderStatus_' + escapeHtml(sf.id) + '" class="extract-status"></div>' +
+    '</div></div>' +
+  '</div>';
+}
+
+function subfolderInsertRow(subfolderId, atIndex) {
+  return '<div class="subfolder-insert-row">' +
+    '<button title="Add text" onclick="addSubfolderTextBlock(\'' + subfolderId + '\', ' + atIndex + ')">Aa</button>' +
+    '<button title="Add image or video" onclick="triggerSubfolderImagePick(\'' + subfolderId + '\', ' + atIndex + ')">🖼</button>' +
+    '<button title="Add link" onclick="addSubfolderLinkBlock(\'' + subfolderId + '\', ' + atIndex + ')">🔗</button>' +
+  '</div>';
+}
+
+function subfolderBlockHtml(sf, b, idx) {
+  const key = 'subfolderBlocks:' + sf.id;
+  if (b.type === 'text') {
+    return '<div class="subfolder-block subfolder-block-text" data-block-id="' + escapeHtml(b.id) + '">' +
+      '<textarea placeholder="Write here…" oninput="autoGrowSubfolderText(this)" ' +
+        'onblur="onSubfolderTextBlockBlur(\'' + sf.id + '\', \'' + b.id + '\', this.value)">' + escapeHtml(b.text || '') + '</textarea>' +
+      '<div class="subfolder-block-controls" style="justify-content:flex-end;">' +
+        mediaReorderHandleHtml(key, idx, sf.blocks.length) +
+        '<span class="subfolder-block-delete" onclick="deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete">✕</span>' +
+      '</div>' +
+    '</div>';
+  }
+  if (b.type === 'link') {
+    let host = b.url;
+    try { host = new URL(b.url).hostname.replace(/^www\./, ''); } catch (e) { /* leave host as the raw url */ }
+    return '<div class="subfolder-block" data-block-id="' + escapeHtml(b.id) + '" ' + mediaThumbDragAttrs(key, idx) + '>' +
+      '<div class="subfolder-block-link" onclick="window.open(\'' + escapeHtml(b.url).replace(/'/g, '&#39;') + '\', \'_blank\')">' +
+        '<span class="link-icon">🔗</span>' +
+        '<div class="link-text"><div class="link-label">' + escapeHtml(b.label || host || b.url) + '</div><div class="link-url">' + escapeHtml(host || b.url) + '</div></div>' +
+      '</div>' +
+      '<div class="subfolder-block-controls">' +
+        mediaReorderHandleHtml(key, idx, sf.blocks.length) +
+        '<span onclick="event.stopPropagation(); deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete">✕</span>' +
+      '</div>' +
+    '</div>';
+  }
+  // image / video block
+  return '<div class="subfolder-block subfolder-block-media" data-block-id="' + escapeHtml(b.id) + '">' +
+    '<div class="trade-thumb" ' + mediaThumbDragAttrs(key, idx) + ' onclick="openViewerForSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')">' +
+      '<img src="' + gridThumbSrc(b.media).replace(/"/g, '&quot;') + '" alt="Subfolder media" />' +
+      mediaBadgesHtml(b.media) +
+      mediaReorderHandleHtml(key, idx, sf.blocks.length) +
+    '</div>' +
+    '<span class="subfolder-block-delete" style="align-self:flex-start; margin-top:2px;" onclick="deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete">✕</span>' +
+  '</div>';
+}
+
+function autoGrowSubfolderText(el) {
+  el.style.height = 'auto';
+  el.style.height = (el.scrollHeight + 2) + 'px';
+}
+
+function toggleJournalSubfolder(id) {
+  const willExpand = !journalSubfolderExpanded.has(id);
+  if (willExpand) journalSubfolderExpanded.add(id); else journalSubfolderExpanded.delete(id);
+  const el = document.querySelector('.subfolder-card[data-subfolder-id="' + CSS.escape(id) + '"]');
+  if (el) {
+    el.classList.toggle('expanded', willExpand);
+    if (willExpand) el.querySelectorAll('.subfolder-block-text textarea').forEach(autoGrowSubfolderText);
+  } else {
+    renderJournalSubfoldersSection();
+  }
+}
+
+async function addJournalSubfolder() {
+  if (!journalEditingId) return;
+  const name = prompt('Subfolder name:', '');
+  if (name === null) return; // cancelled
+  const entry = currentJournalEntryForEdit();
+  if (!entry) return;
+  if (!Array.isArray(entry.subfolders)) entry.subfolders = [];
+  const sf = { id: genSubfolderId(), name: name.trim() || 'Untitled', createdAt: Date.now(), updatedAt: Date.now(), blocks: [] };
+  const updated = [...entry.subfolders, sf];
+  const ok = await updateJournalEntry(journalEditingId, { subfolders: updated });
+  if (!ok) { alert('Failed to create subfolder — check your connection and try again.'); return; }
+  journalSubfolderExpanded.add(sf.id);
+  renderJournalSubfoldersSection();
+}
+
+async function renameJournalSubfolder(subfolderId) {
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+  if (!sf) return;
+  const name = prompt('Rename subfolder:', sf.name || '');
+  if (name === null) return;
+  sf.name = name.trim() || 'Untitled';
+  const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
+  renderJournalSubfoldersSection();
+  return ok;
+}
+
+async function deleteJournalSubfolder(subfolderId) {
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+  if (!sf) return;
+  if (!confirm('Delete "' + (sf.name || 'this subfolder') + '" and everything in it? This can\'t be undone.')) return;
+  const remaining = entry.subfolders.filter((s) => s.id !== subfolderId);
+  const ok = await updateJournalEntry(journalEditingId, { subfolders: remaining });
+  if (!ok) { alert('Failed to delete — check your connection and try again.'); return; }
+  (sf.blocks || []).forEach((b) => {
+    if (b.media && b.media.source === 'cloudinary' && b.media.publicId) deleteFromCloudinary(b.media.publicId, b.media.type);
+  });
+  journalSubfolderExpanded.delete(subfolderId);
+  renderJournalSubfoldersSection();
+}
+
+// Shared save-then-report helper for any change to a subfolder or its
+// blocks — bumps updatedAt on both the subfolder and the entry, persists
+// the whole entry row (each entry is its own row, so this can never
+// clobber another entry's data — same reasoning as updateJournalEntry
+// above), and surfaces an inline error scoped to that subfolder on failure.
+async function persistSubfolderBlocks(sf, entry, subfolderId, errMsg) {
+  sf.updatedAt = Date.now();
+  entry.updatedAt = Date.now();
+  const ok = await persistJournalEntry(entry);
+  if (!ok) setSubfolderStatus(subfolderId, errMsg || 'Failed to save — check your connection and try again.', 'error');
+  return ok;
+}
+
+async function addSubfolderTextBlock(subfolderId, atIndex) {
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+  if (!sf) return;
+  if (!Array.isArray(sf.blocks)) sf.blocks = [];
+  const block = { id: genBlockId(), type: 'text', text: '' };
+  sf.blocks.splice(atIndex, 0, block);
+  const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
+  if (!ok) sf.blocks = sf.blocks.filter((b) => b.id !== block.id);
+  journalSubfolderExpanded.add(subfolderId);
+  renderJournalSubfoldersSection();
+  const el = document.querySelector('.subfolder-block[data-block-id="' + CSS.escape(block.id) + '"] textarea');
+  if (el) el.focus();
+}
+
+async function addSubfolderLinkBlock(subfolderId, atIndex) {
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+  if (!sf) return;
+  const url = prompt('Paste a link:', '');
+  if (!url) return;
+  let parsed;
+  try { parsed = new URL(url.trim()); } catch (e) { setSubfolderStatus(subfolderId, 'That doesn\'t look like a valid link.', 'error'); return; }
+  if (!/^https?:$/.test(parsed.protocol)) { setSubfolderStatus(subfolderId, 'Links need to start with http:// or https://', 'error'); return; }
+  const label = prompt('Label for this link (optional):', '') || '';
+  if (!Array.isArray(sf.blocks)) sf.blocks = [];
+  const block = { id: genBlockId(), type: 'link', url: url.trim(), label: label.trim() };
+  sf.blocks.splice(atIndex, 0, block);
+  const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
+  if (!ok) sf.blocks = sf.blocks.filter((b) => b.id !== block.id);
+  journalSubfolderExpanded.add(subfolderId);
+  renderJournalSubfoldersSection();
+}
+
+// File-picker fallback for the 🖼 insert button — one hidden shared input,
+// re-pointed at whichever subfolder/position was tapped, same trick as the
+// single #journalMediaInput used for entry-level media above.
+let subfolderImagePickTarget = null; // { subfolderId, atIndex }
+function triggerSubfolderImagePick(subfolderId, atIndex) {
+  subfolderImagePickTarget = { subfolderId: subfolderId, atIndex: atIndex };
+  let input = document.getElementById('subfolderImageInput');
+  if (!input) {
+    input = document.createElement('input');
+    input.type = 'file';
+    input.id = 'subfolderImageInput';
+    input.accept = 'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v';
+    input.multiple = true;
+    input.style.display = 'none';
+    input.onchange = (event) => handleSubfolderImageSelect(event, subfolderImagePickTarget.subfolderId, subfolderImagePickTarget.atIndex);
+    document.body.appendChild(input);
+  }
+  input.value = ''; // allow re-selecting the same file later
+  input.click();
+}
+
+async function handleSubfolderImageSelect(event, subfolderId, atIndex) {
+  event.preventDefault && event.preventDefault();
+  const rawFiles = (event.dataTransfer && event.dataTransfer.files) || (event.target && event.target.files) || [];
+  const files = Array.from(rawFiles);
+  if (event.target) event.target.value = '';
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+  if (!sf) return;
+  if (!Array.isArray(sf.blocks)) sf.blocks = [];
+
+  const accepted = [];
+  for (const file of files) {
+    if (!isAcceptedFile(file)) { setSubfolderStatus(subfolderId, '"' + file.name + '" isn\'t a supported type — use PNG, JPG, WEBP, GIF, MP4, MOV, or WEBM.', 'error'); continue; }
+    const sizeCap = isVideoFile(file) ? MAX_VIDEO_BYTES : MAX_RAW_BYTES;
+    if (file.size > sizeCap) { setSubfolderStatus(subfolderId, '"' + file.name + '" is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit — use a smaller file.', 'error'); continue; }
+    accepted.push(file);
+  }
+  if (!accepted.length) return;
+
+  setSubfolderStatus(subfolderId, 'Uploading…', '');
+  let insertAt = atIndex;
+  const addedBlocks = [];
+  for (let i = 0; i < accepted.length; i++) {
+    const file = accepted[i];
+    try {
+      const result = await uploadFileToCloudinaryWithProgress(file, (frac) => {
+        setSubfolderStatus(subfolderId, 'Uploading ' + (i + 1) + '/' + accepted.length + ' — ' + Math.round(frac * 100) + '%', '');
+      });
+      const block = {
+        id: genBlockId(),
+        type: 'image',
+        media: {
+          id: 'sfmedia_' + Date.now() + '_' + i,
+          displayId: nextMediaSeq(),
+          type: result.resourceType,
+          caption: '',
+          source: 'cloudinary',
+          url: result.url,
+          publicId: result.publicId,
+          sizeKB: result.sizeKB,
+          name: file.name,
+        },
+      };
+      sf.blocks.splice(insertAt, 0, block);
+      insertAt += 1;
+      addedBlocks.push(block);
+    } catch (err) {
+      console.error('Subfolder image upload failed:', err);
+      const reason = (err && err.message) ? err.message : 'unknown error';
+      setSubfolderStatus(subfolderId, 'Couldn\'t upload "' + file.name + '" — ' + reason + '.', 'error');
+    }
+  }
+  if (!addedBlocks.length) return;
+
+  const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
+  if (!ok) sf.blocks = sf.blocks.filter((b) => !addedBlocks.includes(b));
+  else setSubfolderStatus(subfolderId, '', '');
+  journalSubfolderExpanded.add(subfolderId);
+  renderJournalSubfoldersSection();
+}
+
+async function onSubfolderTextBlockBlur(subfolderId, blockId, value) {
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+  const block = sf && (sf.blocks || []).find((b) => b.id === blockId);
+  if (!block) return;
+  if (block.text === value) return; // unchanged — skip the write
+  block.text = value;
+  await persistSubfolderBlocks(sf, entry, subfolderId);
+}
+
+async function deleteSubfolderBlock(subfolderId, blockId) {
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+  if (!sf) return;
+  const block = (sf.blocks || []).find((b) => b.id === blockId);
+  if (!block) return;
+  sf.blocks = sf.blocks.filter((b) => b.id !== blockId);
+  const ok = await persistSubfolderBlocks(sf, entry, subfolderId, 'Failed to delete — check your connection and try again.');
+  if (ok && block.media && block.media.source === 'cloudinary' && block.media.publicId) deleteFromCloudinary(block.media.publicId, block.media.type);
+  renderJournalSubfoldersSection();
+}
+
+// Opens the fullscreen viewer scoped to just this subfolder's image/video
+// blocks (text and link blocks aren't viewable media), same editable
+// onDelete/onReplace/onCaptionSave contract as openViewerForJournal.
+function openViewerForSubfolderBlock(subfolderId, blockId) {
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+  if (!sf) return;
+  const mediaBlocks = (sf.blocks || []).filter((b) => b.type === 'image');
+  const startIndex = mediaBlocks.findIndex((b) => b.id === blockId);
+  if (startIndex === -1) return;
+  const mediaList = mediaBlocks.map((b) => b.media);
+  openViewer(mediaList, startIndex, {
+    editable: true,
+    onDelete: async (imgIndex) => {
+      const removedBlock = mediaBlocks[imgIndex];
+      sf.blocks = sf.blocks.filter((b) => b.id !== removedBlock.id);
+      const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
+      if (ok && removedBlock.media && removedBlock.media.source === 'cloudinary' && removedBlock.media.publicId) deleteFromCloudinary(removedBlock.media.publicId, mediaType(removedBlock.media));
+      renderJournalSubfoldersSection();
+      if (!ok) alert('Failed to delete this item — check your connection and try again.');
+    },
+    onReplace: async (imgIndex, newImg) => {
+      const targetBlock = mediaBlocks[imgIndex];
+      const oldImg = targetBlock.media;
+      targetBlock.media = newImg;
+      const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
+      if (ok && oldImg && oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId, mediaType(oldImg));
+      renderJournalSubfoldersSection();
+      if (!ok) alert('Failed to save the replacement — check your connection and try again.');
+    },
+    onCaptionSave: async (imgIndex, caption, imgId) => {
+      const targetBlock = mediaBlocks.find((b) => b.media && b.media.id === imgId) || mediaBlocks[imgIndex];
+      if (!targetBlock) return false;
+      targetBlock.media.caption = caption;
+      return await persistSubfolderBlocks(sf, entry, subfolderId);
+    },
+  });
 }
 
 // ================= TIMEFRAME MANAGER (persists in Supabase — table: timeframes) =================
@@ -8558,6 +9023,27 @@ async function applyMediaReorder(key, fromIndex, toIndex) {
     const ok = await persistJournalEntry(entry);
     if (!ok) setJournalMediaStatus('Failed to save the new order — check your connection and try again.', 'error');
     renderJournalMediaSection();
+    return;
+  }
+  if (key === 'journalSubfolders') {
+    if (!journalEditingId) return;
+    const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+    if (!entry || !moveMediaItem(entry.subfolders, fromIndex, toIndex)) return;
+    entry.updatedAt = Date.now();
+    const ok = await persistJournalEntry(entry);
+    if (!ok) alert('Failed to save the new order — check your connection and try again.');
+    renderJournalSubfoldersSection();
+    return;
+  }
+  if (key.indexOf('subfolderBlocks:') === 0) {
+    if (!journalEditingId) return;
+    const subfolderId = key.slice('subfolderBlocks:'.length);
+    const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+    const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
+    if (!sf || !moveMediaItem(sf.blocks, fromIndex, toIndex)) return;
+    const ok = await persistSubfolderBlocks(sf, entry, subfolderId, 'Failed to save the new order — check your connection and try again.');
+    if (ok) journalSubfolderExpanded.add(subfolderId);
+    renderJournalSubfoldersSection();
     return;
   }
   if (key.indexOf('subNoteMedia:') === 0) {
