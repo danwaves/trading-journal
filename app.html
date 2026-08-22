@@ -459,6 +459,28 @@
      touch-friendly fallback that opens a "move to position" prompt. Only
      rendered when there's more than one item to reorder against. */
   .trade-thumb-reorder-btn { position: absolute; top: 26px; left: 4px; width: 18px; height: 18px; border-radius: 4px; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--light); font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  /* Entry-level journal media only: move a screenshot/video out of the top
+     media grid and into one of the entry's subfolders. Sits top-right (the
+     slot .trade-thumb-remove would use elsewhere, but this grid has no
+     remove button) so it never collides with the caption dot / reorder
+     handle on the left. */
+  .trade-thumb-move-btn { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 4px; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--light); font-size: 11px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+  .trade-thumb-move-btn [data-lucide] { width: 10px; height: 10px; }
+  /* Multi-select mode for the entry-level journal media grid (bulk "move to
+     subfolder"). Reuses the same top-right slot the single-item move button
+     sits in — the two are never shown at once, since the move button is
+     replaced by this dot while select mode is on. */
+  .trade-thumb-select-dot { position: absolute; top: 4px; right: 4px; width: 18px; height: 18px; border-radius: 50%; background: rgba(11,14,20,0.85); border: 1.5px solid var(--border); color: transparent; display: flex; align-items: center; justify-content: center; transition: background-color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease); }
+  .trade-thumb-select-dot [data-lucide] { width: 11px; height: 11px; }
+  .trade-thumb-select-dot.checked { background: var(--brand); border-color: var(--brand); color: #1a0f16; }
+  .trade-thumb.media-selected { outline: 2px solid var(--brand); outline-offset: -2px; }
+  .media-select-bar { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-2); }
+  .media-select-toggle, .media-select-cancel { background: none; border: none; color: var(--muted); font-size: 12px; font-weight: 600; cursor: pointer; padding: 4px 2px; }
+  .media-select-toggle:hover, .media-select-cancel:hover { color: var(--light); }
+  .media-select-count { font-size: 11.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+  .media-select-action { margin-left: auto; background: var(--surface2); border: 1px solid var(--border); color: var(--light); font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+  .media-select-action:disabled { opacity: 0.4; cursor: default; }
+  .media-select-action:not(:disabled):hover { border-color: var(--brand); }
   .trade-thumb[draggable="true"] { cursor: grab; }
   .trade-thumb.dragging { opacity: 0.4; }
   .trade-thumb.drag-over { outline: 2px dashed var(--light); outline-offset: -2px; }
@@ -1331,6 +1353,13 @@
   .app-dialog-btn-primary:hover { filter: brightness(1.06); }
   .app-dialog-btn-danger { background: rgba(255,92,92,0.12); border-color: var(--loss); color: var(--loss); }
   .app-dialog-btn-danger:hover { background: rgba(255,92,92,0.2); }
+  /* Used by chooseFromListDialog() — e.g. "move this screenshot to which
+     subfolder?" — a scrollable list of tappable rows above the Cancel
+     button, styled like the existing dialog action buttons. */
+  .app-dialog-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--space-4); max-height: 260px; overflow-y: auto; }
+  .app-dialog-list-item { display: block; width: 100%; text-align: left; padding: 11px 12px; border-radius: 9px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--light); transition: filter var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease); }
+  .app-dialog-list-item:hover { border-color: var(--brand); }
+  .app-dialog-list-item:active { transform: scale(0.98); }
 </style>
 </head>
 <body>
@@ -3436,6 +3465,41 @@ function promptDialog(message, defaultValue) {
       if (e.key === 'Enter') close(input.value);
       if (e.key === 'Escape') close(null);
     });
+    overlay.onclick = (e) => { if (e.target === overlay) close(null); };
+  });
+}
+
+// chooseFromListDialog(message, items) -> Promise<string|null>. items is
+// [{id, label}, ...]; resolves the chosen id, or null on cancel/backdrop
+// click — same cancellation contract as promptDialog/confirmDialog above.
+// Used for "move to subfolder" style pickers where a free-text prompt
+// wouldn't make sense.
+function chooseFromListDialog(message, items) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'app-dialog-overlay';
+    overlay.innerHTML =
+      '<div class="app-dialog-card" role="dialog" aria-modal="true">' +
+        '<div class="app-dialog-message"></div>' +
+        '<div class="app-dialog-list">' +
+          items.map((it) => '<button type="button" class="app-dialog-list-item" data-id="' + escapeHtml(String(it.id)) + '">' + escapeHtml(it.label) + '</button>').join('') +
+        '</div>' +
+        '<div class="app-dialog-actions">' +
+          '<button type="button" class="app-dialog-cancel">Cancel</button>' +
+        '</div>' +
+      '</div>';
+    overlay.querySelector('.app-dialog-message').textContent = message;
+    document.body.appendChild(overlay);
+    requestAnimationFrame(() => overlay.classList.add('show'));
+    const close = (result) => {
+      overlay.classList.remove('show');
+      setTimeout(() => overlay.remove(), 220);
+      resolve(result);
+    };
+    overlay.querySelectorAll('.app-dialog-list-item').forEach((btn) => {
+      btn.onclick = () => close(btn.dataset.id);
+    });
+    overlay.querySelector('.app-dialog-cancel').onclick = () => close(null);
     overlay.onclick = (e) => { if (e.target === overlay) close(null); };
   });
 }
@@ -5770,6 +5834,8 @@ function openNewJournalEntry() {
   journalEditingId = null;
   journalFieldsDirty = false;
   journalSubfolderExpanded = new Set(); // don't leak expanded state between entries
+  journalMediaSelectMode = false;
+  journalMediaSelectedIds = new Set();
   document.getElementById('journalTitleInput').value = '';
   document.getElementById('journalStatusInput').value = 'idea';
   document.getElementById('journalPairInput').value = '';
@@ -5792,6 +5858,8 @@ function openJournalEntry(id) {
   journalEditingId = id;
   journalFieldsDirty = false;
   journalSubfolderExpanded = new Set(); // don't leak expanded state between entries
+  journalMediaSelectMode = false;
+  journalMediaSelectedIds = new Set();
   document.getElementById('journalTitleInput').value = e.title || '';
   document.getElementById('journalStatusInput').value = e.status || 'idea';
   document.getElementById('journalPairInput').value = e.pair || '';
@@ -6182,6 +6250,13 @@ function renderJournalMediaSection() {
   const entry = allJournalEntries.find((e) => e.id === journalEditingId);
   if (!entry) { container.innerHTML = ''; return; }
   if (!Array.isArray(entry.media)) entry.media = [];
+  // Drop any selected ids that no longer exist in this entry's media (e.g.
+  // switched entries, or an item was removed elsewhere) so a stale count
+  // never lingers in the select bar.
+  if (journalMediaSelectedIds.size) {
+    const liveIds = new Set(entry.media.map((m) => m.id));
+    Array.from(journalMediaSelectedIds).forEach((id) => { if (!liveIds.has(id)) journalMediaSelectedIds.delete(id); });
+  }
   // Roadmap Phase 12: uploader is always shown now — no cap to hit.
   const uploaderHtml =
     '<div class="upload-drop" style="padding: var(--space-3);" tabindex="0" data-journal-media-drop="true" ' +
@@ -6201,20 +6276,266 @@ function renderJournalMediaSection() {
       '<div id="journalUploadProgressLabel" class="compress-progress-label">Uploading…</div>' +
       '<div class="compress-progress-track"><div id="journalUploadProgressFill" class="compress-progress-fill"></div></div>' +
     '</div>';
+  // "Select" toggle / bulk move-or-copy bar — only worth showing once
+  // there's something to select.
+  const selectBarHtml = entry.media.length ? (
+    '<div class="media-select-bar">' +
+      (journalMediaSelectMode
+        ? ('<span class="media-select-count">' + journalMediaSelectedIds.size + ' selected</span>' +
+           '<button type="button" class="media-select-cancel" onclick="toggleJournalMediaSelectMode(false)">Cancel</button>' +
+           '<button type="button" class="media-select-action" ' + (journalMediaSelectedIds.size ? '' : 'disabled') + ' onclick="moveOrCopySelectedJournalMedia()">Move / Copy</button>')
+        : '<button type="button" class="media-select-toggle" onclick="toggleJournalMediaSelectMode(true)">Select</button>') +
+    '</div>'
+  ) : '';
   container.innerHTML =
     '<input type="file" id="journalMediaInput" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleJournalMediaSelect(event)" />' +
     uploaderHtml +
     '<div id="journalMediaStatus" class="extract-status"></div>' +
+    selectBarHtml +
     '<div class="trade-img-grid" style="margin-top: var(--space-2);">' +
-      entry.media.map((img, idx) =>
-        '<div class="trade-thumb" ' + mediaThumbDragAttrs('journalMedia', idx) + ' onclick="openViewerForJournal(' + idx + ')"><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Journal media" />' +
+      entry.media.map((img, idx) => {
+        const selected = journalMediaSelectedIds.has(img.id);
+        const dragAttrs = journalMediaSelectMode ? '' : mediaThumbDragAttrs('journalMedia', idx); // reordering while selecting would be ambiguous — disable drag in select mode
+        const clickAttr = journalMediaSelectMode
+          ? 'onclick="toggleJournalMediaItemSelected(\'' + img.id + '\')"'
+          : 'onclick="openViewerForJournal(' + idx + ')"';
+        return '<div class="trade-thumb' + (selected ? ' media-selected' : '') + '" ' + dragAttrs + ' ' + clickAttr + '><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Journal media" />' +
           mediaBadgesHtml(img) +
-          mediaReorderHandleHtml('journalMedia', idx, entry.media.length) +
+          (journalMediaSelectMode
+            ? '<div class="trade-thumb-select-dot' + (selected ? ' checked' : '') + '"><i data-lucide="check"></i></div>'
+            : (mediaReorderHandleHtml('journalMedia', idx, entry.media.length) +
+               '<div class="trade-thumb-move-btn" title="Move or copy…" onclick="event.stopPropagation(); moveOrCopyMediaItem(\'' + entry.id + '\', \'media\', \'' + img.id + '\');"><i data-lucide="folder"></i></div>')) +
           '<div class="trade-thumb-size">' + (img.sizeKB ? img.sizeKB + ' KB' : 'hosted') + '</div>' +
-        '</div>'
-      ).join('') +
+        '</div>';
+      }).join('') +
     '</div>';
   refreshIcons();
+}
+
+// ================= MOVE / COPY MEDIA — between subfolders, top-level media,
+// and other journal entries ==================
+// Generalizes what used to be a single "move to a subfolder in this entry"
+// action into: move OR copy, between any of — this entry's top-level Media,
+// any of this entry's subfolders, or the equivalent locations in a
+// different journal entry entirely. A "location" string is either 'media'
+// or 'subfolder:<subfolderId>'; every helper below speaks that language so
+// the same code path handles same-entry and cross-entry moves.
+
+function journalLocationLabel(entry, location) {
+  if (location === 'media') return 'Media (top level)';
+  if (location.indexOf('subfolder:') === 0) {
+    const sf = (entry.subfolders || []).find((s) => s.id === location.slice('subfolder:'.length));
+    return sf ? (sf.name || 'Untitled subfolder') : 'Untitled subfolder';
+  }
+  return location;
+}
+
+// Every other journal entry, plus this one labeled distinctly and pinned to
+// the top of the list — that's almost always the one someone wants.
+function journalEntryDestinationChoices(currentEntryId) {
+  const items = [];
+  const current = allJournalEntries.find((e) => e.id === currentEntryId);
+  if (current) items.push({ id: current.id, label: 'This entry — ' + (current.title || 'Untitled') });
+  allJournalEntries.forEach((e) => {
+    if (e.id === currentEntryId) return;
+    items.push({ id: e.id, label: e.title || 'Untitled entry' });
+  });
+  return items;
+}
+
+function journalLocationDestinationChoices(entry, excludeLocation) {
+  const items = [{ id: 'media', label: 'Media (top level)' }];
+  (entry.subfolders || []).forEach((sf) => items.push({ id: 'subfolder:' + sf.id, label: sf.name || 'Untitled subfolder' }));
+  return excludeLocation ? items.filter((it) => it.id !== excludeLocation) : items;
+}
+
+// Removes (mode 'move') or shallow-clones (mode 'copy') the media object
+// living at `location` in `entry`. Entry-level media and subfolder blocks
+// wrap media differently (a plain array item vs. a { media: {...} } block),
+// so this is the one place both shapes get unwrapped.
+function extractMediaAt(entry, location, mediaId, mode) {
+  if (location === 'media') {
+    const list = entry.media || [];
+    const idx = list.findIndex((m) => m.id === mediaId);
+    if (idx === -1) return null;
+    return mode === 'move' ? list.splice(idx, 1)[0] : Object.assign({}, list[idx]);
+  }
+  if (location.indexOf('subfolder:') === 0) {
+    const sf = (entry.subfolders || []).find((s) => s.id === location.slice('subfolder:'.length));
+    const blocks = sf && sf.blocks;
+    if (!blocks) return null;
+    const idx = blocks.findIndex((b) => b.type === 'image' && b.media && b.media.id === mediaId);
+    if (idx === -1) return null;
+    return mode === 'move' ? blocks.splice(idx, 1)[0].media : Object.assign({}, blocks[idx].media);
+  }
+  return null;
+}
+
+// Inserts mediaObj at `location` in `entry`. A copy always gets a fresh
+// id/displayId (it now coexists with the original), a move keeps its
+// existing id since it's simply relocating.
+function insertMediaAt(entry, location, mediaObj, isCopy) {
+  const finalMedia = isCopy ? Object.assign({}, mediaObj, { id: 'jmedia_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8), displayId: nextMediaSeq() }) : mediaObj;
+  if (location === 'media') {
+    if (!Array.isArray(entry.media)) entry.media = [];
+    entry.media.push(finalMedia);
+    return;
+  }
+  if (location.indexOf('subfolder:') === 0) {
+    const sf = (entry.subfolders || []).find((s) => s.id === location.slice('subfolder:'.length));
+    if (!sf) return;
+    if (!Array.isArray(sf.blocks)) sf.blocks = [];
+    sf.blocks.push({ id: genBlockId(), type: 'image', createdBy: currentAccount ? currentAccount.email : '', media: finalMedia });
+  }
+}
+
+// Entry point for a single item — the folder icon on a top-level media
+// thumb, and the equivalent control on a subfolder image block. Walks
+// Move/Copy -> destination entry -> destination location, then performs the
+// extract+insert and a persist matched to how many rows actually changed
+// (one save if it stayed within the same entry; a save per side if it
+// crossed entries, and a copy never needs to touch its source at all).
+async function moveOrCopyMediaItem(sourceEntryId, sourceLocation, mediaId) {
+  const sourceEntry = allJournalEntries.find((e) => e.id === sourceEntryId);
+  if (!sourceEntry) return;
+
+  const mode = await chooseFromListDialog('Move or copy this?', [{ id: 'move', label: 'Move' }, { id: 'copy', label: 'Copy' }]);
+  if (!mode) return;
+  const isCopy = mode === 'copy';
+
+  const entryChoices = journalEntryDestinationChoices(sourceEntryId);
+  const destEntryId = entryChoices.length === 1 ? entryChoices[0].id : await chooseFromListDialog((isCopy ? 'Copy' : 'Move') + ' to which entry?', entryChoices);
+  if (!destEntryId) return;
+  const destEntry = allJournalEntries.find((e) => e.id === destEntryId);
+  if (!destEntry) return;
+  const sameEntry = destEntry.id === sourceEntry.id;
+
+  const locationChoices = journalLocationDestinationChoices(destEntry, sameEntry ? sourceLocation : null);
+  if (!locationChoices.length) { showToast('Nothing else to ' + (isCopy ? 'copy' : 'move') + ' into there — add a subfolder first.'); return; }
+  const destLocation = locationChoices.length === 1 ? locationChoices[0].id : await chooseFromListDialog((isCopy ? 'Copy' : 'Move') + ' to where?', locationChoices);
+  if (!destLocation) return;
+  if (sameEntry && destLocation === sourceLocation) return;
+
+  const media = extractMediaAt(sourceEntry, sourceLocation, mediaId, isCopy ? 'copy' : 'move');
+  if (!media) return;
+
+  // Snapshot whatever arrays are about to change, for a full revert if the
+  // save fails partway through.
+  const sourceMediaBefore = (sourceEntry.media || []).slice();
+  const sourceSubfoldersBefore = JSON.parse(JSON.stringify(sourceEntry.subfolders || []));
+  const destMediaBefore = sameEntry ? sourceMediaBefore : (destEntry.media || []).slice();
+  const destSubfoldersBefore = sameEntry ? sourceSubfoldersBefore : JSON.parse(JSON.stringify(destEntry.subfolders || []));
+
+  insertMediaAt(destEntry, destLocation, media, isCopy);
+  sourceEntry.updatedAt = Date.now();
+  if (!sameEntry) destEntry.updatedAt = Date.now();
+
+  let ok;
+  if (sameEntry) {
+    ok = await persistJournalEntry(sourceEntry); // one row covers both sides
+  } else {
+    const okSource = isCopy ? true : await persistJournalEntry(sourceEntry); // a copy never touches the source
+    const okDest = await persistJournalEntry(destEntry);
+    ok = okSource && okDest;
+  }
+
+  if (!ok) {
+    sourceEntry.media = sourceMediaBefore;
+    sourceEntry.subfolders = sourceSubfoldersBefore;
+    if (!sameEntry) { destEntry.media = destMediaBefore; destEntry.subfolders = destSubfoldersBefore; }
+    showToast('Failed to ' + (isCopy ? 'copy' : 'move') + ' — check your connection and try again.');
+  } else {
+    if (destLocation.indexOf('subfolder:') === 0) journalSubfolderExpanded.add(destLocation.slice('subfolder:'.length));
+    const whereText = (sameEntry ? '' : '"' + (destEntry.title || 'Untitled entry') + '" — ') + journalLocationLabel(destEntry, destLocation);
+    showToast((isCopy ? 'Copied' : 'Moved') + ' to ' + whereText + '.');
+  }
+  // Only re-render whichever of these entries is actually the one open on
+  // screen right now — the other one, if any, isn't visible to refresh.
+  if (journalEditingId === sourceEntry.id || journalEditingId === destEntry.id) {
+    renderJournalMediaSection();
+    renderJournalSubfoldersSection();
+  }
+}
+
+function toggleJournalMediaSelectMode(on) {
+  journalMediaSelectMode = !!on;
+  if (!journalMediaSelectMode) journalMediaSelectedIds = new Set(); // clear on Cancel, not just on exit-by-move
+  renderJournalMediaSection();
+}
+
+function toggleJournalMediaItemSelected(id) {
+  if (journalMediaSelectedIds.has(id)) journalMediaSelectedIds.delete(id);
+  else journalMediaSelectedIds.add(id);
+  renderJournalMediaSection();
+}
+
+// Bulk version of moveOrCopyMediaItem, for however many items are checked
+// in the top-level media grid's select mode. Same Move/Copy -> entry ->
+// location walk, just applied to every selected id with a single persist
+// per side at the end instead of one round-trip per item.
+async function moveOrCopySelectedJournalMedia() {
+  if (!journalEditingId || !journalMediaSelectedIds.size) return;
+  const sourceEntry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!sourceEntry || !Array.isArray(sourceEntry.media)) return;
+
+  const mode = await chooseFromListDialog('Move or copy ' + journalMediaSelectedIds.size + ' item(s)?', [{ id: 'move', label: 'Move' }, { id: 'copy', label: 'Copy' }]);
+  if (!mode) return;
+  const isCopy = mode === 'copy';
+
+  const entryChoices = journalEntryDestinationChoices(journalEditingId);
+  const destEntryId = entryChoices.length === 1 ? entryChoices[0].id : await chooseFromListDialog((isCopy ? 'Copy' : 'Move') + ' to which entry?', entryChoices);
+  if (!destEntryId) return;
+  const destEntry = allJournalEntries.find((e) => e.id === destEntryId);
+  if (!destEntry) return;
+  const sameEntry = destEntry.id === sourceEntry.id;
+
+  const locationChoices = journalLocationDestinationChoices(destEntry, sameEntry ? 'media' : null);
+  if (!locationChoices.length) { showToast('Nothing else to ' + (isCopy ? 'copy' : 'move') + ' into there — add a subfolder first.'); return; }
+  const destLocation = locationChoices.length === 1 ? locationChoices[0].id : await chooseFromListDialog((isCopy ? 'Copy' : 'Move') + ' to where?', locationChoices);
+  if (!destLocation) return;
+
+  const ids = Array.from(journalMediaSelectedIds);
+  const sourceMediaBefore = sourceEntry.media.slice();
+  const sourceSubfoldersBefore = JSON.parse(JSON.stringify(sourceEntry.subfolders || []));
+  const destMediaBefore = sameEntry ? sourceMediaBefore : (destEntry.media || []).slice();
+  const destSubfoldersBefore = sameEntry ? sourceSubfoldersBefore : JSON.parse(JSON.stringify(destEntry.subfolders || []));
+
+  let moved = 0;
+  ids.forEach((id) => {
+    const media = extractMediaAt(sourceEntry, 'media', id, isCopy ? 'copy' : 'move');
+    if (!media) return;
+    insertMediaAt(destEntry, destLocation, media, isCopy);
+    moved += 1;
+  });
+  if (!moved) return;
+  sourceEntry.updatedAt = Date.now();
+  if (!sameEntry) destEntry.updatedAt = Date.now();
+
+  let ok;
+  if (sameEntry) {
+    ok = await persistJournalEntry(sourceEntry);
+  } else {
+    const okSource = isCopy ? true : await persistJournalEntry(sourceEntry);
+    const okDest = await persistJournalEntry(destEntry);
+    ok = okSource && okDest;
+  }
+
+  if (!ok) {
+    sourceEntry.media = sourceMediaBefore;
+    sourceEntry.subfolders = sourceSubfoldersBefore;
+    if (!sameEntry) { destEntry.media = destMediaBefore; destEntry.subfolders = destSubfoldersBefore; }
+    setJournalMediaStatus('Failed to ' + (isCopy ? 'copy' : 'move') + ' — check your connection and try again.', 'error');
+  } else {
+    if (destLocation.indexOf('subfolder:') === 0) journalSubfolderExpanded.add(destLocation.slice('subfolder:'.length));
+    const whereText = (sameEntry ? '' : '"' + (destEntry.title || 'Untitled entry') + '" — ') + journalLocationLabel(destEntry, destLocation);
+    showToast((isCopy ? 'Copied ' : 'Moved ') + moved + (moved === 1 ? ' item to ' : ' items to ') + whereText + '.');
+    journalMediaSelectMode = false;
+    journalMediaSelectedIds = new Set();
+  }
+  if (journalEditingId === sourceEntry.id || journalEditingId === destEntry.id) {
+    renderJournalMediaSection();
+    renderJournalSubfoldersSection();
+  }
 }
 
 // Called once a voice note has finished uploading to Cloudinary (see
@@ -6957,6 +7278,14 @@ async function deleteConfluence(name) {
 // longer written to — see journalEntryToRow/rowToJournalEntry above).
 let journalSubfolderExpanded = new Set(); // session-only, resets on entry open
 
+// Multi-select mode for the entry-level journal media grid — lets the user
+// pick several screenshots/videos at once and move or copy them all in one
+// action (see moveOrCopySelectedJournalMedia below).
+// Session-only, same as journalSubfolderExpanded — resets whenever an entry
+// is opened so selection never leaks between entries.
+let journalMediaSelectMode = false;
+let journalMediaSelectedIds = new Set();
+
 function genSubfolderId() { return 'subfolder_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 function genBlockId() { return 'sfblk_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8); }
 
@@ -7100,6 +7429,7 @@ function subfolderBlockHtml(sf, b, idx) {
       '<img src="' + gridThumbSrc(b.media).replace(/"/g, '&quot;') + '" alt="Subfolder media" />' +
       mediaBadgesHtml(b.media) +
       mediaReorderHandleHtml(key, idx, sf.blocks.length) +
+      '<div class="trade-thumb-move-btn" title="Move or copy…" onclick="event.stopPropagation(); moveOrCopyMediaItem(journalEditingId, \'subfolder:' + sf.id + '\', \'' + b.media.id + '\');"><i data-lucide="folder"></i></div>' +
     '</div>' +
     '<div style="display:flex; align-items:center; gap:4px; align-self:flex-start; margin-top:2px;">' +
       authorBadgeHtml(b.createdBy) +
