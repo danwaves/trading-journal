@@ -317,6 +317,18 @@
      palette, no new colors introduced. */
   .badge-author-dan { background: rgba(238,130,179,0.15); color: var(--brand); }
   .badge-author-ako { background: rgba(78,161,247,0.15); color: var(--info); }
+  /* Voice notes: press-and-hold mic button + saved-recording rows. Reuses the
+     --loss color for the recording pulse (same "live/urgent" signal red
+     already used for badge-loss elsewhere), and --surface2/--border to match
+     every other card-on-card element in the app. */
+  .voice-record-btn { display:flex; align-items:center; justify-content:center; gap:8px; width:100%; padding: var(--space-3); background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--light); font-size:13px; font-weight:600; cursor:pointer; -webkit-user-select:none; user-select:none; touch-action:none; transition:background 0.15s, border-color 0.15s, transform 0.1s; }
+  .voice-record-btn:active { transform:scale(0.98); }
+  .voice-record-btn.recording { background:rgba(255,92,92,0.12); border-color:var(--loss); color:var(--loss); }
+  .voice-record-btn.recording i { animation:voicePulse 1s ease-in-out infinite; }
+  @keyframes voicePulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
+  .voice-note-row { display:flex; flex-direction:column; gap:4px; padding: var(--space-2); border:1px solid var(--border); border-radius:8px; margin-bottom:6px; background:var(--surface2); }
+  .voice-note-top { display:flex; align-items:center; gap:8px; }
+  .voice-note-top audio { flex:1; height:32px; min-width:0; }
   .race-crown { border: 1px solid #FFD700; border-radius: 4px; padding: 0 4px; font-size: 10px; display: inline-flex; align-items: center; }
   .race-crown [data-lucide] { width: 10px; height: 10px; color: #FFD700; }
   .race-card-note { font-size: 11.5px; padding: 10px var(--space-3); border-radius: 8px; margin-bottom: var(--space-4); }
@@ -1194,6 +1206,11 @@
     border-radius: 5px; line-height: 1;
   }
   .subfolder-insert-row button:hover { color: var(--brand); background: var(--surface2); }
+  .subfolder-voice-btn { -webkit-user-select:none; user-select:none; touch-action:none; }
+  .subfolder-voice-btn.recording { color: var(--loss) !important; background: rgba(255,92,92,0.12) !important; }
+  .subfolder-voice-btn.recording i { animation: voicePulse 1s ease-in-out infinite; }
+  .subfolder-block-audio .voice-note-top { display:flex; align-items:center; gap:8px; }
+  .subfolder-block-audio .voice-note-top audio { flex:1; height:32px; min-width:0; }
   .subfolder-empty { font-size: 11.5px; color: var(--muted); padding: 6px 2px; }
   .subfolder-add-card {
     background: var(--bg); border: 1px dashed var(--border); border-radius: 10px; padding: 10px var(--space-3);
@@ -2353,6 +2370,17 @@
         <div class="field">
           <textarea id="tradeNotesInput" class="mono" style="width:100%; min-height:70px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding: var(--space-2); color:var(--light); font-size:12px; resize:vertical;" placeholder="Anything about this trade — what you saw, how you felt, what to remember next time…"></textarea>
         </div>
+        <div class="field">
+          <label>Voice note <span class="muted" style="font-weight:400;">— press and hold to record</span></label>
+          <button type="button" id="tradeVoiceBtn" class="voice-record-btn"
+            onmousedown="startVoiceRecording('trade')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()"
+            ontouchstart="event.preventDefault(); startVoiceRecording('trade');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">
+            <i data-lucide="mic"></i><span>Hold to record</span>
+          </button>
+          <div id="tradeVoiceLive" class="mono" style="display:none; font-size:11px; color:var(--loss); margin-top:6px;"></div>
+          <div id="tradeVoiceStatus" class="extract-status"></div>
+          <div id="tradeVoiceNotesList" style="margin-top:8px;"></div>
+        </div>
 
         <button id="saveTradeBtn" class="btn-primary" onclick="saveTrade()">Save Trade</button>
         <button id="deleteTradeBtn" style="display:none; width:100%; padding: var(--space-3); margin-top:10px; background:rgba(255,92,92,0.1); border:1px solid var(--loss); border-radius:8px; color:var(--loss); font-weight:600; font-size:14px; cursor:pointer;" onclick="deleteTradeFromEntry()"><i data-lucide="trash-2" style="vertical-align:-3px; margin-right:4px;"></i>Delete Trade</button>
@@ -2949,6 +2977,20 @@
           placeholder="What's the thesis? What would invalidate it? Anything worth remembering later…" onblur="onJournalFieldBlur()"></textarea>
       </div>
       <div id="journalSaveStatus" class="extract-status"></div>
+      <!-- Voice notes: press-and-hold mic button. Locked (same "save notes
+           first" pattern as Media below) until the entry has an id, since
+           the recording is attached straight to the entry row on stop. -->
+      <div class="field">
+        <div class="journal-field-label"><span class="icon"><i data-lucide="mic"></i></span>Voice note<span class="hint">— press and hold to record</span></div>
+        <button type="button" id="journalVoiceBtn" class="voice-record-btn"
+          onmousedown="startVoiceRecording('journal')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()"
+          ontouchstart="event.preventDefault(); startVoiceRecording('journal');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">
+          <i data-lucide="mic"></i><span>Hold to record</span>
+        </button>
+        <div id="journalVoiceLive" class="mono" style="display:none; font-size:11px; color:var(--loss); margin-top:6px;"></div>
+        <div id="journalVoiceStatus" class="extract-status"></div>
+        <div id="journalVoiceNotesList" style="margin-top:8px;"></div>
+      </div>
       <!-- Roadmap Phase 3/4: images + video, reusing the exact same Cloudinary
            pipeline, trade-img-grid/trade-thumb markup, and fullscreen viewer
            (with its dropup caption editor and native video playback) already
@@ -4149,7 +4191,229 @@ function uploadFileToCloudinaryWithProgress(file, onProgress) {
   });
 }
 
+// ---- Voice notes (press-and-hold record + live transcript + Cloudinary audio) ----
+// Shared by Journal entries and Trades — each keeps its own array of voice
+// note objects: { id, url, publicId, sizeKB, durationSec, transcript,
+// createdBy, createdAt }. MediaRecorder captures the actual audio (uploaded
+// to Cloudinary just like images/video); the Web Speech API transcribes live
+// in parallel and its final transcript gets appended into the Notes field.
+// Web Speech API is Chrome/Chromium-only — on browsers without it (Safari,
+// iOS) the recording still records and saves fine, just with no transcript.
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+
+let voiceRecordingState = null; // null when idle, else { kind, mediaRecorder, chunks, stream, recognition, transcript, startedAt, timerInterval }
+
+function voiceRecordingSupported() {
+  return !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+}
+
+function formatRecordingClock(ms) {
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+// kind is 'journal', 'trade', or 'subfolder'. context carries kind-specific
+// routing info — for 'subfolder' this is { subfolderId, atIndex, btnEl }, so
+// the same engine can serve many independent mic buttons (one per insert
+// row) without each needing its own dedicated status/live DOM elements; it
+// reuses that subfolder's existing status line (setSubfolderStatus) and
+// pulses whichever button was actually pressed. Any per-screen guard (like
+// journal needing an id first) is enforced in the kind-specific
+// onXVoiceNoteRecorded() handler below, once we already have the recording —
+// cheaper than blocking the mic press itself, and means a still-unsaved
+// trade can freely record (its voice notes just live in-memory until Save
+// Trade, same as its images).
+async function startVoiceRecording(kind, context) {
+  if (voiceRecordingState) return; // already recording — ignore a stray double-fire
+  if (!voiceRecordingSupported()) {
+    setVoiceStatus(kind, "Voice recording isn't supported in this browser.", 'error', context);
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    setVoiceStatus(kind, 'Microphone access was blocked — allow it in your browser settings to record.', 'error', context);
+    return;
+  }
+  const mediaRecorder = new MediaRecorder(stream);
+  const chunks = [];
+  mediaRecorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+
+  let recognition = null;
+  if (SpeechRecognitionCtor) {
+    recognition = new SpeechRecognitionCtor();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+    recognition.onresult = (event) => {
+      let finalText = '';
+      for (let i = 0; i < event.results.length; i++) {
+        if (event.results[i].isFinal) finalText += event.results[i][0].transcript;
+      }
+      if (voiceRecordingState) voiceRecordingState.transcript = finalText.trim();
+      updateVoiceRecordingUI(kind, false, context);
+    };
+    recognition.onerror = () => {}; // best-effort — a mid-recording recognition hiccup shouldn't interrupt the audio recording itself
+    try { recognition.start(); } catch (e) { recognition = null; }
+  }
+
+  voiceRecordingState = { kind, context, mediaRecorder, chunks, stream, recognition, transcript: '', startedAt: Date.now() };
+  mediaRecorder.start();
+  setVoiceStatus(kind, '', '', context);
+  updateVoiceRecordingUI(kind, false, context);
+  voiceRecordingState.timerInterval = setInterval(() => updateVoiceRecordingUI(kind, false, context), 500);
+}
+
+// Stops recording, uploads the captured audio to Cloudinary, and hands the
+// result + live transcript to the kind-specific save callback. Safe to call
+// even if a recording never actually started (e.g. mic permission denied).
+async function stopVoiceRecording() {
+  const state = voiceRecordingState;
+  if (!state) return;
+  voiceRecordingState = null; // clear immediately so mouseup+touchend both firing is a no-op on the second call
+  clearInterval(state.timerInterval);
+  if (state.recognition) { try { state.recognition.stop(); } catch (e) {} }
+  state.stream.getTracks().forEach((t) => t.stop());
+  updateVoiceRecordingUI(state.kind, true, state.context);
+
+  const durationSec = Math.round((Date.now() - state.startedAt) / 1000);
+  if (durationSec < 1) {
+    try { state.mediaRecorder.stop(); } catch (e) {}
+    setVoiceStatus(state.kind, 'Recording too short — hold the mic a bit longer.', 'error', state.context);
+    return;
+  }
+
+  setVoiceStatus(state.kind, 'Uploading voice note…', '', state.context);
+  const blob = await new Promise((resolve) => {
+    state.mediaRecorder.addEventListener('stop', () => resolve(new Blob(state.chunks, { type: state.mediaRecorder.mimeType || 'audio/webm' })), { once: true });
+    state.mediaRecorder.stop();
+  });
+
+  try {
+    const file = new File([blob], 'voice_' + Date.now() + '.webm', { type: blob.type });
+    const result = await uploadFileToCloudinary(file);
+    const voiceNote = {
+      id: 'voice_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      url: result.url,
+      publicId: result.publicId,
+      sizeKB: result.sizeKB,
+      durationSec,
+      transcript: state.transcript || '',
+      createdBy: currentAccount ? currentAccount.email : '',
+      createdAt: Date.now(),
+    };
+    if (state.kind === 'journal') await onJournalVoiceNoteRecorded(voiceNote);
+    else if (state.kind === 'trade') await onTradeVoiceNoteRecorded(voiceNote);
+    else await onSubfolderVoiceNoteRecorded(voiceNote, state.context);
+    setVoiceStatus(state.kind, '', '', state.context);
+  } catch (err) {
+    console.error('Voice note upload failed:', err);
+    setVoiceStatus(state.kind, "Couldn't save the recording — " + ((err && err.message) || 'check your connection and try again.'), 'error', state.context);
+  }
+}
+
+// kind 'journal'/'trade' each have one fixed status element; kind 'subfolder'
+// has many independent mic buttons (one per insert row), so it routes
+// through that specific subfolder's own status line instead via context.
+function setVoiceStatus(kind, msg, cls, context) {
+  if (kind === 'subfolder') {
+    if (context && context.subfolderId) setSubfolderStatus(context.subfolderId, msg, cls);
+    return;
+  }
+  const el = document.getElementById(kind === 'journal' ? 'journalVoiceStatus' : 'tradeVoiceStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'extract-status' + (cls ? ' ' + cls : '');
+}
+
+// Toggles the mic button's recording state and the live timer/transcript
+// preview line beneath it. forceIdle resets the UI even if voiceRecordingState
+// was already cleared (used right when a recording stops). For 'subfolder',
+// there's no single fixed button/live-line pair — context.btnEl (captured at
+// mousedown) gets the pulse, and the live timer/transcript reuses that
+// subfolder's own status line via setSubfolderStatus.
+function updateVoiceRecordingUI(kind, forceIdle, context) {
+  if (kind === 'subfolder') {
+    const btnEl = context && context.btnEl;
+    const state = voiceRecordingState;
+    if (!state || forceIdle || state.kind !== kind) {
+      if (btnEl) btnEl.classList.remove('recording');
+      return;
+    }
+    if (btnEl) btnEl.classList.add('recording');
+    if (context && context.subfolderId) {
+      setSubfolderStatus(context.subfolderId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…'), '');
+    }
+    return;
+  }
+  const btn = document.getElementById(kind === 'journal' ? 'journalVoiceBtn' : 'tradeVoiceBtn');
+  const live = document.getElementById(kind === 'journal' ? 'journalVoiceLive' : 'tradeVoiceLive');
+  const state = voiceRecordingState;
+  if (!state || forceIdle || state.kind !== kind) {
+    if (btn) btn.classList.remove('recording');
+    if (live) live.style.display = 'none';
+    return;
+  }
+  if (btn) btn.classList.add('recording');
+  if (live) {
+    live.style.display = 'block';
+    live.textContent = '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…');
+  }
+}
+
+// Shared row renderer for a saved voice note — used by both the Journal and
+// Trade forms, which each keep their own list container/delete function but
+// render identically otherwise (author badge reuses the same AUTHOR_BADGES
+// map the rest of the app's accountability badges use).
+function voiceNoteRowHtml(vn, kind) {
+  const mins = Math.floor((vn.durationSec || 0) / 60);
+  const secs = (vn.durationSec || 0) % 60;
+  const clock = mins + ':' + String(secs).padStart(2, '0');
+  return '<div class="voice-note-row">' +
+    '<div class="voice-note-top">' +
+      authorBadgeHtml(vn.createdBy) +
+      '<span class="mono muted" style="font-size:10.5px;">' + clock + '</span>' +
+      '<audio controls preload="none" src="' + String(vn.url).replace(/"/g, '&quot;') + '"></audio>' +
+      '<span class="icon-btn" style="width:26px;height:26px;flex:none;" onclick="' + (kind === 'journal' ? 'deleteJournalVoiceNote' : 'deleteTradeVoiceNote') + '(\'' + vn.id + '\')" title="Delete voice note"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></span>' +
+    '</div>' +
+    (vn.transcript ? '<div class="muted" style="font-size:11px; padding:0 2px;">' + escapeHtml(vn.transcript) + '</div>' : '') +
+  '</div>';
+}
+
 let tradeImages = []; // { id, slot: 'before'|'after', source: 'cloudinary', url, publicId, sizeKB, name }
+let tradeVoiceNotes = []; // { id, url, publicId, sizeKB, durationSec, transcript, createdBy, createdAt } — same in-memory-until-Save-Trade pattern as tradeImages above
+
+// Called once a voice note has finished uploading to Cloudinary. Unlike the
+// Journal version, a trade doesn't need to exist in Supabase yet — it just
+// joins tradeImages' in-memory array and rides along whenever Save Trade is
+// next pressed (or gets cleaned up immediately on delete, same as images).
+async function onTradeVoiceNoteRecorded(voiceNote) {
+  tradeVoiceNotes.push(voiceNote);
+  if (voiceNote.transcript) {
+    const notesInput = document.getElementById('tradeNotesInput');
+    if (notesInput) notesInput.value = notesInput.value ? (notesInput.value.replace(/\s+$/, '') + '\n' + voiceNote.transcript) : voiceNote.transcript;
+  }
+  renderTradeVoiceNotes();
+}
+
+function renderTradeVoiceNotes() {
+  const container = document.getElementById('tradeVoiceNotesList');
+  if (!container) return;
+  container.innerHTML = tradeVoiceNotes.map((vn) => voiceNoteRowHtml(vn, 'trade')).join('');
+  refreshIcons();
+}
+
+async function deleteTradeVoiceNote(id) {
+  const vn = tradeVoiceNotes.find((v) => v.id === id);
+  if (!vn) return;
+  if (!(await confirmDialog('Delete this voice note? This can\'t be undone.', { confirmLabel: 'Delete', danger: true }))) return;
+  tradeVoiceNotes = tradeVoiceNotes.filter((v) => v.id !== id);
+  deleteFromCloudinary(vn.publicId, 'video'); // fine to delete right away — it's only attached to the trade row once Save Trade actually persists it
+  renderTradeVoiceNotes();
+}
 
 function setImageStatus(msg, cls) {
   const el = document.getElementById('imageUploadStatus');
@@ -4953,6 +5217,7 @@ function tradeToRow(t) {
     rr_outcome: t.rrOutcome,
     images: t.images,
     notes: t.notes,
+    voice_notes: t.voiceNotes, // needs `alter table trades add column voice_notes jsonb default '[]'::jsonb;` run once in Supabase.
   };
 }
 
@@ -4991,6 +5256,7 @@ function rowToTrade(r) {
     // (the New Trade textarea, search, etc.) can treat it as a plain string
     // without a null check at every call site.
     notes: r.notes || '',
+    voiceNotes: r.voice_notes || [], // rows saved before this column existed just get an empty list
   };
 }
 
@@ -5060,6 +5326,7 @@ function journalEntryToRow(e) {
     media: e.media,
     sub_notes: e.subNotes, // legacy — no longer written to by the UI, kept so old rows still round-trip
     subfolders: e.subfolders, // notepad sections: array of { id, name, blocks: [...] }, same array-of-objects storage as media. Accountability roadmap Phase A: the subfolder and each block carry their own createdBy inside this JSON — no separate column needed.
+    voice_notes: e.voiceNotes, // array of { id, url, publicId, sizeKB, durationSec, transcript, createdBy, createdAt } — needs `alter table journal_entries add column voice_notes jsonb default '[]'::jsonb;` run once in Supabase.
   };
 }
 
@@ -5081,6 +5348,7 @@ function rowToJournalEntry(r) {
     media: r.media || [],
     subNotes: r.sub_notes || [], // legacy — read-only now, UI no longer writes to it
     subfolders: r.subfolders || [],
+    voiceNotes: r.voice_notes || [], // rows saved before this column existed just get an empty list
   };
 }
 
@@ -5143,6 +5411,7 @@ async function createJournalEntry(fields) {
     media: fields.media || [],
     subNotes: fields.subNotes || [], // legacy
     subfolders: fields.subfolders || [],
+    voiceNotes: fields.voiceNotes || [],
   };
   const ok = await persistJournalEntry(entry);
   if (!ok) return null;
@@ -5323,7 +5592,7 @@ function journalMatchesSearchText(entry, query) {
     ...mediaListSearchTokens(entry.media),
     ...(entry.subNotes || []).reduce((acc, sn) => acc.concat(sn.body || '', mediaListSearchTokens(sn.media)), []),
     ...(entry.subfolders || []).reduce((acc, sf) => acc.concat(sf.name || '', (sf.blocks || []).reduce((bacc, b) =>
-      bacc.concat(b.type === 'text' ? (b.text || '') : b.type === 'link' ? (b.label || '') + ' ' + (b.url || '') : mediaListSearchTokens([b.media])), [])), []),
+      bacc.concat(b.type === 'text' ? (b.text || '') : b.type === 'link' ? (b.label || '') + ' ' + (b.url || '') : b.type === 'audio' ? ((b.voiceNote && b.voiceNote.transcript) || '') : mediaListSearchTokens([b.media])), [])), []),
   ].filter(Boolean).join(' ').toLowerCase();
   return haystack.includes(query);
 }
@@ -5509,6 +5778,7 @@ function openNewJournalEntry() {
   document.getElementById('journalSaveStatus').className = 'extract-status';
   document.getElementById('journalDeleteBtn').style.display = 'none';
   renderJournalMediaSection(); // Phase 3: shows the "save notes first" placeholder until this entry gets an id
+  renderJournalVoiceNotes();
   renderJournalStrategySection(); // Phase 5: same placeholder, until this entry gets an id
   renderJournalTradesSection(); // Phase 6: same placeholder, until this entry gets an id
   renderJournalSubfoldersSection(); // same placeholder, until this entry gets an id
@@ -5530,6 +5800,7 @@ function openJournalEntry(id) {
   document.getElementById('journalSaveStatus').className = 'extract-status';
   document.getElementById('journalDeleteBtn').style.display = '';
   renderJournalMediaSection(); // Phase 3: shows this entry's existing images (if any)
+  renderJournalVoiceNotes();
   renderJournalStrategySection(); // Phase 5: shows this entry's current Strategy link (if any)
   renderJournalTradesSection(); // Phase 6: shows this entry's attached trades (if any)
   renderJournalSubfoldersSection(); // shows this entry's existing subfolders (if any)
@@ -5577,6 +5848,7 @@ async function flushJournalEntry() {
       journalEditingId = created.id;
       document.getElementById('journalDeleteBtn').style.display = '';
       renderJournalMediaSection(); // Phase 3: unlocks the image uploader now that the entry has an id
+  renderJournalVoiceNotes();
       renderJournalStrategySection(); // Phase 5: unlocks the Strategy link now that the entry has an id
       renderJournalTradesSection(); // Phase 6: unlocks Trade attach now that the entry has an id
     }
@@ -5943,6 +6215,60 @@ function renderJournalMediaSection() {
       ).join('') +
     '</div>';
   refreshIcons();
+}
+
+// Called once a voice note has finished uploading to Cloudinary (see
+// stopVoiceRecording() above). Mirrors handleJournalMediaSelect()'s
+// mutate-array-then-persist-then-revert-on-failure pattern.
+async function onJournalVoiceNoteRecorded(voiceNote) {
+  if (!journalEditingId) {
+    setVoiceStatus('journal', 'Save some notes above first, then record a voice note.', 'error');
+    deleteFromCloudinary(voiceNote.publicId, 'video'); // nothing to attach it to — don't leave it orphaned in Cloudinary
+    return;
+  }
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  if (!Array.isArray(entry.voiceNotes)) entry.voiceNotes = [];
+  entry.voiceNotes.push(voiceNote);
+  entry.updatedAt = Date.now();
+  const ok = await persistJournalEntry(entry);
+  if (!ok) {
+    entry.voiceNotes = entry.voiceNotes.filter((v) => v !== voiceNote);
+    setVoiceStatus('journal', 'Failed to save — check your connection and try again.', 'error');
+    renderJournalVoiceNotes();
+    return;
+  }
+  // Transcript, if any, drops straight into the Notes field — same as if it
+  // had been typed — and goes through the normal autosave flow.
+  if (voiceNote.transcript) {
+    const bodyInput = document.getElementById('journalBodyInput');
+    bodyInput.value = bodyInput.value ? (bodyInput.value.replace(/\s+$/, '') + '\n' + voiceNote.transcript) : voiceNote.transcript;
+    onJournalFieldBlur();
+  }
+  renderJournalVoiceNotes();
+}
+
+function renderJournalVoiceNotes() {
+  const container = document.getElementById('journalVoiceNotesList');
+  if (!container) return;
+  const entry = journalEditingId ? allJournalEntries.find((e) => e.id === journalEditingId) : null;
+  const notes = (entry && entry.voiceNotes) || [];
+  container.innerHTML = notes.map((vn) => voiceNoteRowHtml(vn, 'journal')).join('');
+  refreshIcons();
+}
+
+async function deleteJournalVoiceNote(id) {
+  if (!journalEditingId) return;
+  const entry = allJournalEntries.find((e) => e.id === journalEditingId);
+  if (!entry) return;
+  const vn = (entry.voiceNotes || []).find((v) => v.id === id);
+  if (!vn) return;
+  if (!(await confirmDialog('Delete this voice note? This can\'t be undone.', { confirmLabel: 'Delete', danger: true }))) return;
+  entry.voiceNotes = entry.voiceNotes.filter((v) => v.id !== id);
+  entry.updatedAt = Date.now();
+  const ok = await persistJournalEntry(entry);
+  if (ok) deleteFromCloudinary(vn.publicId, 'video');
+  renderJournalVoiceNotes();
 }
 
 async function handleJournalMediaSelect(event) {
@@ -6717,6 +7043,10 @@ function subfolderInsertRow(subfolderId, atIndex) {
     '<button title="Add text" onclick="addSubfolderTextBlock(\'' + subfolderId + '\', ' + atIndex + ')">Aa</button>' +
     '<button title="Add image or video" onclick="triggerSubfolderImagePick(\'' + subfolderId + '\', ' + atIndex + ')"><i data-lucide="image" style="width:14px;height:14px;"></i></button>' +
     '<button title="Add link" onclick="addSubfolderLinkBlock(\'' + subfolderId + '\', ' + atIndex + ')"><i data-lucide="link" style="width:14px;height:14px;"></i></button>' +
+    '<button title="Hold to record a voice note" class="subfolder-voice-btn" ' +
+      'onmousedown="startSubfolderVoiceRecording(event, \'' + subfolderId + '\', ' + atIndex + ')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()" ' +
+      'ontouchstart="event.preventDefault(); startSubfolderVoiceRecording(event, \'' + subfolderId + '\', ' + atIndex + ');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">' +
+      '<i data-lucide="mic" style="width:14px;height:14px;"></i></button>' +
   '</div>';
 }
 
@@ -6746,6 +7076,22 @@ function subfolderBlockHtml(sf, b, idx) {
         mediaReorderHandleHtml(key, idx, sf.blocks.length) +
         '<span onclick="event.stopPropagation(); deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete"><i data-lucide="x" style="width:12px;height:12px;"></i></span>' +
       '</div>' +
+    '</div>';
+  }
+  if (b.type === 'audio') {
+    const vn = b.voiceNote || {};
+    const mins = Math.floor((vn.durationSec || 0) / 60);
+    const secs = (vn.durationSec || 0) % 60;
+    const clock = mins + ':' + String(secs).padStart(2, '0');
+    return '<div class="subfolder-block subfolder-block-audio" data-block-id="' + escapeHtml(b.id) + '" ' + mediaThumbDragAttrs(key, idx) + '>' +
+      '<div class="voice-note-top">' +
+        authorBadgeHtml(b.createdBy) +
+        '<span class="mono muted" style="font-size:10.5px;">' + clock + '</span>' +
+        '<audio controls preload="none" src="' + String(vn.url || '').replace(/"/g, '&quot;') + '"></audio>' +
+        mediaReorderHandleHtml(key, idx, sf.blocks.length) +
+        '<span class="subfolder-block-delete" onclick="deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete"><i data-lucide="x" style="width:12px;height:12px;"></i></span>' +
+      '</div>' +
+      (vn.transcript ? '<div class="muted" style="font-size:11px; padding:2px 2px 0;">' + escapeHtml(vn.transcript) + '</div>' : '') +
     '</div>';
   }
   // image / video block
@@ -6875,6 +7221,39 @@ async function addSubfolderLinkBlock(subfolderId, atIndex) {
   renderJournalSubfoldersSection();
 }
 
+// Kicks off a press-and-hold recording from a specific insert row's mic
+// button. event.currentTarget is captured here (not re-derived later) so
+// updateVoiceRecordingUI can pulse exactly the button that was pressed, even
+// though a subfolder can have many insert rows/mic buttons on screen at once.
+function startSubfolderVoiceRecording(event, subfolderId, atIndex) {
+  startVoiceRecording('subfolder', { subfolderId: subfolderId, atIndex: atIndex, btnEl: event.currentTarget });
+}
+
+// Called once a voice note recorded from a subfolder's insert row has
+// finished uploading to Cloudinary (see stopVoiceRecording()). Inserts a new
+// 'audio' block at the same position/subfolder the mic button was pressed
+// from — same splice-then-persist-then-revert pattern as the text/link
+// blocks above. Unlike entry-level/trade-level voice notes, the transcript
+// stays attached to this block only — it doesn't get copied into the
+// entry's top-level Notes field, since a subfolder is its own free-flowing
+// stream of blocks, not a single note.
+async function onSubfolderVoiceNoteRecorded(voiceNote, context) {
+  const entry = currentJournalEntryForEdit();
+  const sf = entry && (entry.subfolders || []).find((s) => s.id === context.subfolderId);
+  if (!sf) { deleteFromCloudinary(voiceNote.publicId, 'video'); return; } // nothing to attach it to — don't leave it orphaned in Cloudinary
+  if (!Array.isArray(sf.blocks)) sf.blocks = [];
+  const block = { id: genBlockId(), type: 'audio', voiceNote: voiceNote, createdBy: voiceNote.createdBy };
+  sf.blocks.splice(context.atIndex, 0, block);
+  const ok = await persistSubfolderBlocks(sf, entry, context.subfolderId);
+  if (!ok) {
+    sf.blocks = sf.blocks.filter((b) => b.id !== block.id);
+    deleteFromCloudinary(voiceNote.publicId, 'video');
+    return;
+  }
+  journalSubfolderExpanded.add(context.subfolderId);
+  renderJournalSubfoldersSection();
+}
+
 // File-picker fallback for the 🖼 insert button — one hidden shared input,
 // re-pointed at whichever subfolder/position was tapped, same trick as the
 // single #journalMediaInput used for entry-level media above.
@@ -6979,6 +7358,7 @@ async function deleteSubfolderBlock(subfolderId, blockId) {
   sf.blocks = sf.blocks.filter((b) => b.id !== blockId);
   const ok = await persistSubfolderBlocks(sf, entry, subfolderId, 'Failed to delete — check your connection and try again.');
   if (ok && block.media && block.media.source === 'cloudinary' && block.media.publicId) deleteFromCloudinary(block.media.publicId, block.media.type);
+  if (ok && block.voiceNote && block.voiceNote.publicId) deleteFromCloudinary(block.voiceNote.publicId, 'video');
   renderJournalSubfoldersSection();
 }
 
@@ -8990,6 +9370,7 @@ async function saveTrade() {
     rrOutcome,
     images: tradeImages.slice(), // replaces whatever was stored before — old images are never orphaned
     notes: finalNotes,
+    voiceNotes: tradeVoiceNotes.slice(),
   };
 
   // Cloudinary assets that existed on this trade before this save but aren't
@@ -9039,7 +9420,9 @@ async function saveTrade() {
 function resetEntryForm() {
   editingTradeId = null;
   tradeImages = [];
+  tradeVoiceNotes = [];
   renderImageGrid();
+  renderTradeVoiceNotes();
   document.getElementById('entryTitle').textContent = 'New Trade';
   document.getElementById('editingBanner').style.display = 'none';
   document.getElementById('deleteTradeBtn').style.display = 'none';
@@ -9087,6 +9470,8 @@ async function loadTradeIntoForm(id) {
   if (!trade) return;
   editingTradeId = id;
   tradeImages = (trade.images || []).slice();
+  tradeVoiceNotes = (trade.voiceNotes || []).slice();
+  renderTradeVoiceNotes();
   // Self-heal legacy screenshots saved before the Before/After split existed
   // (or any image that otherwise lost its slot tag). imagesForSlot()/
   // renderImageGrid() only show images whose .slot matches 'before' or
