@@ -310,6 +310,13 @@
   .badge-win { background: rgba(0,200,150,0.15); color: var(--win); }
   .badge-loss { background: rgba(255,92,92,0.15); color: var(--loss); }
   .badge-drawdown { background: rgba(245,166,35,0.15); color: var(--lead); }
+  /* Accountability roadmap Phase C: colored name badge shown on trades,
+     journal entries (+ sub-notes/subfolders/blocks), and watchlist cards
+     (+ trail entries), driven by the created_by field from Phase A.
+     Reuses --brand (Dan/owner) and --info (Ako) — both already in the
+     palette, no new colors introduced. */
+  .badge-author-dan { background: rgba(238,130,179,0.15); color: var(--brand); }
+  .badge-author-ako { background: rgba(78,161,247,0.15); color: var(--info); }
   .race-crown { border: 1px solid #FFD700; border-radius: 4px; padding: 0 4px; font-size: 10px; display: inline-flex; align-items: center; }
   .race-crown [data-lucide] { width: 10px; height: 10px; color: #FFD700; }
   .race-card-note { font-size: 11.5px; padding: 10px var(--space-3); border-radius: 8px; margin-bottom: var(--space-4); }
@@ -2386,6 +2393,18 @@
         <span class="chip-pill" onclick="setOutcomeChip('pending')">Pending</span>
       </div>
 
+      <!-- Accountability roadmap Phase D: Mine/Other/All filter, reusing
+           the same .chip-pill segmented-control idiom as the Outcome chips
+           above. The third chip's label is filled in at render time by
+           updateAuthorFilterChips() (it's whichever account ISN'T
+           currently logged in — "Dan" or "Ako" depending who's signed in),
+           so it starts blank here rather than hardcoding a name. -->
+      <div id="tradeAuthorChips" style="margin-bottom:10px;">
+        <span class="chip-pill" onclick="setTradeAuthorFilter('all')">All</span>
+        <span class="chip-pill" onclick="setTradeAuthorFilter('mine')">Mine</span>
+        <span class="chip-pill" data-author-chip-other onclick="setTradeAuthorFilter('other')"></span>
+      </div>
+
       <div id="tradeFiltersToggle" class="filters-trigger-compact" onclick="toggleTradeFilters()">
         <span><i data-lucide="search"></i> Filters</span>
         <span class="chevron">›</span>
@@ -2518,6 +2537,13 @@
                follow-up trail; too much to flatten into one image. -->
           <div class="icon-btn" id="shareWatchlistItemsBtn" onclick="shareWatchlistItemsPNG()" title="Share as image"><i data-lucide="share-2"></i></div>
         </div>
+        <!-- Accountability roadmap Phase D — see tradeAuthorChips comment
+             for the "third chip filled in at render time" explanation. -->
+        <div id="watchlistAuthorChips" style="margin-bottom: var(--space-3);">
+          <span class="chip-pill" onclick="setWatchlistAuthorFilter('all')">All</span>
+          <span class="chip-pill" onclick="setWatchlistAuthorFilter('mine')">Mine</span>
+          <span class="chip-pill" data-author-chip-other onclick="setWatchlistAuthorFilter('other')"></span>
+        </div>
         <div id="watchlistList" class="mono muted" style="font-size:12.5px;">Loading…</div>
       </div>
     </div>
@@ -2583,6 +2609,16 @@
       <div class="mini-card-body">
         <p class="sub" style="margin-bottom: var(--space-3);">Logged in as <b id="settingsAccountEmail" class="mono" style="color:var(--light);">—</b></p>
         <button class="btn-primary" style="width:auto; padding: var(--space-2) 14px; background:var(--surface2); color:var(--light); border:1px solid var(--border);" onclick="logoutAccount()">Log out</button>
+
+        <!-- Accountability roadmap Phase E: shows both linked accounts —
+             read-only, since AUTHOR_BADGES (app.html, near authorBadgeHtml)
+             is a hardcoded 2-account map, not a stored/editable list. If a
+             name or email ever needs to change, edit AUTHOR_BADGES directly
+             rather than building settings UI for a list that only ever has
+             two fixed entries. -->
+        <h3 style="margin:20px 0 4px; font-size:14px;">Team</h3>
+        <p class="sub" style="margin-bottom: var(--space-3);">Both accounts sharing this journal — every trade, journal entry, and watchlist idea is tagged with whichever of these is logged in when it's created.</p>
+        <div id="settingsTeamList"></div>
 
         <h3 style="margin:20px 0 4px; font-size:14px;">Change Password</h3>
         <p class="sub" style="margin-bottom: var(--space-3);">Update the password for this account.</p>
@@ -2829,6 +2865,13 @@
         <span class="chip-pill" onclick="setJournalStatusFilter('invalidated')">Invalidated</span>
         <span class="chip-pill" onclick="setJournalStatusFilter('archived')">Archived</span>
       </div>
+      <!-- Accountability roadmap Phase D — see tradeAuthorChips comment
+           for the "third chip filled in at render time" explanation. -->
+      <div id="journalAuthorChips" style="margin-bottom:14px;">
+        <span class="chip-pill" onclick="setJournalAuthorFilter('all')">All</span>
+        <span class="chip-pill" onclick="setJournalAuthorFilter('mine')">Mine</span>
+        <span class="chip-pill" data-author-chip-other onclick="setJournalAuthorFilter('other')"></span>
+      </div>
       <div id="journalFiltersToggle" class="filters-trigger-compact" onclick="toggleJournalFilters()">
         <span><i data-lucide="search"></i> Filters</span>
         <span class="chevron">›</span>
@@ -3009,7 +3052,72 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-// Parses a date-only "YYYY-MM-DD" string (e.g. trade.date) as a LOCAL
+// Accountability roadmap Phase C: given a created_by email (from Phase A),
+// returns a small colored name-badge <span> — "Dan" or "Ako" — matching the
+// existing .badge/.badge-win/.badge-loss idiom used everywhere else in the
+// app. Only these two accounts exist, so a plain lookup is enough; no need
+// for a general "team members" system. Legacy/unknown createdBy ('') or any
+// email that isn't one of the two known accounts renders nothing — never a
+// guessed owner.
+const AUTHOR_BADGES = {
+  'danwaves.services@gmail.com': { name: 'Dan', cls: 'badge-author-dan' },
+  'oa777410@gmail.com': { name: 'Ako', cls: 'badge-author-ako' },
+};
+function authorBadgeHtml(createdBy) {
+  const info = AUTHOR_BADGES[createdBy];
+  if (!info) return '';
+  return '<span class="badge ' + info.cls + '">' + info.name + '</span>';
+}
+
+// Accountability roadmap Phase D: Mine/Other/All filter shared by the Trade
+// list, Journal list, and Watchlist. "Other" always means "whichever of the
+// two known accounts is NOT currently logged in" — resolved dynamically
+// against AUTHOR_BADGES rather than hardcoding "Dan" or "Ako", since which
+// account counts as "the other one" depends on who's actually signed in on
+// this device right now.
+function otherAccountEmail() {
+  if (!currentAccount) return null;
+  return Object.keys(AUTHOR_BADGES).find((email) => email !== currentAccount.email) || null;
+}
+function otherAccountName() {
+  const email = otherAccountEmail();
+  return (email && AUTHOR_BADGES[email]) ? AUTHOR_BADGES[email].name : 'Other';
+}
+// Fills in the third chip's label (blank in the HTML — see the
+// tradeAuthorChips/journalAuthorChips/watchlistAuthorChips comments) on
+// every screen at once. Cheap enough to call unconditionally on login and
+// on each relevant render rather than tracking which screens are visible.
+function updateAuthorFilterChipLabels() {
+  const name = otherAccountName();
+  document.querySelectorAll('[data-author-chip-other]').forEach((el) => { el.textContent = name; });
+}
+// Shared by trades/journal entries/watchlist items — all three carry the
+// same createdBy field (Phase A), so one function covers all of them.
+function matchesAuthorFilter(item, filter) {
+  if (filter === 'mine') return !!currentAccount && item.createdBy === currentAccount.email;
+  if (filter === 'other') { const oe = otherAccountEmail(); return !!oe && item.createdBy === oe; }
+  return true; // 'all'
+}
+
+// Accountability roadmap Phase E: renders the two linked accounts under
+// Settings → Account, read-only (see the HTML comment above #settingsTeamList
+// for why this isn't an editable list). Highlights whichever one matches
+// currentAccount.email as "You" rather than repeating the email a second time.
+function renderSettingsTeamList() {
+  const el = document.getElementById('settingsTeamList');
+  if (!el) return;
+  el.innerHTML = Object.keys(AUTHOR_BADGES).map((email) => {
+    const info = AUTHOR_BADGES[email];
+    const isYou = !!currentAccount && email === currentAccount.email;
+    return '<div style="display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border);">' +
+      '<span class="badge ' + info.cls + '">' + escapeHtml(info.name) + '</span>' +
+      '<span class="mono" style="font-size:12.5px; color:var(--light);">' + escapeHtml(email) + '</span>' +
+      (isYou ? '<span class="sub" style="font-size:11px; margin-left:auto;">You</span>' : '') +
+    '</div>';
+  }).join('');
+}
+
+
 // calendar date rather than UTC midnight. `new Date("2026-01-01")` (no time
 // component) is parsed by JS as UTC midnight — in any timezone west of UTC,
 // formatting that with local getters (getMonth/getDate/toLocaleDateString)
@@ -4824,6 +4932,7 @@ function tradeToRow(t) {
     id: t.id,
     created_at: t.createdAt,
     updated_at: t.updatedAt,
+    created_by: t.createdBy,
     strategy: t.strategy,
     opened_at: t.openedAt,
     highest_r_at: t.highestRAt,
@@ -4852,6 +4961,12 @@ function rowToTrade(r) {
     id: r.id,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    // Accountability roadmap Phase A: who originally created this row (an
+    // account email) — stamped once at creation and never overwritten on
+    // edit. Rows saved before this phase existed have no value; treated as
+    // "unknown/legacy" (normalize null to '' so callers don't need a null
+    // check), rendered with no badge rather than a guessed owner.
+    createdBy: r.created_by || '',
     strategy: r.strategy,
     openedAt: r.opened_at,
     highestRAt: r.highest_r_at,
@@ -4934,6 +5049,7 @@ function journalEntryToRow(e) {
     id: e.id,
     created_at: e.createdAt,
     updated_at: e.updatedAt,
+    created_by: e.createdBy,
     title: e.title,
     body: e.body,
     status: e.status,
@@ -4943,7 +5059,7 @@ function journalEntryToRow(e) {
     linked_trade_ids: e.linkedTradeIds,
     media: e.media,
     sub_notes: e.subNotes, // legacy — no longer written to by the UI, kept so old rows still round-trip
-    subfolders: e.subfolders, // notepad sections: array of { id, name, blocks: [...] }, same array-of-objects storage as media
+    subfolders: e.subfolders, // notepad sections: array of { id, name, blocks: [...] }, same array-of-objects storage as media. Accountability roadmap Phase A: the subfolder and each block carry their own createdBy inside this JSON — no separate column needed.
   };
 }
 
@@ -4952,6 +5068,9 @@ function rowToJournalEntry(r) {
     id: r.id,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    // Accountability roadmap Phase A — see rowToTrade's createdBy comment
+    // for the "stamped once, never overwritten, legacy rows get none" rule.
+    createdBy: r.created_by || '',
     title: r.title || '',
     body: r.body || '',
     status: r.status || 'idea',
@@ -5010,6 +5129,10 @@ async function createJournalEntry(fields) {
     id: id,
     createdAt: now,
     updatedAt: now,
+    // Accountability roadmap Phase A: stamped once at creation. updateJournalEntry()
+    // below merges via Object.assign and never receives createdBy in its patch,
+    // so this is never reassigned by a later edit.
+    createdBy: currentAccount ? currentAccount.email : '',
     title: fields.title || '',
     body: fields.body || '',
     status: fields.status || 'idea',
@@ -5109,6 +5232,18 @@ function updateJournalStatusChips() {
   chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === journalStatusFilter));
 }
 
+// Accountability roadmap Phase D.
+let journalAuthorFilter = 'all';
+function setJournalAuthorFilter(value) {
+  journalAuthorFilter = value;
+  renderJournalList();
+}
+function updateJournalAuthorChips() {
+  const chips = document.querySelectorAll('#journalAuthorChips .chip-pill');
+  const values = ['all', 'mine', 'other'];
+  chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === journalAuthorFilter));
+}
+
 // Same drawer mechanics as toggleTradeFilters() — scoped to the Journal
 // screen's own trigger/drawer/overlay IDs so opening one filter drawer never
 // affects the other.
@@ -5125,11 +5260,14 @@ function clearJournalFilters() {
   JOURNAL_FILTER_IDS.forEach((id) => { document.getElementById(id).value = ''; });
   document.getElementById('journalSearchText').value = '';
   journalSearchQuery = '';
+  journalAuthorFilter = 'all';
   renderJournalList();
 }
 
 function updateJournalFilterSummary() {
-  const n = JOURNAL_FILTER_IDS.filter((id) => document.getElementById(id).value).length + (journalSearchQuery ? 1 : 0);
+  const n = JOURNAL_FILTER_IDS.filter((id) => document.getElementById(id).value).length
+    + (journalSearchQuery ? 1 : 0)
+    + (journalAuthorFilter !== 'all' ? 1 : 0);
   const el = document.getElementById('journalFilterSummary');
   if (!el) return;
   if (!n) {
@@ -5282,6 +5420,7 @@ function updateJournalReviewBanner() {
 
 async function renderJournalList() {
   updateJournalStatusChips();
+  updateJournalAuthorChips();
   updateJournalFilterSummary();
   const container = document.getElementById('journalList');
   if (!container) return;
@@ -5296,10 +5435,11 @@ async function renderJournalList() {
   }
   updateJournalReviewBanner(); // Phase 9: needs allJournalEntries, so refresh after the load above resolves
   renderJournalFilterOptions(); // after the load above, so pair options reflect any newly-fetched entries
-  const anyFilterActive = journalStatusFilter || journalSearchQuery || JOURNAL_FILTER_IDS.some((id) => document.getElementById(id).value);
+  const anyFilterActive = journalStatusFilter || journalSearchQuery || journalAuthorFilter !== 'all' || JOURNAL_FILTER_IDS.some((id) => document.getElementById(id).value);
   const entries = allJournalEntries.filter((e) =>
     (!journalStatusFilter || e.status === journalStatusFilter) &&
     journalMatchesSearchText(e, journalSearchQuery) &&
+    matchesAuthorFilter(e, journalAuthorFilter) &&
     journalMatchesFilters(e)
   );
 
@@ -5340,6 +5480,7 @@ async function renderJournalList() {
           '<span class="journal-status-pill">' + meta.label + '</span>' +
         '</div>' +
         '<div class="journal-card-meta">' +
+          authorBadgeHtml(e.createdBy) +
           (e.pair ? '<span>' + escapeHtml(e.pair) + '</span><span class="meta-sep">·</span>' : '') +
           '<span>' + dateLabel + '</span>' +
         '</div>' +
@@ -6089,6 +6230,7 @@ function journalSubNoteHtml(sn) {
         '<div class="journal-subnote-head-left">' +
           '<span class="journal-subnote-chevron">▶</span>' +
           '<span class="journal-subnote-date">' + escapeHtml(journalSubNoteDateLabel(sn.createdAt)) + '</span>' +
+          authorBadgeHtml(sn.createdBy) +
           '<span class="journal-subnote-summary">' + escapeHtml(summaryText) + '</span>' +
         '</div>' +
         '<span class="journal-subnote-delete" onclick="event.stopPropagation(); deleteJournalSubNote(\'' + sn.id + '\')" title="Delete update">✕</span>' +
@@ -6120,7 +6262,10 @@ async function addJournalSubNote() {
   const entry = allJournalEntries.find((e) => e.id === journalEditingId);
   if (!entry) return;
   if (!Array.isArray(entry.subNotes)) entry.subNotes = [];
-  const subNote = { id: 'jsub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), createdAt: Date.now(), body, media: [] };
+  // Accountability roadmap Phase A: each dated update is its own appendable
+  // entry, so it gets its own createdBy — whoever posted THIS update, not
+  // necessarily whoever created the parent journal entry.
+  const subNote = { id: 'jsub_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6), createdAt: Date.now(), createdBy: currentAccount ? currentAccount.email : '', body, media: [] };
   const updated = [...entry.subNotes, subNote];
   journalSubNoteExpanded.add(subNote.id); // show the update you just posted, not collapsed
   journalSubNoteDraft = '';
@@ -6549,6 +6694,7 @@ function subfolderCardHtml(sf, idx, total) {
         '<span class="subfolder-chevron">▶</span>' +
         '<span class="subfolder-icon"><i data-lucide="folder" style="width:13px;height:13px;"></i></span>' +
         '<span class="subfolder-name">' + escapeHtml(sf.name || 'Untitled') + '</span>' +
+        authorBadgeHtml(sf.createdBy) +
         '<span class="subfolder-count">' + sf.blocks.length + '</span>' +
       '</div>' +
       '<div class="subfolder-actions">' +
@@ -6581,6 +6727,7 @@ function subfolderBlockHtml(sf, b, idx) {
       '<textarea placeholder="Write here…" oninput="autoGrowSubfolderText(this)" ' +
         'onblur="onSubfolderTextBlockBlur(\'' + sf.id + '\', \'' + b.id + '\', this.value)">' + escapeHtml(b.text || '') + '</textarea>' +
       '<div class="subfolder-block-controls" style="justify-content:flex-end;">' +
+        authorBadgeHtml(b.createdBy) +
         mediaReorderHandleHtml(key, idx, sf.blocks.length) +
         '<span class="subfolder-block-delete" onclick="deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete"><i data-lucide="x" style="width:12px;height:12px;"></i></span>' +
       '</div>' +
@@ -6595,6 +6742,7 @@ function subfolderBlockHtml(sf, b, idx) {
         '<div class="link-text"><div class="link-label">' + escapeHtml(b.label || host || b.url) + '</div><div class="link-url">' + escapeHtml(host || b.url) + '</div></div>' +
       '</div>' +
       '<div class="subfolder-block-controls">' +
+        authorBadgeHtml(b.createdBy) +
         mediaReorderHandleHtml(key, idx, sf.blocks.length) +
         '<span onclick="event.stopPropagation(); deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete"><i data-lucide="x" style="width:12px;height:12px;"></i></span>' +
       '</div>' +
@@ -6607,7 +6755,10 @@ function subfolderBlockHtml(sf, b, idx) {
       mediaBadgesHtml(b.media) +
       mediaReorderHandleHtml(key, idx, sf.blocks.length) +
     '</div>' +
-    '<span class="subfolder-block-delete" style="align-self:flex-start; margin-top:2px;" onclick="deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete"><i data-lucide="x" style="width:12px;height:12px;"></i></span>' +
+    '<div style="display:flex; align-items:center; gap:4px; align-self:flex-start; margin-top:2px;">' +
+      authorBadgeHtml(b.createdBy) +
+      '<span class="subfolder-block-delete" onclick="deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete"><i data-lucide="x" style="width:12px;height:12px;"></i></span>' +
+    '</div>' +
   '</div>';
 }
 
@@ -6635,7 +6786,11 @@ async function addJournalSubfolder() {
   const entry = currentJournalEntryForEdit();
   if (!entry) return;
   if (!Array.isArray(entry.subfolders)) entry.subfolders = [];
-  const sf = { id: genSubfolderId(), name: name.trim() || 'Untitled', createdAt: Date.now(), updatedAt: Date.now(), blocks: [] };
+  // Accountability roadmap Phase A: the subfolder itself gets a createdBy
+  // (who started this section) — each block added inside it below gets its
+  // own createdBy too, since different blocks can be added by either
+  // account over time.
+  const sf = { id: genSubfolderId(), name: name.trim() || 'Untitled', createdAt: Date.now(), updatedAt: Date.now(), createdBy: currentAccount ? currentAccount.email : '', blocks: [] };
   const updated = [...entry.subfolders, sf];
   const ok = await updateJournalEntry(journalEditingId, { subfolders: updated });
   if (!ok) { showToast('Failed to create subfolder — check your connection and try again.'); return; }
@@ -6691,7 +6846,7 @@ async function addSubfolderTextBlock(subfolderId, atIndex) {
   const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
   if (!sf) return;
   if (!Array.isArray(sf.blocks)) sf.blocks = [];
-  const block = { id: genBlockId(), type: 'text', text: '' };
+  const block = { id: genBlockId(), type: 'text', text: '', createdBy: currentAccount ? currentAccount.email : '' };
   sf.blocks.splice(atIndex, 0, block);
   const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
   if (!ok) sf.blocks = sf.blocks.filter((b) => b.id !== block.id);
@@ -6712,7 +6867,7 @@ async function addSubfolderLinkBlock(subfolderId, atIndex) {
   if (!/^https?:$/.test(parsed.protocol)) { setSubfolderStatus(subfolderId, 'Links need to start with http:// or https://', 'error'); return; }
   const label = (await promptDialog('Label for this link (optional):', '')) || '';
   if (!Array.isArray(sf.blocks)) sf.blocks = [];
-  const block = { id: genBlockId(), type: 'link', url: url.trim(), label: label.trim() };
+  const block = { id: genBlockId(), type: 'link', url: url.trim(), label: label.trim(), createdBy: currentAccount ? currentAccount.email : '' };
   sf.blocks.splice(atIndex, 0, block);
   const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
   if (!ok) sf.blocks = sf.blocks.filter((b) => b.id !== block.id);
@@ -6772,6 +6927,7 @@ async function handleSubfolderImageSelect(event, subfolderId, atIndex) {
       const block = {
         id: genBlockId(),
         type: 'image',
+        createdBy: currentAccount ? currentAccount.email : '',
         media: {
           id: 'sfmedia_' + Date.now() + '_' + i,
           displayId: nextMediaSeq(),
@@ -8810,6 +8966,10 @@ async function saveTrade() {
     id,
     createdAt: (allTrades.find(t => t.id === id) || {}).createdAt || Date.now(),
     updatedAt: Date.now(),
+    // Accountability roadmap Phase A: stamped from whoever is logged in,
+    // same "preserve on edit" treatment as createdAt above — an edit by
+    // either account never reassigns who originally logged the trade.
+    createdBy: (allTrades.find(t => t.id === id) || {}).createdBy || (currentAccount ? currentAccount.email : ''),
     strategy,
     openedAt,
     highestRAt,
@@ -9140,6 +9300,7 @@ function getFilteredTrades() {
     tradeMatchesHighestRTime(t, highestRTime) &&
     tradeMatchesDurationBucket(t, durationBucket) &&
     tradeMatchesDirection(t, direction) &&
+    matchesAuthorFilter(t, tradeAuthorFilter) &&
     tradeMatchesSearchText(t, tradeSearchQuery)
   );
 }
@@ -9193,10 +9354,23 @@ function parseRRValue(rr) {
 const TRADE_FILTER_IDS = ['filterPair', 'filterModel', 'filterConfluence', 'filterMonth', 'filterStrategy', 'filterOutcome',
    'filterDirection', 'filterBeforeImg', 'filterAfterImg', 'filterHighestRTime', 'filterDurationBucket'];
 
+// Accountability roadmap Phase D.
+let tradeAuthorFilter = 'all';
+function setTradeAuthorFilter(value) {
+  tradeAuthorFilter = value;
+  renderTradeList();
+}
+function updateTradeAuthorChips() {
+  const chips = document.querySelectorAll('#tradeAuthorChips .chip-pill');
+  const values = ['all', 'mine', 'other'];
+  chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === tradeAuthorFilter));
+}
+
 function clearTradeFilters() {
   TRADE_FILTER_IDS.forEach(id => document.getElementById(id).value = '');
   document.getElementById('tradeSearchText').value = '';
   tradeSearchQuery = '';
+  tradeAuthorFilter = 'all';
   renderTradeList();
 }
 
@@ -9230,7 +9404,8 @@ function updateGridSlotToggle() {
 // 10 filter fields is non-default; hidden otherwise. Click clears everything.
 function updateTradeFilterSummary() {
   const n = TRADE_FILTER_IDS.filter(id => document.getElementById(id).value).length
-    + (tradeSearchQuery ? 1 : 0);
+    + (tradeSearchQuery ? 1 : 0)
+    + (tradeAuthorFilter !== 'all' ? 1 : 0);
   const el = document.getElementById('tradeFilterSummary');
   if (!n) {
     el.style.display = 'none';
@@ -9604,6 +9779,7 @@ async function renderTradeList() {
   document.getElementById('tradeCountNote').textContent =
     filtered.length + ' of ' + allTrades.length + ' trade' + (allTrades.length === 1 ? '' : 's');
   updateOutcomeChips();
+  updateTradeAuthorChips();
   updateTradeFilterSummary();
 
   // Milestone 6: sort applied once here so list and grid views stay consistent.
@@ -9646,6 +9822,7 @@ async function renderTradeList() {
             '<span class="mono muted" style="font-size:11px;">' + (t.date || '') + '</span>' +
           '</div>' +
           '<div class="trade-row-tags">' +
+            authorBadgeHtml(t.createdBy) +
             (t.model ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.model) + '</span>' : '') +
             (t.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.htf) + ' POI</span>' : '') +
             (t.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.poiType) + '</span>' : '') +
@@ -9714,17 +9891,32 @@ async function renderTradeList() {
 // and stays empty for every item until those phases are built.
 //
 // Requires a `watchlist_items` table in Supabase with columns: id (text,
-// primary key), created_at (int8), updated_at (int8), pair (text),
-// direction (text), model (text), htf (text), poi_type (text), ltf (text),
-// sort_order (int8), trail (jsonb).
+// primary key), created_at (int8), updated_at (int8), created_by (text —
+// Accountability roadmap Phase A, added below), pair (text), direction
+// (text), model (text), htf (text), poi_type (text), ltf (text),
+// sort_order (int8), trail (jsonb — each trail entry's own createdBy lives
+// inside this JSON, no separate column needed).
 let allWatchlistItems = [];
 let watchlistItemsLoaded = false; // same load-guard purpose as journalEntriesLoaded
+
+// Accountability roadmap Phase D.
+let watchlistAuthorFilter = 'all';
+function setWatchlistAuthorFilter(value) {
+  watchlistAuthorFilter = value;
+  renderWatchlistList();
+}
+function updateWatchlistAuthorChips() {
+  const chips = document.querySelectorAll('#watchlistAuthorChips .chip-pill');
+  const values = ['all', 'mine', 'other'];
+  chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === watchlistAuthorFilter));
+}
 
 function watchlistItemToRow(item) {
   return {
     id: item.id,
     created_at: item.createdAt,
     updated_at: item.updatedAt,
+    created_by: item.createdBy,
     pair: item.pair,
     direction: item.direction,
     model: item.model,
@@ -9741,6 +9933,9 @@ function rowToWatchlistItem(r) {
     id: r.id,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
+    // Accountability roadmap Phase A — see rowToTrade's createdBy comment
+    // for the "stamped once, never overwritten, legacy rows get none" rule.
+    createdBy: r.created_by || '',
     pair: r.pair || '',
     direction: r.direction || 'buy',
     model: r.model || '',
@@ -9794,6 +9989,10 @@ async function createWatchlistItem(fields) {
     id: id,
     createdAt: now,
     updatedAt: now,
+    // Accountability roadmap Phase A: stamped once at creation. updateWatchlistItem()
+    // below merges via Object.assign and never receives createdBy in its patch,
+    // so this is never reassigned by a later edit.
+    createdBy: currentAccount ? currentAccount.email : '',
     pair: (fields.pair || '').toUpperCase(),
     direction: fields.direction || 'buy',
     model: fields.model || '',
@@ -9938,6 +10137,7 @@ async function renderWatchlistList() {
   if (!wrap) return;
   populateWlTimeframeSelects();
   populateWlPoiTypeSelect();
+  updateWatchlistAuthorChips();
   if (!watchlistItemsLoaded) await loadAllWatchlistItems();
   if (!allWatchlistItems.length) {
     wrap.innerHTML =
@@ -9956,7 +10156,20 @@ async function renderWatchlistList() {
   // own badge here even though Trade rows don't show one, since it was
   // asked for explicitly for Watchlist cards.
   const sorted = allWatchlistItems.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
-  wrap.innerHTML = sorted.map((it, i) => {
+  // Phase D: filter applies on top of the full sorted order, but each card
+  // keeps its ORIGINAL absolute index (i below) for drag-reorder/the "tap
+  // to move…" prompt — those operate on manual `order` across the whole
+  // list, not just the filtered subset, so reindexing to 0..visible.length
+  // would silently corrupt reordering while a filter is active.
+  const visible = sorted
+    .map((it, i) => ({ it, i }))
+    .filter(({ it }) => matchesAuthorFilter(it, watchlistAuthorFilter));
+  if (!visible.length) {
+    wrap.innerHTML = '<div class="empty-state">No ideas match this filter yet.</div>';
+    refreshIcons();
+    return;
+  }
+  wrap.innerHTML = visible.map(({ it, i }) => {
     const idArg = escapeHtml(JSON.stringify(it.id));
     const cardExpanded = watchlistCardExpanded.has(it.id);
     // Phase 4: draggable="true" + data-reorder-index drive the drag handlers
@@ -9976,6 +10189,7 @@ async function renderWatchlistList() {
             '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
           '</div>' +
           '<div class="trade-row-tags">' +
+            authorBadgeHtml(it.createdBy) +
             (it.model ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.model) + '</span>' : '') +
             (it.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.htf) + ' POI</span>' : '') +
             (it.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.poiType) + '</span>' : '') +
@@ -10055,6 +10269,7 @@ function watchlistTrailEntryHtml(itemId, entry) {
         '<div class="journal-subnote-head-left">' +
           '<span class="journal-subnote-chevron">▶</span>' +
           '<span class="journal-subnote-date">' + escapeHtml(watchlistTrailDateLabel(entry.timestamp)) + '</span>' +
+          authorBadgeHtml(entry.createdBy) +
           '<span class="journal-subnote-summary">' + escapeHtml(summaryText) + '</span>' +
         '</div>' +
         '<span class="journal-subnote-delete" onclick="event.stopPropagation(); deleteWatchlistTrailEntry(\'' + itemId + '\', \'' + entry.id + '\')" title="Delete update">✕</span>' +
@@ -10229,9 +10444,13 @@ async function addWatchlistTrailEntry(itemId) {
   if (!text && !images.length && !video) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
 
   if (!Array.isArray(item.trail)) item.trail = [];
+  // Accountability roadmap Phase A: each trail update is its own appendable
+  // entry, so it gets its own createdBy — whoever posted THIS update, not
+  // necessarily whoever created the parent watchlist idea.
   const entry = {
     id: 'wltrail_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
     timestamp: Date.now(),
+    createdBy: currentAccount ? currentAccount.email : '',
     text,
     images,
     video,
@@ -10831,7 +11050,7 @@ async function openSidePanel(id) {
   '</div>';
   panel.innerHTML =
     '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-4);">' +
-      '<h2 style="margin:0;">' + escapeHtml(trade.pair || 'Trade') + '</h2>' +
+      '<h2 style="margin:0;">' + escapeHtml(trade.pair || 'Trade') + ' ' + authorBadgeHtml(trade.createdBy) + '</h2>' +
       '<div class="icon-btn" onclick="closeSidePanel()"><i data-lucide="x"></i></div>' +
     '</div>' +
     '<div class="stat-grid" style="grid-template-columns:repeat(2,1fr); margin-bottom:14px;">' +
@@ -12003,6 +12222,8 @@ function applyAuthGate() {
     const email = currentAccount ? currentAccount.email : '';
     const emailEl = document.getElementById('settingsAccountEmail');
     if (emailEl) emailEl.textContent = email;
+    updateAuthorFilterChipLabels(); // Accountability roadmap Phase D — "other" chip label depends on who just logged in
+    renderSettingsTeamList(); // Accountability roadmap Phase E
     const dashboardBtn = document.querySelector('.preview-tabs button.app-tab');
     if (dashboardBtn) { showScreen('dashboard', dashboardBtn); refreshDashboardTradeSummary(); }
   } else {
