@@ -325,6 +325,11 @@
   .voice-record-btn:active { transform:scale(0.98); }
   .voice-record-btn.recording { background:rgba(255,92,92,0.12); border-color:var(--loss); color:var(--loss); }
   .voice-record-btn.recording i { animation:voicePulse 1s ease-in-out infinite; }
+  /* Compact mic control for the Watchlist trail composer — same icon-btn
+     footprint as the attach-file paperclip beside it, just with the
+     voice-record-btn's recording treatment (red + pulsing icon). */
+  .icon-btn.recording { color:var(--loss); border-color:var(--loss); }
+  .icon-btn.recording i { animation:voicePulse 1s ease-in-out infinite; }
   @keyframes voicePulse { 0%,100% { opacity:1; } 50% { opacity:0.35; } }
   .voice-note-row { display:flex; flex-direction:column; gap:4px; padding: var(--space-2); border:1px solid var(--border); border-radius:8px; margin-bottom:6px; background:var(--surface2); }
   .voice-note-top { display:flex; align-items:center; gap:8px; }
@@ -4371,6 +4376,7 @@ async function stopVoiceRecording() {
     };
     if (state.kind === 'journal') await onJournalVoiceNoteRecorded(voiceNote);
     else if (state.kind === 'trade') await onTradeVoiceNoteRecorded(voiceNote);
+    else if (state.kind === 'wltrail') await onWlTrailVoiceNoteRecorded(voiceNote, state.context);
     else await onSubfolderVoiceNoteRecorded(voiceNote, state.context);
     setVoiceStatus(state.kind, '', '', state.context);
   } catch (err) {
@@ -4385,6 +4391,10 @@ async function stopVoiceRecording() {
 function setVoiceStatus(kind, msg, cls, context) {
   if (kind === 'subfolder') {
     if (context && context.subfolderId) setSubfolderStatus(context.subfolderId, msg, cls);
+    return;
+  }
+  if (kind === 'wltrail') {
+    if (context && context.itemId) setWlTrailStatus(context.itemId, msg, cls);
     return;
   }
   const el = document.getElementById(kind === 'journal' ? 'journalVoiceStatus' : 'tradeVoiceStatus');
@@ -4410,6 +4420,19 @@ function updateVoiceRecordingUI(kind, forceIdle, context) {
     if (btnEl) btnEl.classList.add('recording');
     if (context && context.subfolderId) {
       setSubfolderStatus(context.subfolderId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…'), '');
+    }
+    return;
+  }
+  if (kind === 'wltrail') {
+    const btnEl = context && context.btnEl;
+    const state = voiceRecordingState;
+    if (!state || forceIdle || state.kind !== kind) {
+      if (btnEl) btnEl.classList.remove('recording');
+      return;
+    }
+    if (btnEl) btnEl.classList.add('recording');
+    if (context && context.itemId) {
+      setWlTrailStatus(context.itemId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…'), '');
     }
     return;
   }
@@ -10962,11 +10985,13 @@ function watchlistTrailDateLabel(ts) {
 
 function watchlistTrailEntryHtml(itemId, entry) {
   const images = Array.isArray(entry.images) ? entry.images : [];
+  const voices = Array.isArray(entry.voices) ? entry.voices : [];
   const expanded = wlTrailEntryExpanded.has(entry.id);
   const summaryBits = [];
   if (entry.text) summaryBits.push(entry.text.length > 60 ? entry.text.slice(0, 60) + '…' : entry.text);
   if (images.length) summaryBits.push(images.length + (images.length === 1 ? ' image' : ' images'));
   if (entry.video) summaryBits.push('video');
+  if (voices.length) summaryBits.push(voices.length + (voices.length === 1 ? ' voice note' : ' voice notes'));
   const summaryText = summaryBits.length ? summaryBits.join(' · ') : 'No content yet';
   const mediaHtml = images.length
     ? '<div class="trade-img-grid" style="margin-top: var(--space-2);">' +
@@ -10974,6 +10999,26 @@ function watchlistTrailEntryHtml(itemId, entry) {
       '</div>'
     : '';
   const videoHtml = entry.video ? '<div class="mono muted" style="font-size:11px; margin-top:6px;">🎬 Video attached</div>' : '';
+  // Posted voice notes are read-only here (no per-note delete) — same as
+  // images/video above, the whole entry gets deleted as one unit via the ✕
+  // on the entry head, not note-by-note.
+  const voicesHtml = voices.length
+    ? '<div style="margin-top: var(--space-2);">' +
+        voices.map((vn) => {
+          const mins = Math.floor((vn.durationSec || 0) / 60);
+          const secs = (vn.durationSec || 0) % 60;
+          const clock = mins + ':' + String(secs).padStart(2, '0');
+          return '<div class="voice-note-row">' +
+            '<div class="voice-note-top">' +
+              authorBadgeHtml(vn.createdBy) +
+              '<span class="mono muted" style="font-size:10.5px;">' + clock + '</span>' +
+              '<audio controls preload="none" src="' + String(vn.url).replace(/"/g, '&quot;') + '"></audio>' +
+            '</div>' +
+            (vn.transcript ? '<div class="muted" style="font-size:11px; padding:0 2px;">' + escapeHtml(vn.transcript) + '</div>' : '') +
+          '</div>';
+        }).join('') +
+      '</div>'
+    : '';
   // Content below is always rendered (not conditional on `expanded`) so the
   // collapse/expand transition has something real to animate — same reason
   // as the .journal-subnote-body comment on the original pattern.
@@ -10991,7 +11036,7 @@ function watchlistTrailEntryHtml(itemId, entry) {
       '</div>' +
       '<div class="journal-subnote-body"><div>' +
         (entry.text ? '<div class="mono" style="font-size:12.5px; padding-top:8px; white-space:pre-wrap;">' + escapeHtml(entry.text) + '</div>' : '<div class="mono muted" style="font-size:11.5px; padding-top:8px;">No text on this update.</div>') +
-        mediaHtml + videoHtml +
+        mediaHtml + videoHtml + voicesHtml +
       '</div></div>' +
     '</div>' +
   '</div>';
@@ -11018,6 +11063,10 @@ async function deleteWatchlistTrailEntry(itemId, entryId) {
   (entry && Array.isArray(entry.images) ? entry.images : []).forEach((img) => {
     if (img.source === 'cloudinary' && img.publicId) deleteFromCloudinary(img.publicId, img.type);
   });
+  if (entry && entry.video && entry.video.publicId) deleteFromCloudinary(entry.video.publicId, 'video');
+  (entry && Array.isArray(entry.voices) ? entry.voices : []).forEach((vn) => {
+    if (vn.publicId) deleteFromCloudinary(vn.publicId, 'video');
+  });
   renderWatchlistList();
 }
 
@@ -11038,6 +11087,7 @@ async function deleteWatchlistTrailEntry(itemId, entryId) {
 let wlTrailDraftText = {};   // itemId -> string
 let wlTrailDraftImages = {}; // itemId -> array of uploaded (not yet posted) image objects
 let wlTrailDraftVideo = {};  // itemId -> single uploaded (not yet posted) video object, or absent
+let wlTrailDraftVoices = {}; // itemId -> array of recorded (not yet posted) voice note objects — same array shape as tradeVoiceNotes
 
 function setWlTrailStatus(itemId, msg, cls) {
   const el = document.getElementById('wlTrailStatus_' + itemId);
@@ -11050,6 +11100,7 @@ function watchlistTrailComposerHtml(itemId) {
   const draftText = wlTrailDraftText[itemId] || '';
   const draftImages = wlTrailDraftImages[itemId] || [];
   const draftVideo = wlTrailDraftVideo[itemId];
+  const draftVoices = wlTrailDraftVoices[itemId] || [];
   const previewHtml = (draftImages.length || draftVideo)
     ? '<div class="trade-img-grid" style="margin-top: var(--space-2);">' +
         draftImages.map((img, idx) =>
@@ -11064,18 +11115,47 @@ function watchlistTrailComposerHtml(itemId) {
           : '') +
       '</div>'
     : '';
+  const voicePreviewHtml = draftVoices.length
+    ? '<div style="margin-top: var(--space-2);">' +
+        draftVoices.map((vn, idx) => wlTrailDraftVoiceRowHtml(itemId, vn, idx)).join('') +
+      '</div>'
+    : '';
   return '<div class="journal-subnote-composer">' +
     '<div class="journal-subnote-composer-head"><span>✏️</span><span>Add an update</span></div>' +
     '<textarea id="wlTrailComposeInput_' + itemId + '" class="mono" ' +
       'oninput="wlTrailDraftText[\'' + itemId + '\'] = this.value" ' +
       'placeholder="Add a dated update — price hit my zone, invalidated, etc…">' + escapeHtml(draftText) + '</textarea>' +
-    previewHtml +
+    previewHtml + voicePreviewHtml +
     '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">' +
-      '<div class="icon-btn" onclick="document.getElementById(\'wlTrailMediaInput_' + itemId + '\').click()" title="Attach image or video"><i data-lucide="paperclip"></i></div>' +
+      '<div style="display:flex; gap:8px;">' +
+        '<div class="icon-btn" onclick="document.getElementById(\'wlTrailMediaInput_' + itemId + '\').click()" title="Attach image or video"><i data-lucide="paperclip"></i></div>' +
+        '<div class="icon-btn" title="Hold to record a voice note" ' +
+          'onmousedown="startWlTrailVoiceRecording(event, \'' + itemId + '\')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()" ' +
+          'ontouchstart="event.preventDefault(); startWlTrailVoiceRecording(event, \'' + itemId + '\');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">' +
+          '<i data-lucide="mic"></i></div>' +
+      '</div>' +
       '<input type="file" id="wlTrailMediaInput_' + itemId + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleWlTrailMediaSelect(event, \'' + itemId + '\')" />' +
       '<button class="url-add-btn" onclick="addWatchlistTrailEntry(\'' + itemId + '\')">+ Post update</button>' +
     '</div>' +
     '<div id="wlTrailStatus_' + itemId + '" class="extract-status"></div>' +
+  '</div>';
+}
+
+// Draft (not-yet-posted) voice note row inside the trail composer — same
+// audio-player-plus-delete shape as voiceNoteRowHtml, but its delete button
+// pulls the recording back out of the draft (and off Cloudinary) instead of
+// calling one of the posted-note delete functions.
+function wlTrailDraftVoiceRowHtml(itemId, vn, idx) {
+  const mins = Math.floor((vn.durationSec || 0) / 60);
+  const secs = (vn.durationSec || 0) % 60;
+  const clock = mins + ':' + String(secs).padStart(2, '0');
+  return '<div class="voice-note-row">' +
+    '<div class="voice-note-top">' +
+      '<span class="mono muted" style="font-size:10.5px;">' + clock + '</span>' +
+      '<audio controls preload="none" src="' + String(vn.url).replace(/"/g, '&quot;') + '"></audio>' +
+      '<span class="icon-btn" style="width:26px;height:26px;flex:none;" onclick="removeWlTrailDraftVoice(\'' + itemId + '\', ' + idx + ')" title="Remove"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></span>' +
+    '</div>' +
+    (vn.transcript ? '<div class="muted" style="font-size:11px; padding:0 2px;">' + escapeHtml(vn.transcript) + '</div>' : '') +
   '</div>';
 }
 
@@ -11150,13 +11230,43 @@ function removeWlTrailDraftVideo(itemId) {
   renderWatchlistList();
 }
 
+// Press-and-hold mic in the trail composer — same startVoiceRecording/
+// stopVoiceRecording pipeline as Journal/Trade/subfolder voice notes,
+// routed through the 'wltrail' kind so the pulse lands on this composer's
+// own mic button and the live timer writes to this item's own status line.
+function startWlTrailVoiceRecording(event, itemId) {
+  startVoiceRecording('wltrail', { itemId: itemId, btnEl: event.currentTarget });
+}
+
+// Called once a trail voice note has finished uploading to Cloudinary — it
+// joins the draft array (unposted, same in-memory-until-posted pattern as
+// wlTrailDraftImages/wlTrailDraftVideo) rather than being saved immediately,
+// so it goes out with the rest of that update when "+ Post update" is
+// pressed, and can still be removed before then.
+async function onWlTrailVoiceNoteRecorded(voiceNote, context) {
+  const itemId = context && context.itemId;
+  if (!itemId) return;
+  if (!Array.isArray(wlTrailDraftVoices[itemId])) wlTrailDraftVoices[itemId] = [];
+  wlTrailDraftVoices[itemId].push(voiceNote);
+  renderWatchlistList();
+}
+
+function removeWlTrailDraftVoice(itemId, idx) {
+  const voices = wlTrailDraftVoices[itemId];
+  if (!Array.isArray(voices) || !voices[idx]) return;
+  const [removed] = voices.splice(idx, 1);
+  if (removed.publicId) deleteFromCloudinary(removed.publicId, 'video');
+  renderWatchlistList();
+}
+
 async function addWatchlistTrailEntry(itemId) {
   const item = allWatchlistItems.find((it) => it.id === itemId);
   if (!item) return;
   const text = (wlTrailDraftText[itemId] || '').trim();
   const images = wlTrailDraftImages[itemId] || [];
   const video = wlTrailDraftVideo[itemId] || null;
-  if (!text && !images.length && !video) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
+  const voices = wlTrailDraftVoices[itemId] || [];
+  if (!text && !images.length && !video && !voices.length) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
 
   if (!Array.isArray(item.trail)) item.trail = [];
   // Accountability roadmap Phase A: each trail update is its own appendable
@@ -11169,6 +11279,7 @@ async function addWatchlistTrailEntry(itemId) {
     text,
     images,
     video,
+    voices,
   };
   const updated = [...item.trail, entry];
   wlTrailEntryExpanded.add(entry.id); // show the update you just posted, not collapsed
@@ -11180,6 +11291,7 @@ async function addWatchlistTrailEntry(itemId) {
   delete wlTrailDraftText[itemId];
   delete wlTrailDraftImages[itemId];
   delete wlTrailDraftVideo[itemId];
+  delete wlTrailDraftVoices[itemId];
   renderWatchlistList();
 }
 
