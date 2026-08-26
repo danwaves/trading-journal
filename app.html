@@ -1178,14 +1178,14 @@
 
   /* -- List cards -- */
   .journal-card {
-    position: relative; background: var(--surface2); border: 1px solid var(--border);
-    border-radius: 12px; padding: 14px 14px 14px 18px; margin-bottom: 10px;
+    position: relative; background: linear-gradient(160deg, var(--accent-bg, transparent), transparent 65%), var(--surface2);
+    border: 1px solid var(--border); border-radius: 14px; padding: 14px 14px 14px 18px; margin-bottom: 10px;
     cursor: pointer; display: flex; gap: var(--space-3); align-items: flex-start;
     transition: transform var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
   }
   .journal-card::before {
     content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-    background: var(--accent, var(--border)); border-radius: 12px 0 0 12px;
+    background: var(--accent, var(--border)); border-radius: 14px 0 0 14px;
   }
   .journal-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); border-color: var(--accent, var(--border)); }
   .journal-card:active { transform: translateY(0); box-shadow: none; }
@@ -1198,6 +1198,7 @@
     font-size: 10px; font-weight: 600; letter-spacing: .2px;
     padding: 3px 9px 3px 7px; border-radius: 999px;
     background: var(--accent-bg, var(--surface)); color: var(--accent, var(--muted));
+    border: 1px solid var(--accent, var(--border));
   }
   .journal-status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent, var(--muted)); flex-shrink: 0; }
   .journal-card-meta { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 10.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
@@ -1310,16 +1311,52 @@
      so it reads like one continuous page even though it's stored as an
      ordered block list. Thin "+" insert rows sit between every block so
      text can be added in between two images, not just appended at the end. */
-  .subfolder-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px var(--space-3); margin-bottom: var(--space-2); transition: border-color var(--duration-base) var(--ease); }
-  .subfolder-card.expanded { border-color: var(--border); }
-  .subfolder-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); cursor: pointer; }
-  .subfolder-head-left { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 1; }
-  .subfolder-chevron { font-size: 9px; color: var(--muted); flex-shrink: 0; display: inline-block; transform: rotate(0deg); transition: transform var(--duration-base) var(--ease); }
-  .subfolder-card.expanded .subfolder-chevron { transform: rotate(90deg); color: var(--brand); }
-  .subfolder-icon { font-size: 14px; flex-shrink: 0; }
-  .subfolder-name { font-size: 13.5px; font-weight: 600; color: var(--light); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
-  .subfolder-count { font-size: 10.5px; color: var(--muted); flex-shrink: 0; font-family: 'JetBrains Mono', monospace; }
-  .subfolder-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  /* Each folder carries a deterministic accent (--accent/--accent-bg, set
+     inline per folder via subfolderAccent() in JS — same pattern as the
+     journal card's status accent) so a page with several subfolders reads
+     as a set of distinct tabs at a glance, not a stack of identical rows. */
+  .subfolder-card {
+    position: relative; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 11px var(--space-3) 11px 15px; margin-bottom: var(--space-2);
+    transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
+    overflow: hidden;
+  }
+  .subfolder-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent, var(--border)); opacity: .7;
+  }
+  .subfolder-card.expanded { border-color: var(--accent, var(--border)); box-shadow: var(--shadow-2); }
+  .subfolder-card.expanded::before { opacity: 1; }
+  .subfolder-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-2); cursor: pointer; }
+  .subfolder-head-left { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; row-gap: 4px; min-width: 0; flex: 1; }
+  .subfolder-chevron {
+    color: var(--muted); flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    transform: rotate(0deg); transition: transform var(--duration-base) var(--ease), color var(--duration-base) var(--ease);
+    margin-top: 2px;
+  }
+  .subfolder-card.expanded .subfolder-chevron { transform: rotate(90deg); color: var(--accent, var(--brand)); }
+  /* Small tinted chip instead of a bare glyph — echoes the accent-tag
+     treatment used elsewhere (author badges, status pills) so the folder
+     icon reads as "this folder's color" rather than decoration. */
+  .subfolder-icon-chip {
+    width: 21px; height: 21px; flex-shrink: 0; border-radius: 6px;
+    background: var(--accent-bg, var(--surface2)); color: var(--accent, var(--muted));
+    display: flex; align-items: center; justify-content: center;
+    margin-top: 1px;
+  }
+  /* Wraps instead of truncating — a long folder name gets a second line
+     rather than being clipped to an ellipsis. flex-wrap on the parent
+     handles the case where name + badge + count don't fit one row at all. */
+  .subfolder-name {
+    font-size: 13.5px; font-weight: 600; color: var(--light); line-height: 1.35;
+    white-space: normal; overflow-wrap: anywhere; min-width: 120px; flex: 1 1 auto;
+    padding-top: 1px;
+  }
+  .subfolder-count {
+    font-size: 10px; color: var(--muted); flex-shrink: 0; font-family: 'JetBrains Mono', monospace;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 1px 7px;
+  }
+  .subfolder-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; margin-top: 1px; }
   .subfolder-actions span { color: var(--muted); cursor: pointer; font-size: 12px; padding: var(--space-1) 6px; border-radius: 6px; transition: color var(--duration-fast) var(--ease), background-color var(--duration-fast) var(--ease); }
   .subfolder-actions span:hover { color: var(--light); background: var(--surface2); }
   .subfolder-actions .subfolder-delete:hover { color: var(--loss); background: rgba(255,92,92,0.1); }
@@ -7661,14 +7698,33 @@ function renderJournalSubfoldersSection() {
   });
 }
 
+// Deterministic per-folder accent (same idea as JOURNAL_STATUS_META's
+// hex/bg pair on journal cards) so each subfolder keeps the same color
+// across renders without storing it — derived from the folder name itself.
+const SUBFOLDER_ACCENT_PALETTE = [
+  { hex: '#A78BFA', bg: 'rgba(167,139,250,0.14)' },
+  { hex: '#38BDF8', bg: 'rgba(56,189,248,0.14)' },
+  { hex: '#2DD4BF', bg: 'rgba(45,212,191,0.14)' },
+  { hex: '#FF8B66', bg: 'rgba(255,139,102,0.14)' },
+  { hex: '#818CF8', bg: 'rgba(129,140,248,0.14)' },
+  { hex: '#E0B84D', bg: 'rgba(224,184,77,0.14)' },
+];
+function subfolderAccent(name) {
+  const s = name || 'Untitled';
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return SUBFOLDER_ACCENT_PALETTE[h % SUBFOLDER_ACCENT_PALETTE.length];
+}
+
 function subfolderCardHtml(sf, idx, total) {
   if (!Array.isArray(sf.blocks)) sf.blocks = [];
   const expanded = journalSubfolderExpanded.has(sf.id);
-  return '<div class="subfolder-card' + (expanded ? ' expanded' : '') + '" data-subfolder-id="' + escapeHtml(sf.id) + '" ' + mediaThumbDragAttrs('journalSubfolders', idx) + '>' +
+  const accent = subfolderAccent(sf.name);
+  return '<div class="subfolder-card' + (expanded ? ' expanded' : '') + '" style="--accent:' + accent.hex + '; --accent-bg:' + accent.bg + ';" data-subfolder-id="' + escapeHtml(sf.id) + '" ' + mediaThumbDragAttrs('journalSubfolders', idx) + '>' +
     '<div class="subfolder-head" onclick="toggleJournalSubfolder(\'' + sf.id + '\')">' +
       '<div class="subfolder-head-left">' +
-        '<span class="subfolder-chevron">▶</span>' +
-        '<span class="subfolder-icon"><i data-lucide="folder" style="width:13px;height:13px;"></i></span>' +
+        '<span class="subfolder-chevron"><i data-lucide="chevron-right" style="width:12px;height:12px;"></i></span>' +
+        '<span class="subfolder-icon-chip"><i data-lucide="folder" style="width:12px;height:12px;"></i></span>' +
         '<span class="subfolder-name">' + escapeHtml(sf.name || 'Untitled') + '</span>' +
         authorBadgeHtml(sf.createdBy) +
         '<span class="subfolder-count">' + sf.blocks.length + '</span>' +
