@@ -1690,7 +1690,7 @@
           <div class="field"><label>Entry (Lower TF)</label><select id="advLtfSelect"><option>Any</option></select></div>
         </div>
         <div class="grid2">
-          <div class="field"><label>Trade Model / Setup</label><select id="advModelSelect"><option>Any</option><option>Reversal</option><option>Continuation</option><option>Breakout Retest</option><option>Range Fade</option></select></div>
+          <div class="field"><label>Trade Model / Setup</label><select id="advModelSelect"><option>Any</option></select></div>
           <div class="field">
             <label>R:R Target</label>
             <div id="advRRTags" style="display:flex; flex-wrap:wrap; gap:6px;"></div>
@@ -2520,7 +2520,7 @@
         <div class="field"><label>POI Type</label><select id="poiTypeSelect"></select></div>
         <div class="field">
           <label>Trade Model / Setup</label>
-          <select id="modelSelect"><option>Reversal</option><option>Continuation</option><option>Breakout Retest</option><option>Range Fade</option></select>
+          <select id="modelSelect"></select>
         </div>
 
         <p class="field-section-label">Risk Plan</p>
@@ -2740,7 +2740,7 @@
             <div class="dir-toggle"><div id="wlDirBuyBtn" class="dir-btn buy-active" onclick="setWlDirection('buy')">Buy</div><div id="wlDirSellBtn" class="dir-btn" onclick="setWlDirection('sell')">Sell</div></div>
           </div>
           <div class="field" style="margin-bottom:0;"><label>Trade Model / Setup</label>
-            <select id="wlModelSelect"><option value="">—</option><option>Reversal</option><option>Continuation</option><option>Breakout Retest</option><option>Range Fade</option></select>
+            <select id="wlModelSelect"><option value="">—</option></select>
           </div>
         </div>
         <div class="grid2" style="margin-bottom:14px;">
@@ -2921,6 +2921,25 @@
         <div class="nested-card">
           <h2 style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom: var(--space-3);">Your POI Types</h2>
           <div id="poiTypeManagerList" class="mono muted" style="font-size:12.5px;">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRADE MODELS / SETUPS (same managed-list pattern as POI Types above) -->
+    <div class="card">
+      <div class="mini-card-header" onclick="toggleCard(this)">
+        <h2 style="margin:0;">Trade Models / Setups</h2>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="mini-card-body">
+        <p class="sub">Add, rename, or retire Trade Model / Setup options (e.g. Reversal, Continuation) — changes appear in New Trade instantly. Retiring one only removes it from the dropdown for new trades; trades already using it keep that value.</p>
+        <div class="nested-card" style="display:flex; gap: var(--space-2);">
+          <input id="newModelInput" placeholder="New model/setup name" style="flex:1;" onkeydown="if(event.key==='Enter'){event.preventDefault(); addModelToManager();}" />
+          <button class="btn-primary" style="width:auto; padding: 10px var(--space-4);" onclick="addModelToManager()">Add</button>
+        </div>
+        <div class="nested-card">
+          <h2 style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom: var(--space-3);">Your Trade Models / Setups</h2>
+          <div id="modelManagerList" class="mono muted" style="font-size:12.5px;">Loading…</div>
         </div>
       </div>
     </div>
@@ -8467,6 +8486,204 @@ async function deletePoiType(name) {
   renderPoiTypeSelect();
 }
 
+// ================= TRADE MODEL MANAGER (persists in Supabase — table: trade_models) =================
+// Same single-JSON-row pattern as the POI Type Manager above (a flat list,
+// one value per trade) — drives the <select id="modelSelect"> on New Trade.
+// Retiring one only removes it from the dropdown for new trades; trades
+// already using it keep that value untouched. Renaming cascades onto every
+// existing trade's trade.model, same promise as every other managed list.
+const MODEL_LIST_ROW_ID = 'list';
+const DEFAULT_MODELS = ['Reversal', 'Continuation', 'Breakout Retest', 'Range Fade'];
+let modelList = [];
+// See strategyListLoaded above — same guard, same reason.
+let modelListLoaded = false;
+
+async function loadModelList() {
+  try {
+    const { data, error } = await supabaseClient
+      .from('trade_models').select('name').eq('id', MODEL_LIST_ROW_ID).maybeSingle();
+    if (error) throw error;
+    if (data && data.name) {
+      modelList = JSON.parse(data.name);
+      modelListLoaded = true;
+      return modelList;
+    }
+    // No error, but genuinely no row yet — first real use, safe to seed.
+    modelList = DEFAULT_MODELS.slice();
+    await saveModelList();
+    modelListLoaded = true;
+    return modelList;
+  } catch (e) {
+    // A real fetch error (network/auth hiccup) — do NOT save here, or we'd
+    // overwrite the real saved data with an empty list. Leave remote data
+    // untouched; the next successful load will recover it.
+    console.error('Failed to load Trade Model list — not overwriting saved data:', e);
+    modelList = [];
+    modelListLoaded = false;
+    return modelList;
+  }
+}
+
+async function saveModelList() {
+  setSyncState('saving');
+  try {
+    const { error } = await supabaseClient.from('trade_models')
+      .upsert({ id: MODEL_LIST_ROW_ID, name: JSON.stringify(modelList) });
+    if (error) throw error;
+    setSyncState('synced');
+    return true;
+  } catch (e) {
+    console.error('Failed to save Trade Model list:', e);
+    setSyncState('error');
+    return false;
+  }
+}
+
+// Keeps New Trade's Trade Model / Setup <select> options in sync with the
+// managed list, preserving the current selection if it's still present
+// after the rebuild — same intent as renderPoiTypeSelect().
+function renderModelSelect() {
+  const sel = document.getElementById('modelSelect');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = modelList.map((m) => '<option>' + escapeHtml(m) + '</option>').join('');
+  setSelectValue('modelSelect', current, true);
+}
+
+// Renders the editable chip list on the Settings screen — same chip markup
+// as the POI Type/Confluence/Timeframe Managers.
+function renderModelManagerList() {
+  const container = document.getElementById('modelManagerList');
+  if (!container) return;
+  if (!modelList.length) {
+    container.innerHTML = '<div class="mini-empty-state"><span class="mini-empty-icon"><i data-lucide="layout-grid"></i></span><span>No Trade Models / Setups yet — add the setups you trade (reversal, continuation, etc).</span></div>';
+    refreshIcons();
+    return;
+  }
+  container.innerHTML = modelList.map((m) => {
+    const jsArg = escapeHtml(JSON.stringify(m));
+    return '<div class="chip" style="display:flex; justify-content:space-between; width:100%; margin-bottom: var(--space-2);">' +
+      '<span>' + escapeHtml(m) + '</span>' +
+      '<span class="muted" style="cursor:pointer;">' +
+        '<span class="chip-action" onclick="editModel(' + jsArg + ')" title="Rename"><i data-lucide="pencil"></i></span> ' +
+        '<span class="chip-action" onclick="deleteModel(' + jsArg + ')" title="Retire"><i data-lucide="trash-2"></i></span>' +
+      '</span>' +
+    '</div>';
+  }).join('');
+  // Phase 3: same stagger-in as the trade/journal/subfolder lists.
+  container.querySelectorAll('.chip').forEach((chip, i) => {
+    chip.classList.add('trade-row-enter');
+    chip.style.animationDelay = (Math.min(i, 20) * 15) + 'ms';
+  });
+  refreshIcons();
+}
+
+async function addModelToManager() {
+  const input = document.getElementById('newModelInput');
+  const name = (input.value || '').trim();
+  if (!name) return;
+  // Re-fetch the real list right before writing — see createStrategy for the
+  // full explanation of why this matters when two browsers/tabs are open.
+  await loadModelList();
+  if (!modelListLoaded) {
+    showToast('Could not confirm the latest Trade Model list — check your connection and try again.');
+    return;
+  }
+  const exists = modelList.some((m) => m.toLowerCase() === name.toLowerCase());
+  if (exists) { input.value = ''; return; }
+  modelList.push(name);
+  const ok = await saveModelList();
+  if (!ok) {
+    modelList = modelList.filter((m) => m !== name); // revert — never claim "added" for something that didn't actually save
+    showToast('Failed to save — check your connection and try again.');
+    return;
+  }
+  input.value = '';
+  renderModelManagerList();
+  renderModelSelect();
+  renderAdvancedFilterOptions();
+  populateWlModelSelect();
+}
+
+// Rename cascades onto every existing trade's trade.model, same promise as
+// editPoiType()/editTimeframe()/editConfluence() above.
+async function editModel(oldName) {
+  const newName = ((await promptDialog('Rename "' + oldName + '" to:', oldName)) || '').trim();
+  if (!newName || newName === oldName) return;
+  await loadModelList();
+  if (!modelListLoaded) {
+    showToast('Could not confirm the latest Trade Model list — check your connection and try again.');
+    return;
+  }
+  if (!modelList.includes(oldName)) {
+    showToast('"' + oldName + '" no longer exists — someone (maybe you, in another tab) may have already renamed or retired it. Refreshing the list.');
+    renderModelManagerList();
+    return;
+  }
+  const dup = modelList.some((m) => m.toLowerCase() === newName.toLowerCase() && m !== oldName);
+  if (dup) { showToast('"' + newName + '" already exists.'); return; }
+
+  const previousList = modelList.slice();
+  modelList = modelList.map((m) => (m === oldName ? newName : m));
+  const ok = await saveModelList();
+  if (!ok) {
+    modelList = previousList; // revert — don't cascade a rename onto trades that never actually saved on the list itself
+    showToast('Failed to save — check your connection and try again.');
+    renderModelManagerList();
+    renderModelSelect();
+    return;
+  }
+
+  await loadAllTrades();
+  const affected = allTrades.filter((t) => t.model === oldName);
+  let failedCount = 0;
+  for (const t of affected) {
+    t.model = newName;
+    const ok2 = await persistTrade(t);
+    if (!ok2) failedCount++;
+  }
+
+  renderModelManagerList();
+  renderModelSelect();
+  renderAdvancedFilterOptions();
+  populateWlModelSelect();
+  await loadAllTrades();
+  populateFilterOptions();
+  if (document.getElementById('statTotalTrades')) await refreshDashboardTradeSummary();
+  if (failedCount > 0) {
+    showToast(failedCount + ' of ' + affected.length + ' trade(s) failed to update with the new Trade Model name — check your connection and try again for those.');
+  }
+}
+
+// Retiring only removes it from the dropdown for new trades — trades
+// already using it keep that value untouched.
+async function deleteModel(name) {
+  if (!(await confirmDialog('Retire "' + name + '"? Existing trades keep this value; it just stops appearing in the dropdown for new ones.', { confirmLabel: 'Retire' }))) return;
+  await loadModelList();
+  if (!modelListLoaded) {
+    showToast('Could not confirm the latest Trade Model list — check your connection and try again.');
+    return;
+  }
+  const idx = modelList.indexOf(name);
+  if (idx === -1) {
+    showToast('"' + name + '" is already gone from the list.');
+    renderModelManagerList();
+    return;
+  }
+  modelList = modelList.filter((m) => m !== name);
+  const ok = await saveModelList();
+  if (!ok) {
+    modelList.splice(idx, 0, name); // revert — it's still saved remotely, so it can't disappear from the list
+    showToast('Failed to retire — check your connection and try again.');
+    renderModelManagerList();
+    return;
+  }
+  renderModelManagerList();
+  renderModelSelect();
+  renderAdvancedFilterOptions();
+  populateWlModelSelect();
+}
+
 // ================= STRATEGY MANAGER (persists in Supabase — table: strategies) =================
 // Same persisted-list pattern as the Confluence/Timeframe Managers above, mirrored
 // field-for-field. Replaces the single hardcoded "Partial TP Test" strategy with a real,
@@ -11104,6 +11321,16 @@ function populateWlPoiTypeSelect() {
   if ([...sel.options].some((o) => o.value === current)) sel.value = current;
 }
 
+// Same idea as populateWlPoiTypeSelect() but for Trade Model / Setup,
+// mirroring renderModelSelect() without touching its target element.
+function populateWlModelSelect() {
+  const sel = document.getElementById('wlModelSelect');
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">—</option>' + modelList.map((m) => '<option>' + escapeHtml(m) + '</option>').join('');
+  if ([...sel.options].some((o) => o.value === current)) sel.value = current;
+}
+
 function resetWatchlistForm() {
   const pairEl = document.getElementById('wlPairInput');
   if (pairEl) pairEl.value = '';
@@ -11112,6 +11339,7 @@ function resetWatchlistForm() {
   if (modelEl) modelEl.selectedIndex = 0;
   populateWlTimeframeSelects();
   populateWlPoiTypeSelect();
+  populateWlModelSelect();
   const statusEl = document.getElementById('wlAddStatus');
   if (statusEl) statusEl.textContent = '';
 }
@@ -11153,6 +11381,7 @@ async function renderWatchlistList() {
   if (!wrap) return;
   populateWlTimeframeSelects();
   populateWlPoiTypeSelect();
+  populateWlModelSelect();
   updateWatchlistAuthorChips();
   if (!watchlistItemsLoaded) await loadAllWatchlistItems();
   if (!allWatchlistItems.length) {
@@ -13951,13 +14180,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const confluencesReady = loadConfluenceList().then(() => { renderConfluenceManagerList(); renderConfluenceSuggestions(); renderConfluencePicker(); renderNewStrategyConfluencePicker(); renderAdvancedFilterOptions(); });
   const timeframesReady = loadTimeframeList().then(() => { renderTimeframeManagerList(); renderTimeframeSelects(); renderAdvancedFilterOptions(); populateWeeklyTimeframeHtfLtfSelects(); refreshWeeklyTimeframe(); });
   const poiTypesReady = loadPoiTypeList().then(() => { renderPoiTypeManagerList(); renderPoiTypeSelect(); });
+  const modelsReady = loadModelList().then(() => { renderModelManagerList(); renderModelSelect(); renderAdvancedFilterOptions(); populateWlModelSelect(); });
   const strategiesReady = loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderConfluencePicker(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); updateOnboardingBanner(); renderJournalStrategySection(); });
   // Loader overlay stays up until every one of these has genuinely resolved —
   // not a fixed delay, so it never hides too early on a slow connection or
   // lingers too long on a fast one. minDisplay just avoids an instant flash
   // on a very fast connection, which would look glitchy rather than calm.
   const minDisplay = new Promise((resolve) => setTimeout(resolve, 500));
-  Promise.all([tradesReady, confluencesReady, timeframesReady, poiTypesReady, strategiesReady, minDisplay]).then(hideAppLoader).catch(hideAppLoader);
+  Promise.all([tradesReady, confluencesReady, timeframesReady, poiTypesReady, modelsReady, strategiesReady, minDisplay]).then(hideAppLoader).catch(hideAppLoader);
 });
 
 // Fades out the full-screen app-load overlay. Called once auth + all four
@@ -15334,6 +15564,7 @@ function renderAdvancedFilterOptions() {
   fillSelectPreserving(document.getElementById('advPairSelect'), getDistinctPairs(), 'All Pairs');
   fillSelectPreserving(document.getElementById('advHtfSelect'), timeframeList.filter((t) => t.type === 'htf').map((t) => t.name), 'Any');
   fillSelectPreserving(document.getElementById('advLtfSelect'), timeframeList.filter((t) => t.type === 'ltf').map((t) => t.name), 'Any');
+  fillSelectPreserving(document.getElementById('advModelSelect'), modelList, 'Any');
 
   const rrContainer = document.getElementById('advRRTags');
   if (rrContainer && !rrContainer.dataset.rendered) {
