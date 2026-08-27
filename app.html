@@ -1107,32 +1107,156 @@
   .trade-row.drag-over { outline: 2px dashed var(--light); outline-offset: -2px; }
   .wl-reorder-handle { flex: none; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: grab; }
   .wl-reorder-handle:active { cursor: grabbing; }
-  /* Phase 5: card-level expand into the follow-up trail. The .trade-row
-     stays visually a normal row when collapsed; expanding flattens its
-     bottom corners and reveals .wl-card-detail directly beneath it as one
-     continuous card. Entries inside reuse .journal-subnote-* verbatim
-     (timeline, dot-per-update, collapse) rather than a new system. */
-  .wl-card { margin-bottom: 10px; }
-  .wl-card .trade-row { margin-bottom: 0; }
-  .wl-card.expanded .trade-row { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom-color: transparent; }
-  /* Swipe-to-delete (mobile): .wl-swipe clips a .wl-swipe-action layer
-     behind the row; touch handlers translate .wl-swipe-content left to
-     reveal it. Desktop keeps the existing trash icon in the row itself —
-     this is a mobile-only gesture add-on, not a replacement. */
-  .wl-swipe { position: relative; overflow: hidden; border-radius: 12px; }
-  .wl-card .wl-swipe { margin-bottom: 0; }
-  .wl-swipe-action {
-    position: absolute; top: 0; right: 0; bottom: 0; width: 76px;
-    background: var(--loss); color: #fff; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; gap: 3px; font-size: 10.5px; font-weight: 600;
+  /* Watchlist redesign, round 3: the user asked for the actual Journal
+     *list* feel (.journal-card — gradient-tinted background, roomy
+     padding, a real thumb, a pill-style status, "fills the screen") on
+     the Watchlist list itself, not just an accent strip on a slim row —
+     plus the Journal *subfolder* feel (.subfolder-card) on each post
+     update, which the trail entries below already carry. */
+  .wl-card {
+    position: relative; margin-bottom: 10px; border-radius: 14px; overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    transition: transform var(--duration-fast) var(--ease), border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
   }
-  .wl-swipe-action i { width: 18px; height: 18px; }
-  .wl-swipe-content.trade-row { position: relative; z-index: 1; margin-bottom: 0; touch-action: pan-y; background: var(--surface); }
-  .wl-card-detail { max-height: 0; opacity: 0; overflow: hidden; background: var(--surface); border: 1px solid var(--border); border-top: none; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; transition: max-height var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
+  .wl-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--accent, var(--border)); opacity: .7; z-index: 2;
+  }
+  .wl-card:hover:not(.expanded) { border-color: #3a4358; transform: translateY(-2px); box-shadow: var(--shadow-2); }
+  .wl-card.expanded { border-color: var(--accent, var(--border)); box-shadow: var(--shadow-2); }
+  .wl-card.expanded::before { opacity: 1; }
+  .wl-card .trade-row { margin-bottom: 0; }
+  /* A real thumb, not a small icon — same footprint as .journal-card-thumb,
+     tinted with this idea's own accent instead of a media screenshot. */
+  .wl-pair-icon-chip {
+    width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px;
+    background: var(--accent-bg, var(--surface2)); color: var(--accent, var(--muted));
+    display: inline-flex; align-items: center; justify-content: center; margin-right: 1px;
+  }
+  /* Buy/Sell as an actual pill (echoes .journal-status-pill) instead of a
+     bare colored mono label, using the win/loss semantic colors — this one
+     legitimately needs a direction color, unlike the neutral accent pill. */
+  .wl-direction-pill {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+    font-size: 10px; font-weight: 700; letter-spacing: .2px;
+    padding: 3px 9px 3px 7px; border-radius: 999px;
+  }
+  .wl-direction-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .wl-direction-pill.buy { background: rgba(0,200,150,0.12); color: var(--win); }
+  .wl-direction-pill.sell { background: rgba(255,92,92,0.12); color: var(--loss); }
+  /* Swipe-to-delete was removed 2026-08-27 (redundant with the row's own
+     delete icon) — the row's clipping/rounding still lives directly on
+     .wl-card (see above) and the row itself just needs its gradient fill. */
+  .wl-card .trade-row {
+    position: relative; z-index: 1; margin-bottom: 0; border: none; border-radius: 0;
+    background: linear-gradient(160deg, var(--accent-bg, transparent), transparent 65%);
+    padding: 14px 14px 14px 18px;
+  }
+  .wl-card-detail { max-height: 0; opacity: 0; overflow: hidden; background: var(--surface); border-top: 1px solid var(--border); transition: max-height var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
   .wl-card-detail > div { padding: var(--space-2) 10px 10px; }
-  .wl-card.expanded .wl-card-detail { max-height: 3000px; opacity: 1; }
+  .wl-card.expanded .wl-card-detail { max-height: 3000px; opacity: 1; border-top-color: var(--accent, var(--border)); }
   .wl-card-chevron { flex: none; color: var(--muted); font-size: 9px; margin-right: 2px; transform: rotate(0deg); transition: transform var(--duration-base) var(--ease); }
-  .wl-card.expanded .wl-card-chevron { transform: rotate(90deg); color: var(--brand); }
+  .wl-card.expanded .wl-card-chevron { transform: rotate(90deg); color: var(--accent, var(--brand)); }
+
+  /* ===== Watchlist follow-up trail — the "post an update" timeline.
+     Native classes (kept separate from .journal-subnote so Journal styling
+     is untouched) but built on the same idea as the Subfolder redesign:
+     the connecting rail and every dot/chip pick up the card's own
+     --accent, and each entry gets an icon chip reflecting what's inside it
+     (note / image / voice) instead of a bare dot, so a fast-growing trail
+     of updates reads as a clear story rather than a flat log. */
+  .wl-trail-timeline { position: relative; margin-bottom: 10px; }
+  .wl-trail-timeline::before {
+    content: ''; position: absolute; left: 14px; top: 4px; bottom: 4px; width: 2px;
+    background: linear-gradient(var(--accent, var(--border)), var(--accent, var(--border)) 85%, transparent);
+    opacity: .5;
+  }
+  .wl-trail-entry { position: relative; padding-left: 34px; margin-bottom: 10px; }
+  .wl-trail-dot {
+    position: absolute; left: 8px; top: 15px; width: 13px; height: 13px; border-radius: 50%;
+    background: var(--surface); border: 2px solid var(--border); z-index: 1;
+    transition: border-color var(--duration-base) var(--ease), background-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
+  }
+  .wl-trail-entry.has-media .wl-trail-dot { background: var(--accent, var(--brand)); border-color: var(--accent, var(--brand)); }
+  .wl-trail-entry.expanded .wl-trail-dot { border-color: var(--accent, var(--brand)); box-shadow: 0 0 0 3px var(--accent-bg, rgba(238,130,179,0.18)); }
+  /* Each update reads like a small "post" — its own card with a left accent
+     bar (echoes the parent card + composer), a proper two-line header
+     (meta row, then a full preview row) instead of everything crammed onto
+     one line, so dates/authors never truncate to "Aug 24, …" again. */
+  .wl-trail-card {
+    position: relative; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 9px 10px 9px 13px; overflow: hidden;
+    transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease), background-color var(--duration-base) var(--ease);
+  }
+  .wl-trail-card::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, var(--border)); opacity: .55;
+  }
+  .wl-trail-entry.expanded .wl-trail-card { border-color: var(--accent, var(--border)); box-shadow: var(--shadow-1); background: var(--bg); }
+  .wl-trail-entry.expanded .wl-trail-card::before { opacity: 1; }
+  .wl-trail-head { display: flex; align-items: flex-start; gap: var(--space-2); cursor: pointer; }
+  .wl-trail-head-left { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; row-gap: 4px; min-width: 0; flex: 1; padding-top: 1px; }
+  .wl-trail-icon-chip {
+    width: 22px; height: 22px; flex-shrink: 0; border-radius: 7px; background: var(--accent-bg, var(--surface2));
+    color: var(--accent, var(--muted)); display: flex; align-items: center; justify-content: center;
+  }
+  .wl-trail-chevron { font-size: 9px; color: var(--muted); flex-shrink: 0; display: inline-block; transform: rotate(0deg); margin-top: 5px; transition: transform var(--duration-base) var(--ease); }
+  .wl-trail-entry.expanded .wl-trail-chevron { transform: rotate(90deg); color: var(--accent, var(--brand)); }
+  .wl-trail-date { font-size: 11px; font-weight: 600; color: var(--light); white-space: nowrap; }
+  .wl-trail-head-left .badge { flex-shrink: 0; white-space: nowrap; }
+  /* Full-width row under the meta line — an optional thumbnail preview
+     plus the summary text, never clipped to a mid-word ellipsis. */
+  .wl-trail-preview { display: flex; align-items: center; gap: 7px; width: 100%; margin-top: 3px; padding-left: 29px; }
+  .wl-trail-preview-thumb { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; overflow: hidden; background: var(--surface); }
+  .wl-trail-preview-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .wl-trail-summary { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+  .wl-trail-entry.expanded .wl-trail-preview { display: none; }
+  .wl-trail-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; margin-top: 1px; }
+  .wl-trail-edit-btn, .wl-trail-delete { color: var(--muted); cursor: pointer; font-size: 12px; flex-shrink: 0; padding: var(--space-1); border-radius: 6px; display: inline-flex; transition: color var(--duration-fast) var(--ease), background-color var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease); }
+  .wl-trail-edit-btn:hover { color: var(--light); background: var(--surface); }
+  .wl-trail-delete:hover { color: var(--loss); background: rgba(255,92,92,0.1); }
+  .wl-trail-edit-btn:active, .wl-trail-delete:active { transform: scale(0.9); }
+  .wl-trail-body { display: block; max-height: 0; opacity: 0; overflow: hidden; transition: max-height var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
+  .wl-trail-body > div { overflow: hidden; min-height: 0; padding-left: 29px; }
+  .wl-trail-entry.expanded .wl-trail-body { max-height: 3000px; opacity: 1; margin-top: 4px; }
+
+  /* "Post gallery" — images inside an expanded watchlist update, sized like
+     a real photo post (see the retailer-review reference the user pointed
+     to) instead of the cramped fixed 84px thumbnail strip. One image goes
+     full-width/hero-sized; 2–3 share one row as equal large columns; 4+
+     wrap onto more rows of 2 rather than shrinking every tile to fit. */
+  .post-gallery { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .post-gallery-item { position: relative; border-radius: 12px; overflow: hidden; background: var(--surface2); cursor: pointer; flex: 1 1 0; min-width: 0; }
+  .post-gallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .post-gallery-one .post-gallery-item { flex: 1 1 100%; aspect-ratio: 16 / 10; }
+  .post-gallery-row .post-gallery-item { aspect-ratio: 1 / 1; }
+  .post-gallery-grid .post-gallery-item { flex: 1 1 calc(50% - 4px); aspect-ratio: 1 / 1; }
+
+  /* ---- Composer: "Post an update" ----
+     A distinct card (not a plain textarea strip) that carries the same
+     accent identity as the rest of the card, with a proper filled action
+     button instead of the flat outline .url-add-btn everywhere else. */
+  .wl-update-composer {
+    position: relative; background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+    padding: 11px 12px 10px; margin-top: var(--space-1); overflow: hidden;
+  }
+  .wl-update-composer::before {
+    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, var(--brand)); opacity: .6;
+  }
+  .wl-update-composer-head { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600; color: var(--light); margin-bottom: 8px; }
+  .wl-update-composer-head .wl-trail-icon-chip { width: 22px; height: 22px; }
+  .wl-update-composer textarea {
+    width: 100%; min-height: 58px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: var(--space-2); color: var(--light); font-size: 12.5px; resize: vertical; transition: border-color var(--duration-fast) var(--ease);
+  }
+  .wl-update-composer textarea:focus { outline: none; border-color: var(--accent, var(--brand)); }
+  .wl-update-composer-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
+  .wl-update-composer-tools { display: flex; gap: 6px; }
+  .wl-post-update-btn {
+    flex: none; padding: 9px 16px; border: none; border-radius: 9px; font-size: 12.5px; font-weight: 700; color: #0B0E14; cursor: pointer;
+    background: var(--accent, var(--brand)); transition: transform var(--duration-fast) var(--ease), filter var(--duration-fast) var(--ease);
+  }
+  .wl-post-update-btn:hover { filter: brightness(1.1); }
+  .wl-post-update-btn:active { transform: scale(0.95); }
   /* Trade row stagger-in (roadmap #6) — plays once per row right after
      renderTradeList() rebuilds the list. animation-delay is set inline per
      row (JS, capped so a huge list doesn't produce a multi-second cascade)
@@ -1385,8 +1509,13 @@
     color: var(--light); font-size: 13px; line-height: 1.55; resize: none; overflow: hidden;
   }
   .subfolder-block-text textarea::placeholder { color: var(--muted); }
-  .subfolder-block-media { display: flex; align-items: flex-start; gap: var(--space-2); padding: 4px 0; }
-  .subfolder-block-media .trade-thumb { width: 92px; height: 92px; flex-shrink: 0; }
+  .subfolder-block-media { display: flex; flex-direction: column; gap: 6px; padding: 4px 0; }
+  /* Subfolder photos read like part of the write-up (see the retailer-
+     review reference the user pointed to) — a real full-width photo in
+     the block sequence, not a small 92×92 icon sitting beside its meta
+     row. Reorder/move overlay buttons (mediaReorderHandleHtml /
+     .trade-thumb-move-btn) still work unchanged at any size. */
+  .subfolder-block-media .trade-thumb { width: 100%; height: auto; aspect-ratio: 4 / 3; max-height: 320px; border-radius: 12px; flex-shrink: 1; }
   .subfolder-block-link {
     display: flex; align-items: center; gap: var(--space-2); background: var(--bg); border: 1px solid var(--border);
     border-radius: 8px; padding: var(--space-2) 10px; margin: 4px 0; cursor: pointer; transition: border-color var(--duration-fast) var(--ease);
@@ -3537,6 +3666,16 @@ document.addEventListener('click', (e) => {
 // (or logged out), we stop intercepting and a further back press behaves
 // like a normal browser back (i.e. leaves the app), same as pressing back
 // at the root of any native app.
+//
+// scrollRestoration: browsers auto-restore each history entry's scroll
+// position on popstate — separate from anything above. The guard entry
+// was pushed back when the page had just loaded (scroll 0), so without
+// this, closing something deep in a long scrolled page (e.g. the media
+// viewer opened from a subfolder/post update) snapped the whole page back
+// to the top at the same moment the overlay closed. This turns that off
+// app-wide so back only does what our own code below tells it to.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+
 function navGuardPush() {
   history.pushState({ danwavesNavGuard: true }, '');
 }
@@ -7716,6 +7855,14 @@ function subfolderAccent(name) {
   return SUBFOLDER_ACCENT_PALETTE[h % SUBFOLDER_ACCENT_PALETTE.length];
 }
 
+// Same deterministic-accent idea as subfolderAccent(), applied to Watchlist
+// cards so each pair idea reads as its own color-tagged card (see the
+// .wl-card redesign) — shares the same palette so the two areas of the app
+// feel like one visual language, keyed by pair symbol instead of a folder name.
+function watchlistAccent(pair) {
+  return subfolderAccent(pair || 'Untitled');
+}
+
 function subfolderCardHtml(sf, idx, total) {
   if (!Array.isArray(sf.blocks)) sf.blocks = [];
   const expanded = journalSubfolderExpanded.has(sf.id);
@@ -7804,7 +7951,7 @@ function subfolderBlockHtml(sf, b, idx) {
       mediaReorderHandleHtml(key, idx, sf.blocks.length) +
       '<div class="trade-thumb-move-btn" title="Move or copy…" onclick="event.stopPropagation(); moveOrCopyMediaItem(journalEditingId, \'subfolder:' + sf.id + '\', \'' + b.media.id + '\');"><i data-lucide="folder"></i></div>' +
     '</div>' +
-    '<div style="display:flex; align-items:center; gap:4px; align-self:flex-start; margin-top:2px;">' +
+    '<div class="subfolder-block-controls" style="justify-content:flex-end;">' +
       authorBadgeHtml(b.createdBy) +
       '<span class="subfolder-block-delete" onclick="deleteSubfolderBlock(\'' + sf.id + '\', \'' + b.id + '\')" title="Delete"><i data-lucide="x" style="width:12px;height:12px;"></i></span>' +
     '</div>' +
@@ -11479,20 +11626,20 @@ async function renderWatchlistList() {
     // Phase 5: the row itself toggles the follow-up trail below it; the
     // drag handle and delete button both stopPropagation so they don't
     // also trigger the expand/collapse.
-    // Swipe-to-delete (mobile): .wl-swipe clips a red delete layer behind
-    // the row; touch handlers (see wlSwipe* below) translate .wl-swipe-content
-    // left to reveal it. The trash icon in the row itself stays too — this
-    // is an added gesture, not a replacement, so mouse/desktop is unaffected.
-    return '<div class="wl-card' + (cardExpanded ? ' expanded' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
-      '<div class="wl-swipe">' +
-        '<div class="wl-swipe-action" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')"><i data-lucide="trash-2"></i><span>Delete</span></div>' +
-        '<div class="wl-swipe-content trade-row" draggable="true" data-reorder-index="' + i + '" onclick="wlCardRowClick(' + idArg + ', this)" ' +
+    // Swipe-to-delete was removed (redundant — every card already has its
+    // own delete icon in the row, and the row-level delete button below
+    // covers it) — the row renders directly now, no .wl-swipe wrapper.
+    const accent = watchlistAccent(it.pair);
+    const isSell = it.direction === 'sell';
+    return '<div class="wl-card' + (cardExpanded ? ' expanded' : '') + '" style="--accent:' + accent.hex + '; --accent-bg:' + accent.bg + ';" data-item-id="' + escapeHtml(it.id) + '">' +
+        '<div class="trade-row" draggable="true" data-reorder-index="' + i + '" onclick="toggleWatchlistCard(' + idArg + ')" ' +
             'ondragstart="onWatchlistDragStart(event)" ondragover="onWatchlistDragOver(event)" ' +
             'ondragleave="onWatchlistDragLeave(event)" ondrop="onWatchlistDrop(event)" ondragend="onWatchlistDragEnd(event)">' +
           '<div class="wl-reorder-handle" title="Drag to reorder, or tap to move…" onclick="event.stopPropagation(); promptWatchlistReorder(' + i + ', ' + sorted.length + ');"><i data-lucide="grip-vertical" style="width:16px;height:16px;"></i></div>' +
+          '<span class="wl-pair-icon-chip"><i data-lucide="' + (isSell ? 'trending-down' : 'trending-up') + '" style="width:20px;height:20px;"></i></span>' +
           '<div class="trade-row-info">' +
             '<div class="trade-row-top">' +
-              '<span style="font-weight:600; font-size:13.5px;"><span class="wl-card-chevron">▶</span>' + escapeHtml(it.pair || 'Unknown') + ' <span class="mono ' + (it.direction === 'sell' ? 'loss' : 'win') + '" style="font-size:11px;">' + escapeHtml((it.direction || '').toUpperCase()) + '</span></span>' +
+              '<span style="font-weight:600; font-size:14.5px; display:inline-flex; align-items:center; gap:7px;"><span class="wl-card-chevron">▶</span>' + escapeHtml(it.pair || 'Unknown') + ' <span class="wl-direction-pill ' + (isSell ? 'sell' : 'buy') + '">' + escapeHtml((it.direction || '').toUpperCase()) + '</span></span>' +
               '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
             '</div>' +
             '<div class="trade-row-tags">' +
@@ -11504,7 +11651,6 @@ async function renderWatchlistList() {
             '</div>' +
           '</div>' +
         '</div>' +
-      '</div>' +
       watchlistCardDetailHtml(it) +
     '</div>';
   }).join('');
@@ -11516,12 +11662,14 @@ async function renderWatchlistList() {
   refreshIcons();
 }
 
-// ================= WATCHLIST TRAIL (Phase 5) =================
+// ================= WATCHLIST TRAIL (Phase 5, redesigned) =================
 // Tap a card → expands into a follow-up trail: a chronological, appendable
-// log of entries with optional text + image(s) + video. Reuses the journal
-// sub-note pattern verbatim (journal-subnote-body collapse, timestamped
-// entries, connected vertical timeline with dot-per-update) rather than
-// building a new system — see journalSubNoteHtml() for the original.
+// log of entries with optional text + image(s) + video. Originally reused
+// the journal sub-note pattern verbatim; now built on its own .wl-trail-*
+// classes (collapse/expand, timestamped entries, connected vertical
+// timeline with a content-aware icon chip per update) so Watchlist can carry
+// its own accent-per-idea "wrap" identity — see .wl-card / watchlistAccent()
+// — independently of Journal's styling.
 // Phase 6 adds the "+" composer for posting new entries; this phase wires
 // up the expand/collapse and read/delete of whatever's already in
 // item.trail (empty until Phase 6 ships).
@@ -11539,96 +11687,10 @@ function toggleWatchlistCard(id) {
   else renderWatchlistList();
 }
 
-// A tap on a row that's currently swiped open closes the swipe instead of
-// expanding the card — same "first tap dismisses" convention as swipe-to-
-// delete elsewhere (Mail, Gmail, etc).
-function wlCardRowClick(id, rowEl) {
-  if (rowEl.classList.contains('wl-swipe-open')) {
-    wlSwipeReset(rowEl);
-    return;
-  }
-  toggleWatchlistCard(id);
-}
-
-// ---- Swipe-to-delete gesture for Watchlist rows ----
-// Delegated on document (rows are re-rendered often) rather than bound
-// per-row. Horizontal vs. vertical intent is locked on the first ~6px of
-// movement so a vertical list-scroll never gets hijacked into a swipe.
-const WL_SWIPE_MAX = 76; // matches .wl-swipe-action width
-let wlSwipe = { content: null, startX: 0, startY: 0, baseX: 0, dragging: false, locked: null };
-
-function wlSwipeReset(content) {
-  content.style.transition = 'transform 0.2s ease';
-  content.style.transform = '';
-  content.classList.remove('wl-swipe-open');
-}
-
-function wlSwipeCloseOthers(except) {
-  document.querySelectorAll('.wl-swipe-content.wl-swipe-open').forEach((el) => {
-    if (el !== except) wlSwipeReset(el);
-  });
-}
-
-document.addEventListener('touchstart', (e) => {
-  const content = e.target.closest('.wl-swipe-content');
-  if (!content) { wlSwipeCloseOthers(null); return; }
-  if (e.touches.length !== 1) return;
-  wlSwipe.content = content;
-  wlSwipe.startX = e.touches[0].clientX;
-  wlSwipe.startY = e.touches[0].clientY;
-  wlSwipe.baseX = content.classList.contains('wl-swipe-open') ? -WL_SWIPE_MAX : 0;
-  wlSwipe.dragging = false;
-  wlSwipe.locked = null;
-  content.style.transition = 'none';
-}, { passive: true });
-
-document.addEventListener('touchmove', (e) => {
-  const content = wlSwipe.content;
-  if (!content || e.touches.length !== 1) return;
-  const dx = e.touches[0].clientX - wlSwipe.startX;
-  const dy = e.touches[0].clientY - wlSwipe.startY;
-  if (wlSwipe.locked === null) {
-    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-    wlSwipe.locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-  }
-  if (wlSwipe.locked !== 'x') return;
-  e.preventDefault();
-  wlSwipe.dragging = true;
-  const x = Math.max(-WL_SWIPE_MAX - 16, Math.min(0, wlSwipe.baseX + dx));
-  content.style.transform = 'translateX(' + x + 'px)';
-}, { passive: false });
-
-document.addEventListener('touchend', () => {
-  const content = wlSwipe.content;
-  if (!content) return;
-  content.style.transition = 'transform 0.2s ease';
-  if (wlSwipe.dragging) {
-    const m = /translateX\((-?\d+(?:\.\d+)?)px\)/.exec(content.style.transform);
-    const x = m ? parseFloat(m[1]) : 0;
-    if (x < -WL_SWIPE_MAX / 2) {
-      content.style.transform = 'translateX(-' + WL_SWIPE_MAX + 'px)';
-      content.classList.add('wl-swipe-open');
-      wlSwipeCloseOthers(content);
-    } else {
-      wlSwipeReset(content);
-    }
-  }
-  wlSwipe.content = null;
-  wlSwipe.dragging = false;
-  wlSwipe.locked = null;
-}, { passive: true });
-
-document.addEventListener('touchcancel', () => {
-  if (wlSwipe.content) wlSwipeReset(wlSwipe.content);
-  wlSwipe.content = null;
-  wlSwipe.dragging = false;
-  wlSwipe.locked = null;
-});
-
 function toggleWatchlistTrailEntry(entryId) {
   const willExpand = !wlTrailEntryExpanded.has(entryId);
   if (willExpand) wlTrailEntryExpanded.add(entryId); else wlTrailEntryExpanded.delete(entryId);
-  const el = document.querySelector('.journal-subnote[data-trail-entry-id="' + CSS.escape(entryId) + '"]');
+  const el = document.querySelector('.wl-trail-entry[data-trail-entry-id="' + CSS.escape(entryId) + '"]');
   if (el) el.classList.toggle('expanded', willExpand);
   else renderWatchlistList();
 }
@@ -11650,12 +11712,22 @@ function watchlistTrailEntryHtml(itemId, entry) {
   if (entry.video) summaryBits.push('video');
   if (voices.length) summaryBits.push(voices.length + (voices.length === 1 ? ' voice note' : ' voice notes'));
   const summaryText = summaryBits.length ? summaryBits.join(' · ') : 'No content yet';
-  const mediaHtml = images.length
-    ? '<div class="trade-img-grid" style="margin-top: var(--space-2);">' +
-        images.map((img, idx) => '<div class="trade-thumb" onclick="event.stopPropagation(); openViewerForWlTrailEntry(\'' + itemId + '\', \'' + entry.id + '\', ' + idx + ')"><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Update image" /></div>').join('') +
+  // Images and video render together as one "post gallery" (see the
+  // .post-gallery CSS) instead of two separately-sized small grids, so a
+  // mixed image+video update still lays out as one coherent row/grid.
+  const galleryEntries = images.map((img, idx) => ({ img, idx }));
+  if (entry.video) galleryEntries.push({ isVideo: true, idx: images.length });
+  const galleryCount = galleryEntries.length;
+  const galleryClass = galleryCount === 1 ? 'post-gallery-one' : (galleryCount <= 3 ? 'post-gallery-row' : 'post-gallery-grid');
+  const mediaHtml = galleryCount
+    ? '<div class="post-gallery ' + galleryClass + '">' +
+        galleryEntries.map((g) => g.isVideo
+          ? '<div class="post-gallery-item" onclick="event.stopPropagation(); openViewerForWlTrailEntry(\'' + itemId + '\', \'' + entry.id + '\', ' + g.idx + ')"><span class="trade-row-thumb-missing" style="display:flex; align-items:center; justify-content:center; height:100%; font-size:28px;">🎬</span></div>'
+          : '<div class="post-gallery-item" onclick="event.stopPropagation(); openViewerForWlTrailEntry(\'' + itemId + '\', \'' + entry.id + '\', ' + g.idx + ')"><img src="' + gridThumbSrc(g.img).replace(/"/g, '&quot;') + '" alt="Update image" /></div>'
+        ).join('') +
       '</div>'
     : '';
-  const videoHtml = entry.video ? '<div class="trade-img-grid" style="margin-top: var(--space-2);"><div class="trade-thumb" style="width:56px;" onclick="event.stopPropagation(); openViewerForWlTrailEntry(\'' + itemId + '\', \'' + entry.id + '\', ' + images.length + ')"><span class="trade-row-thumb-missing" style="display:flex; align-items:center; justify-content:center; height:100%;">🎬</span></div></div>' : '';
+  const videoHtml = '';
   // Posted voice notes are read-only here (no per-note delete) — same as
   // images/video above, the whole entry gets deleted as one unit via the ✕
   // on the entry head, not note-by-note.
@@ -11676,29 +11748,46 @@ function watchlistTrailEntryHtml(itemId, entry) {
     ? watchlistTrailEditFormHtml(itemId, entry)
     : (entry.text ? '<div class="mono" style="font-size:12.5px; padding-top:8px; white-space:pre-wrap;">' + escapeHtml(entry.text) + '</div>' : '<div class="mono muted" style="font-size:11.5px; padding-top:8px;">No text on this update.</div>') +
       mediaHtml + videoHtml + voicesHtml;
+  const hasMedia = images.length > 0 || !!entry.video;
+  // Chip glyph reflects what's actually inside the update (image/video takes
+  // visual priority, then a voice note, then plain text) so the trail reads
+  // at a glance instead of every dot looking identical.
+  const chipIcon = hasMedia ? 'image' : (voices.length ? 'mic' : 'message-square');
+  // A small preview thumbnail sits next to the summary line when collapsed
+  // (first attached image) so an update with a screenshot reads like a
+  // real "post" at a glance, not just a text label saying "1 image".
+  const previewThumb = images.length
+    ? '<div class="wl-trail-preview-thumb"><img src="' + gridThumbSrc(images[0]).replace(/"/g, '&quot;') + '" alt="" /></div>'
+    : '';
   // Content below is always rendered (not conditional on `expanded`) so the
   // collapse/expand transition has something real to animate — same reason
-  // as the .journal-subnote-body comment on the original pattern.
-  return '<div class="journal-subnote' + (expanded ? ' expanded' : '') + '" data-trail-entry-id="' + escapeHtml(entry.id) + '">' +
-    '<div class="journal-subnote-dot"></div>' +
-    '<div class="journal-subnote-card">' +
-      '<div class="journal-subnote-head" onclick="event.stopPropagation(); toggleWatchlistTrailEntry(\'' + entry.id + '\')">' +
-        '<div class="journal-subnote-head-left">' +
-          '<span class="journal-subnote-chevron">▶</span>' +
-          '<span class="journal-subnote-date">' + escapeHtml(watchlistTrailDateLabel(entry.timestamp)) + '</span>' +
+  // as the original journal sub-note pattern this was adapted from.
+  return '<div class="wl-trail-entry' + (expanded ? ' expanded' : '') + (hasMedia ? ' has-media' : '') + '" data-trail-entry-id="' + escapeHtml(entry.id) + '">' +
+    '<div class="wl-trail-dot"></div>' +
+    '<div class="wl-trail-card">' +
+      '<div class="wl-trail-head" onclick="event.stopPropagation(); toggleWatchlistTrailEntry(\'' + entry.id + '\')">' +
+        '<span class="wl-trail-chevron">▶</span>' +
+        '<div class="wl-trail-head-left">' +
+          '<span class="wl-trail-icon-chip"><i data-lucide="' + chipIcon + '" style="width:11px;height:11px;"></i></span>' +
+          '<span class="wl-trail-date">' + escapeHtml(watchlistTrailDateLabel(entry.timestamp)) + '</span>' +
           authorBadgeHtml(entry.createdBy) +
-          '<span class="journal-subnote-summary">' + escapeHtml(summaryText) + '</span>' +
         '</div>' +
         (isEditing ? '' :
-          '<span class="icon-btn" style="width:26px;height:26px;" onclick="event.stopPropagation(); startEditWatchlistTrailEntry(\'' + itemId + '\', \'' + entry.id + '\')" title="Edit update"><i data-lucide="pencil" style="width:12px;height:12px;"></i></span>' +
-          '<span class="journal-subnote-delete" onclick="event.stopPropagation(); deleteWatchlistTrailEntry(\'' + itemId + '\', \'' + entry.id + '\')" title="Delete update">✕</span>'
+          '<div class="wl-trail-actions">' +
+            '<span class="wl-trail-edit-btn" onclick="event.stopPropagation(); startEditWatchlistTrailEntry(\'' + itemId + '\', \'' + entry.id + '\')" title="Edit update"><i data-lucide="pencil" style="width:12px;height:12px;"></i></span>' +
+            '<span class="wl-trail-delete" onclick="event.stopPropagation(); deleteWatchlistTrailEntry(\'' + itemId + '\', \'' + entry.id + '\')" title="Delete update"><i data-lucide="x" style="width:12px;height:12px;"></i></span>' +
+          '</div>'
         ) +
       '</div>' +
-      '<div class="journal-subnote-body"><div>' +
+      '<div class="wl-trail-preview" onclick="event.stopPropagation(); toggleWatchlistTrailEntry(\'' + entry.id + '\')">' +
+        previewThumb +
+        '<span class="wl-trail-summary">' + escapeHtml(summaryText) + '</span>' +
+      '</div>' +
+      '<div class="wl-trail-body"><div>' +
         bodyHtml +
       '</div></div>' +
     '</div>' +
-  '</div>';
+    '</div>' ;
 }
 
 // A trail that keeps growing (daily updates on a live idea) would otherwise
@@ -11726,7 +11815,7 @@ function watchlistCardDetailHtml(item) {
     const showMoreHtml = hiddenCount > 0
       ? '<button type="button" class="trail-show-more" onclick="event.stopPropagation(); showAllWlTrail(\'' + item.id + '\')">Show ' + hiddenCount + ' earlier update' + (hiddenCount === 1 ? '' : 's') + '</button>'
       : '';
-    timelineHtml = showMoreHtml + '<div class="journal-subnotes-timeline">' + visibleTrail.map((entry) => watchlistTrailEntryHtml(item.id, entry)).join('') + '</div>';
+    timelineHtml = showMoreHtml + '<div class="wl-trail-timeline">' + visibleTrail.map((entry) => watchlistTrailEntryHtml(item.id, entry)).join('') + '</div>';
   }
   return '<div class="wl-card-detail" onclick="event.stopPropagation();"><div>' + timelineHtml + watchlistTrailComposerHtml(item.id) + '</div></div>';
 }
@@ -11820,12 +11909,12 @@ function watchlistTrailComposerHtml(itemId) {
     ? '<div class="trade-img-grid" style="margin-top: var(--space-2);">' +
         draftImages.map((img, idx) =>
           '<div class="trade-thumb" onclick="event.stopPropagation(); openViewerForWlTrailDraft(\'' + itemId + '\', ' + idx + ')"><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Pending image" />' +
-            '<div class="journal-subnote-delete" style="position:absolute; top:2px; right:2px; background:rgba(11,14,20,0.85); border-radius:4px;" onclick="event.stopPropagation(); removeWlTrailDraftImage(\'' + itemId + '\', ' + idx + ')" title="Remove">✕</div>' +
+            '<div class="wl-trail-delete" style="position:absolute; top:2px; right:2px; background:rgba(11,14,20,0.85); border-radius:4px;" onclick="event.stopPropagation(); removeWlTrailDraftImage(\'' + itemId + '\', ' + idx + ')" title="Remove">✕</div>' +
           '</div>'
         ).join('') +
         (draftVideo
           ? '<div class="trade-thumb" style="width:56px;" onclick="event.stopPropagation(); openViewerForWlTrailDraft(\'' + itemId + '\', ' + draftImages.length + ')"><span class="trade-row-thumb-missing" style="display:flex; align-items:center; justify-content:center; height:100%;">🎬</span>' +
-              '<div class="journal-subnote-delete" style="position:absolute; top:2px; right:2px; background:rgba(11,14,20,0.85); border-radius:4px;" onclick="event.stopPropagation(); removeWlTrailDraftVideo(\'' + itemId + '\')" title="Remove">✕</div>' +
+              '<div class="wl-trail-delete" style="position:absolute; top:2px; right:2px; background:rgba(11,14,20,0.85); border-radius:4px;" onclick="event.stopPropagation(); removeWlTrailDraftVideo(\'' + itemId + '\')" title="Remove">✕</div>' +
             '</div>'
           : '') +
       '</div>'
@@ -11835,14 +11924,14 @@ function watchlistTrailComposerHtml(itemId) {
         draftVoices.map((vn, idx) => wlTrailDraftVoiceRowHtml(itemId, vn, idx)).join('') +
       '</div>'
     : '';
-  return '<div class="journal-subnote-composer">' +
-    '<div class="journal-subnote-composer-head"><span>✏️</span><span>Add an update</span></div>' +
+  return '<div class="wl-update-composer">' +
+    '<div class="wl-update-composer-head"><span class="wl-trail-icon-chip"><i data-lucide="pencil-line" style="width:12px;height:12px;"></i></span><span>Add an update</span></div>' +
     '<textarea id="wlTrailComposeInput_' + itemId + '" class="mono" ' +
       'oninput="wlTrailDraftText[\'' + itemId + '\'] = this.value" ' +
       'placeholder="Add a dated update — price hit my zone, invalidated, etc…">' + escapeHtml(draftText) + '</textarea>' +
     previewHtml + voicePreviewHtml +
-    '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">' +
-      '<div style="display:flex; gap:8px;">' +
+    '<div class="wl-update-composer-actions">' +
+      '<div class="wl-update-composer-tools">' +
         '<div class="icon-btn" onclick="document.getElementById(\'wlTrailMediaInput_' + itemId + '\').click()" title="Attach image or video"><i data-lucide="paperclip"></i></div>' +
         '<div class="icon-btn" title="Hold to record a voice note" ' +
           'onmousedown="startWlTrailVoiceRecording(event, \'' + itemId + '\')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()" ' +
@@ -11850,7 +11939,7 @@ function watchlistTrailComposerHtml(itemId) {
           '<i data-lucide="mic"></i></div>' +
       '</div>' +
       '<input type="file" id="wlTrailMediaInput_' + itemId + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleWlTrailMediaSelect(event, \'' + itemId + '\')" />' +
-      '<button class="url-add-btn" onclick="addWatchlistTrailEntry(\'' + itemId + '\')">+ Post update</button>' +
+      '<button class="wl-post-update-btn" onclick="addWatchlistTrailEntry(\'' + itemId + '\')">+ Post update</button>' +
     '</div>' +
     '<div id="wlTrailStatus_' + itemId + '" class="extract-status"></div>' +
   '</div>';
@@ -12103,12 +12192,12 @@ function watchlistTrailEditFormHtml(itemId, entry) {
     ? '<div class="trade-img-grid" style="margin-top: var(--space-2);">' +
         draftImages.map((img, idx) =>
           '<div class="trade-thumb"><img src="' + gridThumbSrc(img).replace(/"/g, '&quot;') + '" alt="Image" />' +
-            '<div class="journal-subnote-delete" style="position:absolute; top:2px; right:2px; background:rgba(11,14,20,0.85); border-radius:4px;" onclick="event.stopPropagation(); removeWlTrailEditDraftImage(\'' + entryId + '\', ' + idx + ')" title="Remove">✕</div>' +
+            '<div class="wl-trail-delete" style="position:absolute; top:2px; right:2px; background:rgba(11,14,20,0.85); border-radius:4px;" onclick="event.stopPropagation(); removeWlTrailEditDraftImage(\'' + entryId + '\', ' + idx + ')" title="Remove">✕</div>' +
           '</div>'
         ).join('') +
         (draftVideo
           ? '<div class="trade-thumb" style="width:56px;"><span class="trade-row-thumb-missing" style="display:flex; align-items:center; justify-content:center; height:100%;">🎬</span>' +
-              '<div class="journal-subnote-delete" style="position:absolute; top:2px; right:2px; background:rgba(11,14,20,0.85); border-radius:4px;" onclick="event.stopPropagation(); removeWlTrailEditDraftVideo(\'' + entryId + '\')" title="Remove">✕</div>' +
+              '<div class="wl-trail-delete" style="position:absolute; top:2px; right:2px; background:rgba(11,14,20,0.85); border-radius:4px;" onclick="event.stopPropagation(); removeWlTrailEditDraftVideo(\'' + entryId + '\')" title="Remove">✕</div>' +
             '</div>'
           : '') +
       '</div>'
@@ -12123,13 +12212,13 @@ function watchlistTrailEditFormHtml(itemId, entry) {
         }).join('') +
       '</div>'
     : '';
-  return '<div class="journal-subnote-composer" style="margin-top:8px;">' +
+  return '<div class="wl-update-composer" style="margin-top:8px;">' +
     '<textarea id="wlTrailEditInput_' + entryId + '" class="mono" ' +
       'oninput="wlTrailEditDraftText[\'' + entryId + '\'] = this.value" ' +
       'placeholder="Update text…">' + escapeHtml(draftText) + '</textarea>' +
     previewHtml + voicePreviewHtml +
-    '<div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px; gap:8px;">' +
-      '<div style="display:flex; gap:8px;">' +
+    '<div class="wl-update-composer-actions">' +
+      '<div class="wl-update-composer-tools">' +
         '<div class="icon-btn" onclick="document.getElementById(\'wlTrailEditMediaInput_' + entryId + '\').click()" title="Attach image or video"><i data-lucide="paperclip"></i></div>' +
         '<div class="icon-btn" title="Hold to record a voice note" ' +
           'onmousedown="startWlTrailEditVoiceRecording(event, \'' + entryId + '\')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()" ' +
@@ -12138,8 +12227,8 @@ function watchlistTrailEditFormHtml(itemId, entry) {
       '</div>' +
       '<input type="file" id="wlTrailEditMediaInput_' + entryId + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleWlTrailEditMediaSelect(event, \'' + entryId + '\')" />' +
       '<div style="display:flex; gap:8px;">' +
-        '<button class="url-add-btn" style="background:var(--surface2); color:var(--muted);" onclick="cancelEditWatchlistTrailEntry(\'' + itemId + '\', \'' + entryId + '\')">Cancel</button>' +
-        '<button class="url-add-btn" onclick="saveWatchlistTrailEditEntry(\'' + itemId + '\', \'' + entryId + '\')">Save</button>' +
+        '<button class="wl-post-update-btn" style="background:var(--surface2); color:var(--light); box-shadow:none;" onclick="cancelEditWatchlistTrailEntry(\'' + itemId + '\', \'' + entryId + '\')">Cancel</button>' +
+        '<button class="wl-post-update-btn" onclick="saveWatchlistTrailEditEntry(\'' + itemId + '\', \'' + entryId + '\')">Save</button>' +
       '</div>' +
     '</div>' +
     '<div id="wlTrailEditStatus_' + entryId + '" class="extract-status"></div>' +
