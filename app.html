@@ -1153,7 +1153,11 @@
     padding: 14px 14px 14px 18px;
   }
   .wl-card-detail { max-height: 0; opacity: 0; overflow: hidden; background: var(--surface); border-top: 1px solid var(--border); transition: max-height var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
-  .wl-card-detail > div { padding: var(--space-2) 10px 10px; }
+  /* Left/right padding matched to .wl-card .trade-row's 18px/14px above
+     (was 10px/10px) so the trail entries + composer share the same
+     left/right edges as the header row instead of sitting narrower —
+     2026-08-27 width-alignment pass. */
+  .wl-card-detail > div { padding: var(--space-2) 14px 14px 18px; }
   .wl-card.expanded .wl-card-detail { max-height: 3000px; opacity: 1; border-top-color: var(--accent, var(--border)); }
   .wl-card-chevron { flex: none; color: var(--muted); font-size: 9px; margin-right: 2px; transform: rotate(0deg); transition: transform var(--duration-base) var(--ease); }
   .wl-card.expanded .wl-card-chevron { transform: rotate(90deg); color: var(--accent, var(--brand)); }
@@ -1167,13 +1171,17 @@
      of updates reads as a clear story rather than a flat log. */
   .wl-trail-timeline { position: relative; margin-bottom: 10px; }
   .wl-trail-timeline::before {
-    content: ''; position: absolute; left: 14px; top: 4px; bottom: 4px; width: 2px;
+    /* Tightened 2026-08-27 (was left:14px) — entry cards were sitting
+       noticeably narrower than the header/composer above and below them;
+       shrinking the reserved timeline column gives them back that width.
+       See .wl-trail-entry/.wl-trail-dot below for the matching change. */
+    content: ''; position: absolute; left: 4px; top: 4px; bottom: 4px; width: 2px;
     background: linear-gradient(var(--accent, var(--border)), var(--accent, var(--border)) 85%, transparent);
     opacity: .5;
   }
-  .wl-trail-entry { position: relative; padding-left: 34px; margin-bottom: 10px; }
+  .wl-trail-entry { position: relative; padding-left: 18px; margin-bottom: 10px; }
   .wl-trail-dot {
-    position: absolute; left: 8px; top: 15px; width: 13px; height: 13px; border-radius: 50%;
+    position: absolute; left: 0px; top: 15px; width: 13px; height: 13px; border-radius: 50%;
     background: var(--surface); border: 2px solid var(--border); z-index: 1;
     transition: border-color var(--duration-base) var(--ease), background-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
   }
@@ -1232,23 +1240,28 @@
   .post-gallery-grid .post-gallery-item { flex: 1 1 calc(50% - 4px); aspect-ratio: 1 / 1; }
 
   /* ---- Composer: "Post an update" ----
-     A distinct card (not a plain textarea strip) that carries the same
-     accent identity as the rest of the card, with a proper filled action
-     button instead of the flat outline .url-add-btn everywhere else. */
+     De-nested (Phase 1 of watchlist-composer-denesting-roadmap.md): no
+     longer its own bordered/backgrounded card — it sits directly on the
+     outer watchlist card's surface so the toolbar and text box get the
+     full card width instead of losing space to a third layer of chrome.
+     A thin top rule + short accent tick stand in for the old full-card
+     border, just enough to mark "this is where you write" without boxing
+     it in. */
   .wl-update-composer {
-    position: relative; background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
-    padding: 11px 12px 10px; margin-top: var(--space-1); overflow: hidden;
+    position: relative; margin-top: var(--space-2); padding-top: 9px;
+    border-top: 1px solid var(--border);
   }
   .wl-update-composer::before {
-    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent, var(--brand)); opacity: .6;
+    content: ''; position: absolute; left: 0; top: -1px; width: 26px; height: 2px; background: var(--accent, var(--brand));
   }
-  .wl-update-composer-head { display: flex; align-items: center; gap: 8px; font-size: 11.5px; font-weight: 600; color: var(--light); margin-bottom: 8px; }
-  .wl-update-composer-head .wl-trail-icon-chip { width: 22px; height: 22px; }
-  .wl-update-composer textarea {
+  .wl-update-composer-head { display: flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 600; color: var(--muted); margin-bottom: 7px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .wl-update-composer-head .wl-trail-icon-chip { width: 18px; height: 18px; }
+  .wl-update-composer textarea, .wl-update-composer .rt-editor {
     width: 100%; min-height: 58px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
     padding: var(--space-2); color: var(--light); font-size: 12.5px; resize: vertical; transition: border-color var(--duration-fast) var(--ease);
   }
-  .wl-update-composer textarea:focus { outline: none; border-color: var(--accent, var(--brand)); }
+  .wl-update-composer .rt-editor { overflow-y: auto; max-height: 260px; white-space: pre-wrap; word-break: break-word; }
+  .wl-update-composer textarea:focus, .wl-update-composer .rt-editor:focus { outline: none; border-color: var(--accent, var(--brand)); }
   .wl-update-composer-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; gap: 8px; }
   .wl-update-composer-tools { display: flex; gap: 6px; }
   .wl-post-update-btn {
@@ -1257,6 +1270,47 @@
   }
   .wl-post-update-btn:hover { filter: brightness(1.1); }
   .wl-post-update-btn:active { transform: scale(0.95); }
+
+
+  /* ---- Rich text toolbar (Word-style Bold/Italic/Underline/font/size/color) ----
+     Shared by the Watchlist post-update composer, Journal notes, and
+     Subfolder text blocks — see the RICH TEXT EDITOR script section. */
+  .rt-toolbar { display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-bottom:6px; }
+  .rt-btn {
+    min-width:26px; height:26px; padding:0 7px; border:1px solid var(--border); border-radius:6px;
+    background:var(--surface2); color:var(--light); font-size:12px; line-height:1; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; transition: border-color var(--duration-fast) var(--ease);
+  }
+  .rt-btn:hover { border-color: var(--accent, var(--brand)); }
+  .rt-btn:active { transform: scale(0.93); }
+  .rt-select {
+    height:26px; padding:0 4px; border:1px solid var(--border); border-radius:6px;
+    background:var(--surface2); color:var(--light); font-size:10.5px; max-width:74px;
+  }
+  .rt-swatches { display:inline-flex; gap:4px; margin-left:2px; align-items:center; }
+  .rt-swatch {
+    width:16px; height:16px; border-radius:50%; border:1px solid rgba(255,255,255,0.3); cursor:pointer;
+    display:inline-block; padding:0; transition: transform var(--duration-fast) var(--ease);
+  }
+  .rt-swatch:hover { transform: scale(1.2); }
+  /* Compact toolbar (Watchlist trail composer/edit only — see
+     watchlist-composer-denesting roadmap Phase 3): Font/Size collapse into
+     an "Aa" button + popover instead of two inline <select>s, so B/I/U +
+     swatches fit on one row. */
+  .rt-toolbar-compact { flex-wrap: nowrap; }
+  .rt-aa-wrap { position: relative; display: inline-flex; }
+  .rt-aa-btn { font-size: 11px; font-weight: 700; font-style: italic; min-width: 30px; }
+  .rt-aa-popover {
+    display: none; flex-direction: column; gap: 6px; position: absolute; top: 100%; left: 0; margin-top: 4px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px;
+    min-width: 100px; z-index: 5; box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  }
+  .rt-aa-popover.open { display: flex; }
+  .rt-aa-popover .rt-select { width: 100%; max-width: none; }
+  .rt-editor { outline:none; cursor:text; }
+  .rt-editor[data-placeholder]:empty:before { content: attr(data-placeholder); color: var(--muted); pointer-events:none; }
+  .rt-editor b, .rt-editor strong { font-weight:700; }
+  .rt-editor i, .rt-editor em { font-style:italic; }
   /* Trade row stagger-in (roadmap #6) — plays once per row right after
      renderTradeList() rebuilds the list. animation-delay is set inline per
      row (JS, capped so a huge list doesn't produce a multi-second cascade)
@@ -1504,11 +1558,13 @@
   .subfolder-pad { padding-top: 10px; }
 
   .subfolder-block { position: relative; }
-  .subfolder-block-text textarea {
+  .subfolder-block-text textarea, .subfolder-block-text .rt-editor {
     width: 100%; min-height: 32px; background: transparent; border: none; padding: var(--space-1) 2px;
     color: var(--light); font-size: 13px; line-height: 1.55; resize: none; overflow: hidden;
   }
   .subfolder-block-text textarea::placeholder { color: var(--muted); }
+  .subfolder-block-text .rt-editor { white-space: pre-wrap; word-break: break-word; }
+  .subfolder-block-text .rt-toolbar { margin: 2px 2px 4px; }
   .subfolder-block-media { display: flex; flex-direction: column; gap: 6px; padding: 4px 0; }
   /* Subfolder photos read like part of the write-up (see the retailer-
      review reference the user pointed to) — a real full-width photo in
@@ -3355,8 +3411,9 @@
       </div>
       <div class="field">
         <label>Notes</label>
-        <textarea id="journalBodyInput" class="mono" style="width:100%; min-height:220px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; color:var(--light); font-size:13px; resize:vertical;"
-          placeholder="What's the thesis? What would invalidate it? Anything worth remembering later…" onblur="onJournalFieldBlur()"></textarea>
+        <div id="journalBodyToolbar"></div>
+        <div id="journalBodyInput" class="mono rt-editor" contenteditable="true" style="width:100%; min-height:220px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:10px; color:var(--light); font-size:13px; white-space:pre-wrap; word-break:break-word; overflow-y:auto;"
+          data-placeholder="What's the thesis? What would invalidate it? Anything worth remembering later…" onblur="onJournalFieldBlur()" onpaste="rtHandlePaste(event)"></div>
       </div>
       <div id="journalSaveStatus" class="extract-status"></div>
       <!-- Voice notes: press-and-hold mic button. Locked (same "save notes
@@ -3466,6 +3523,250 @@
 // literal text instead of executing. Not needed on values already inserted
 // via textContent (the DOM escapes those automatically) — only wrap values
 // going into innerHTML/insertAdjacentHTML template strings.
+// ================= RICH TEXT EDITOR (Word-style formatting) =================
+// Turns the Watchlist post-update composer/edit box, the Journal notes
+// field, and Subfolder text blocks into small Word-style rich text boxes —
+// Bold / Italic / Underline / font / size / color — via a toolbar above a
+// contenteditable div. Built on the browser's own document.execCommand
+// formatting commands rather than a custom text engine (still broadly
+// supported across the mobile/desktop WebViews this single-file app runs
+// in), and stores the field's value as a small, safe subset of HTML
+// (b/i/u/span/font/br/div/p — no scripts, no event handlers) instead of a
+// plain string. Fields already saved as plain text before this feature
+// existed still load and display correctly — see rtInitialHtml() below.
+const RT_FONT_FACES = [
+  { label: 'Default', value: '' },
+  { label: 'Sans', value: 'Arial, Helvetica, sans-serif' },
+  { label: 'Serif', value: 'Georgia, \'Times New Roman\', serif' },
+  { label: 'Mono', value: '\'JetBrains Mono\', \'Courier New\', monospace' },
+  { label: 'Rounded', value: '\'Trebuchet MS\', sans-serif' },
+];
+const RT_FONT_SIZES = [
+  { label: 'S', px: 11 },
+  { label: 'M', px: 13 },
+  { label: 'L', px: 16 },
+  { label: 'XL', px: 20 },
+  { label: 'XXL', px: 26 },
+];
+const RT_COLORS = ['#EAEAF0', '#FF5C5C', '#3DDC84', '#4EA1FF', '#FFC24E', '#EE82B3', '#9B7BFF'];
+
+function rtIsHtml(value) {
+  return typeof value === 'string' && /<[a-z][\s\S]*>/i.test(value);
+}
+
+// Prepares a stored field value to become a contenteditable div's innerHTML:
+// HTML already produced by this editor passes through as-is; a legacy plain
+// string is escaped and its newlines turned into <br> so it still displays
+// as separate lines the first time it's opened in the new rich editor.
+function rtInitialHtml(value) {
+  const raw = value || '';
+  if (rtIsHtml(raw)) return raw;
+  return escapeHtml(raw).replace(/\n/g, '<br>');
+}
+
+// Strips tags back down to plain text — used anywhere a field is read for
+// search matching or a one-line summary/snippet. Never used for displaying
+// the formatted body itself (that uses rtDisplayHtml instead).
+function rtToText(html) {
+  if (!html) return '';
+  const tmp = document.createElement('div');
+  tmp.innerHTML = String(html);
+  return (tmp.textContent || tmp.innerText || '').replace(/\s+/g, ' ').trim();
+}
+
+// Whitelist sanitizer, run right before a value is saved and again right
+// before any saved value is re-inserted as innerHTML for display — strips
+// anything that isn't a plain formatting tag/attribute (no <script>, no
+// on*= handlers, no <img>/<a> sneaking in via a paste that slipped past the
+// plain-text paste handler below).
+const RT_ALLOWED_TAGS = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'SPAN', 'FONT', 'BR', 'DIV', 'P']);
+const RT_ALLOWED_STYLE_PROPS = ['color', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-decoration'];
+function rtSanitize(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = String(html || '');
+  const walk = (node) => {
+    Array.from(node.childNodes).forEach((child) => {
+      if (child.nodeType === 1) {
+        if (!RT_ALLOWED_TAGS.has(child.tagName)) {
+          while (child.firstChild) child.parentNode.insertBefore(child.firstChild, child);
+          child.parentNode.removeChild(child);
+          return;
+        }
+        Array.from(child.attributes).forEach((attr) => {
+          const name = attr.name.toLowerCase();
+          if (name === 'style') {
+            const kept = attr.value.split(';').map((s) => s.trim()).filter((decl) => {
+              const prop = decl.split(':')[0] && decl.split(':')[0].trim().toLowerCase();
+              return RT_ALLOWED_STYLE_PROPS.includes(prop);
+            }).join('; ');
+            if (kept) child.setAttribute('style', kept); else child.removeAttribute('style');
+          } else if (name === 'face' || name === 'color' || name === 'size') {
+            // inert legacy <font> attributes — left as-is
+          } else {
+            child.removeAttribute(attr.name);
+          }
+        });
+        walk(child);
+      } else if (child.nodeType !== 3) {
+        child.parentNode.removeChild(child); // drop comments etc.
+      }
+    });
+  };
+  walk(tmp);
+  return tmp.innerHTML;
+}
+
+// Normalizes + sanitizes a stored value for read-only display (handles both
+// legacy plain-text values and rich HTML values with one call).
+function rtDisplayHtml(value) {
+  return rtSanitize(rtInitialHtml(value));
+}
+
+// Forces pasted content down to plain text so formatting/scripts from
+// whatever was copied elsewhere can't ride along into the field.
+function rtHandlePaste(event) {
+  event.preventDefault();
+  const text = ((event.clipboardData || window.clipboardData).getData('text/plain'));
+  document.execCommand('insertText', false, text);
+}
+
+// Selection tracking: clicking a toolbar <select> steals focus from the
+// editor before its onchange fires, which would otherwise lose the user's
+// text selection. Buttons avoid this via onmousedown preventDefault, but
+// native <select> dropdowns can't be preventDefault'd without breaking the
+// dropdown itself — so for selects we remember the last selection made
+// inside each rt-editor and restore it right before applying the command.
+let rtLastRange = {}; // editorId -> Range
+document.addEventListener('selectionchange', () => {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  let node = range.commonAncestorContainer;
+  if (node.nodeType === 3) node = node.parentNode;
+  const editor = node && node.closest && node.closest('.rt-editor');
+  if (editor && editor.id) rtLastRange[editor.id] = range.cloneRange();
+});
+
+function rtRestoreSelection(editorId) {
+  const el = document.getElementById(editorId);
+  if (!el) return null;
+  el.focus();
+  const range = rtLastRange[editorId];
+  if (range) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    try { sel.addRange(range); } catch (e) { /* stale range from a re-render — ignore */ }
+  }
+  return el;
+}
+
+// Fires a synthetic 'input' event after a toolbar-driven edit, since
+// execCommand doesn't reliably fire a native input event in every browser —
+// this keeps each field's own oninput-based draft tracking in sync even
+// when the user only used the toolbar and never typed.
+function rtAfterExec(editorId) {
+  const el = document.getElementById(editorId);
+  if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+function rtExec(editorId, cmd) {
+  const el = document.getElementById(editorId);
+  if (!el) return;
+  el.focus();
+  document.execCommand(cmd, false, null);
+  rtAfterExec(editorId);
+}
+
+function rtColor(editorId, hex) {
+  const el = document.getElementById(editorId);
+  if (!el) return;
+  el.focus();
+  document.execCommand('foreColor', false, hex);
+  rtAfterExec(editorId);
+}
+
+function rtFont(editorId, face) {
+  if (!face) return;
+  const el = rtRestoreSelection(editorId);
+  if (!el) return;
+  document.execCommand('fontName', false, face);
+  rtAfterExec(editorId);
+}
+
+function rtSize(editorId, px) {
+  if (!px) return;
+  const el = rtRestoreSelection(editorId);
+  if (!el) return;
+  document.execCommand('fontSize', false, '7'); // marker value swapped for a real px size below
+  el.querySelectorAll('font[size="7"]').forEach((f) => {
+    f.removeAttribute('size');
+    f.style.fontSize = px + 'px';
+  });
+  rtAfterExec(editorId);
+}
+
+function rtToolbarHtml(editorId, compact) {
+  const colorSwatches = RT_COLORS.map((c) =>
+    '<span class="rt-swatch" style="background:' + c + ';" title="Text color" onmousedown="event.preventDefault();" onclick="rtColor(\'' + editorId + '\', \'' + c + '\')"></span>'
+  ).join('');
+  const boldItalicUnderline =
+    '<button type="button" class="rt-btn" title="Bold" onmousedown="event.preventDefault();" onclick="rtExec(\'' + editorId + '\', \'bold\')"><b>B</b></button>' +
+    '<button type="button" class="rt-btn" title="Italic" onmousedown="event.preventDefault();" onclick="rtExec(\'' + editorId + '\', \'italic\')"><i>I</i></button>' +
+    '<button type="button" class="rt-btn" title="Underline" onmousedown="event.preventDefault();" onclick="rtExec(\'' + editorId + '\', \'underline\')"><u>U</u></button>';
+  if (!compact) {
+    return '<div class="rt-toolbar">' +
+      boldItalicUnderline +
+      '<select class="rt-select" title="Font" onchange="rtFont(\'' + editorId + '\', this.value); this.selectedIndex=0;">' +
+        RT_FONT_FACES.map((f) => '<option value="' + f.value + '">' + f.label + '</option>').join('') +
+      '</select>' +
+      '<select class="rt-select" title="Size" onchange="rtSize(\'' + editorId + '\', this.value); this.selectedIndex=0;">' +
+        '<option value="">Size</option>' + RT_FONT_SIZES.map((s) => '<option value="' + s.px + '">' + s.label + '</option>').join('') +
+      '</select>' +
+      '<span class="rt-swatches">' + colorSwatches + '</span>' +
+    '</div>';
+  }
+  // Compact variant — currently only the Watchlist trail composer/edit
+  // form (see roadmap: watchlist-composer-denesting Phase 3). Font/Size
+  // move off the main row into an "Aa" popover so B/I/U + swatches fit on
+  // one row instead of the toolbar wrapping to 2-3 rows. Journal and
+  // Subfolder callers pass no second arg and keep the original layout above.
+  const popoverId = 'rtAaPopover_' + editorId;
+  return '<div class="rt-toolbar rt-toolbar-compact">' +
+    boldItalicUnderline +
+    '<div class="rt-aa-wrap">' +
+      '<button type="button" class="rt-btn rt-aa-btn" title="Font & size" onmousedown="event.preventDefault();" onclick="rtToggleAaPopover(\'' + editorId + '\', event)">Aa</button>' +
+      '<div class="rt-aa-popover" id="' + popoverId + '">' +
+        '<select class="rt-select" title="Font" onchange="rtFont(\'' + editorId + '\', this.value); this.selectedIndex=0; rtCloseAaPopovers();">' +
+          RT_FONT_FACES.map((f) => '<option value="' + f.value + '">' + f.label + '</option>').join('') +
+        '</select>' +
+        '<select class="rt-select" title="Size" onchange="rtSize(\'' + editorId + '\', this.value); this.selectedIndex=0; rtCloseAaPopovers();">' +
+          '<option value="">Size</option>' + RT_FONT_SIZES.map((s) => '<option value="' + s.px + '">' + s.label + '</option>').join('') +
+        '</select>' +
+      '</div>' +
+    '</div>' +
+    '<span class="rt-swatches">' + colorSwatches + '</span>' +
+  '</div>';
+}
+
+// Aa popover (compact toolbar only): opens/closes the Font+Size flyout
+// anchored under its button. Only one open at a time; a document-level
+// click listener below closes it on outside click, and each select's
+// onchange also closes it directly once a choice is made.
+function rtToggleAaPopover(editorId, event) {
+  if (event) event.stopPropagation();
+  const pop = document.getElementById('rtAaPopover_' + editorId);
+  if (!pop) return;
+  const opening = !pop.classList.contains('open');
+  rtCloseAaPopovers();
+  if (opening) pop.classList.add('open');
+}
+function rtCloseAaPopovers() {
+  document.querySelectorAll('.rt-aa-popover.open').forEach((p) => p.classList.remove('open'));
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.rt-aa-wrap')) rtCloseAaPopovers();
+});
+
 function escapeHtml(value) {
   if (value === null || value === undefined) return '';
   return String(value)
@@ -6148,12 +6449,12 @@ function journalMatchesSearchText(entry, query) {
   if (!query) return true;
   const haystack = [
     entry.title,
-    entry.body,
+    rtToText(entry.body),
     entry.pair,
     ...mediaListSearchTokens(entry.media),
-    ...(entry.subNotes || []).reduce((acc, sn) => acc.concat(sn.body || '', mediaListSearchTokens(sn.media)), []),
+    ...(entry.subNotes || []).reduce((acc, sn) => acc.concat(rtToText(sn.body), mediaListSearchTokens(sn.media)), []),
     ...(entry.subfolders || []).reduce((acc, sf) => acc.concat(sf.name || '', (sf.blocks || []).reduce((bacc, b) =>
-      bacc.concat(b.type === 'text' ? (b.text || '') : b.type === 'link' ? (b.label || '') + ' ' + (b.url || '') : b.type === 'audio' ? ((b.voiceNote && b.voiceNote.transcript) || '') : mediaListSearchTokens([b.media])), [])), []),
+      bacc.concat(b.type === 'text' ? rtToText(b.text) : b.type === 'link' ? (b.label || '') + ' ' + (b.url || '') : b.type === 'audio' ? ((b.voiceNote && b.voiceNote.transcript) || '') : mediaListSearchTokens([b.media])), [])), []),
   ].filter(Boolean).join(' ').toLowerCase();
   return haystack.includes(query);
 }
@@ -6336,7 +6637,8 @@ function openNewJournalEntry() {
   document.getElementById('journalTitleInput').value = '';
   document.getElementById('journalStatusInput').value = 'idea';
   document.getElementById('journalPairInput').value = '';
-  document.getElementById('journalBodyInput').value = '';
+  document.getElementById('journalBodyToolbar').innerHTML = rtToolbarHtml('journalBodyInput');
+  document.getElementById('journalBodyInput').innerHTML = '';
   document.getElementById('journalSaveStatus').textContent = '';
   document.getElementById('journalSaveStatus').className = 'extract-status';
   document.getElementById('journalDeleteBtn').style.display = 'none';
@@ -6360,7 +6662,8 @@ function openJournalEntry(id) {
   document.getElementById('journalTitleInput').value = e.title || '';
   document.getElementById('journalStatusInput').value = e.status || 'idea';
   document.getElementById('journalPairInput').value = e.pair || '';
-  document.getElementById('journalBodyInput').value = e.body || '';
+  document.getElementById('journalBodyToolbar').innerHTML = rtToolbarHtml('journalBodyInput');
+  document.getElementById('journalBodyInput').innerHTML = rtInitialHtml(e.body);
   document.getElementById('journalSaveStatus').textContent = '';
   document.getElementById('journalSaveStatus').className = 'extract-status';
   document.getElementById('journalDeleteBtn').style.display = '';
@@ -6387,11 +6690,11 @@ async function flushJournalEntry() {
   const title = document.getElementById('journalTitleInput').value.trim();
   const status = document.getElementById('journalStatusInput').value;
   const pair = document.getElementById('journalPairInput').value.trim();
-  const body = document.getElementById('journalBodyInput').value;
+  const body = rtSanitize(document.getElementById('journalBodyInput').innerHTML);
 
   // An untouched, still-blank new entry shouldn't get saved just because a
   // field was tabbed through — only persist once there's something to keep.
-  if (!journalEditingId && !title && !body.trim() && !pair) { journalFieldsDirty = false; return; }
+  if (!journalEditingId && !title && !rtToText(body) && !pair) { journalFieldsDirty = false; return; }
 
   journalFieldsDirty = false;
   const statusEl = document.getElementById('journalSaveStatus');
@@ -6540,7 +6843,7 @@ async function promoteJournalEntryToStrategy() {
       { id: 'risk_' + Date.now() + '_std', label: 'Standard (1%)', riskPercent: 1 },
       { id: 'risk_' + Date.now() + '_con', label: 'Conservative (0.5%)', riskPercent: 0.5 },
     ],
-    notes: entry.body || '',
+    notes: rtToText(entry.body),
     images: [],
     confluenceIds: Array.isArray(entry.confluences) ? entry.confluences.slice() : [],
   });
@@ -6561,7 +6864,7 @@ async function promoteJournalEntryToStrategy() {
     title: document.getElementById('journalTitleInput').value.trim(),
     status: 'promoted',
     pair: document.getElementById('journalPairInput').value.trim(),
-    body: document.getElementById('journalBodyInput').value,
+    body: rtSanitize(document.getElementById('journalBodyInput').innerHTML),
     strategy: name,
   });
 
@@ -7060,7 +7363,8 @@ async function onJournalVoiceNoteRecorded(voiceNote) {
   // had been typed — and goes through the normal autosave flow.
   if (voiceNote.transcript) {
     const bodyInput = document.getElementById('journalBodyInput');
-    bodyInput.value = bodyInput.value ? (bodyInput.value.replace(/\s+$/, '') + '\n' + voiceNote.transcript) : voiceNote.transcript;
+    const hadContent = !!bodyInput.innerHTML;
+    bodyInput.innerHTML = (hadContent ? bodyInput.innerHTML + '<br>' : '') + escapeHtml(voiceNote.transcript);
     onJournalFieldBlur();
   }
   renderJournalVoiceNotes();
@@ -7817,9 +8121,6 @@ function renderJournalSubfoldersSection() {
   container.innerHTML = emptyHtml + cardsHtml +
     '<div class="subfolder-add-card" onclick="addJournalSubfolder()">+ New subfolder</div>';
   refreshIcons();
-  // Expanded text blocks need their height recalculated after innerHTML
-  // reflow — a freshly-set textarea.value doesn't retroactively fire input.
-  container.querySelectorAll('.subfolder-card.expanded .subfolder-block-text textarea').forEach(autoGrowSubfolderText);
   // Phase 3: same stagger-in as renderTradeList()/renderJournalList() —
   // reuses .trade-row-enter rather than a subfolder-specific keyframe.
   container.querySelectorAll('.subfolder-card').forEach((card, i) => {
@@ -7906,9 +8207,11 @@ function subfolderInsertRow(subfolderId, atIndex) {
 function subfolderBlockHtml(sf, b, idx) {
   const key = 'subfolderBlocks:' + sf.id;
   if (b.type === 'text') {
+    const editorId = 'subfolderTextBlock_' + b.id;
     return '<div class="subfolder-block subfolder-block-text" data-block-id="' + escapeHtml(b.id) + '">' +
-      '<textarea placeholder="Write here…" oninput="autoGrowSubfolderText(this)" ' +
-        'onblur="onSubfolderTextBlockBlur(\'' + sf.id + '\', \'' + b.id + '\', this.value)">' + escapeHtml(b.text || '') + '</textarea>' +
+      rtToolbarHtml(editorId) +
+      '<div id="' + editorId + '" class="rt-editor" contenteditable="true" data-placeholder="Write here…" ' +
+        'onblur="onSubfolderTextBlockBlur(\'' + sf.id + '\', \'' + b.id + '\', rtSanitize(this.innerHTML))" onpaste="rtHandlePaste(event)">' + rtInitialHtml(b.text) + '</div>' +
       '<div class="subfolder-block-controls" style="justify-content:flex-end;">' +
         authorBadgeHtml(b.createdBy) +
         mediaReorderHandleHtml(key, idx, sf.blocks.length) +
@@ -7958,18 +8261,12 @@ function subfolderBlockHtml(sf, b, idx) {
   '</div>';
 }
 
-function autoGrowSubfolderText(el) {
-  el.style.height = 'auto';
-  el.style.height = (el.scrollHeight + 2) + 'px';
-}
-
 function toggleJournalSubfolder(id) {
   const willExpand = !journalSubfolderExpanded.has(id);
   if (willExpand) journalSubfolderExpanded.add(id); else journalSubfolderExpanded.delete(id);
   const el = document.querySelector('.subfolder-card[data-subfolder-id="' + CSS.escape(id) + '"]');
   if (el) {
     el.classList.toggle('expanded', willExpand);
-    if (willExpand) el.querySelectorAll('.subfolder-block-text textarea').forEach(autoGrowSubfolderText);
   } else {
     renderJournalSubfoldersSection();
   }
@@ -8048,7 +8345,7 @@ async function addSubfolderTextBlock(subfolderId, atIndex) {
   if (!ok) sf.blocks = sf.blocks.filter((b) => b.id !== block.id);
   journalSubfolderExpanded.add(subfolderId);
   renderJournalSubfoldersSection();
-  const el = document.querySelector('.subfolder-block[data-block-id="' + CSS.escape(block.id) + '"] textarea');
+  const el = document.querySelector('.subfolder-block[data-block-id="' + CSS.escape(block.id) + '"] .rt-editor');
   if (el) el.focus();
 }
 
@@ -11707,7 +12004,8 @@ function watchlistTrailEntryHtml(itemId, entry) {
   const expanded = wlTrailEntryExpanded.has(entry.id);
   const isEditing = wlTrailEditingEntry[itemId] === entry.id;
   const summaryBits = [];
-  if (entry.text) summaryBits.push(entry.text.length > 60 ? entry.text.slice(0, 60) + '…' : entry.text);
+  const entryPlainText = rtToText(entry.text);
+  if (entryPlainText) summaryBits.push(entryPlainText.length > 60 ? entryPlainText.slice(0, 60) + '…' : entryPlainText);
   if (images.length) summaryBits.push(images.length + (images.length === 1 ? ' image' : ' images'));
   if (entry.video) summaryBits.push('video');
   if (voices.length) summaryBits.push(voices.length + (voices.length === 1 ? ' voice note' : ' voice notes'));
@@ -11746,7 +12044,7 @@ function watchlistTrailEntryHtml(itemId, entry) {
     : '';
   const bodyHtml = isEditing
     ? watchlistTrailEditFormHtml(itemId, entry)
-    : (entry.text ? '<div class="mono" style="font-size:12.5px; padding-top:8px; white-space:pre-wrap;">' + escapeHtml(entry.text) + '</div>' : '<div class="mono muted" style="font-size:11.5px; padding-top:8px;">No text on this update.</div>') +
+    : (entryPlainText ? '<div class="mono rt-editor" style="font-size:12.5px; padding-top:8px; white-space:pre-wrap; cursor:default;">' + rtDisplayHtml(entry.text) + '</div>' : '<div class="mono muted" style="font-size:11.5px; padding-top:8px;">No text on this update.</div>') +
       mediaHtml + videoHtml + voicesHtml;
   const hasMedia = images.length > 0 || !!entry.video;
   // Chip glyph reflects what's actually inside the update (image/video takes
@@ -11924,11 +12222,12 @@ function watchlistTrailComposerHtml(itemId) {
         draftVoices.map((vn, idx) => wlTrailDraftVoiceRowHtml(itemId, vn, idx)).join('') +
       '</div>'
     : '';
+  const composeEditorId = 'wlTrailComposeInput_' + itemId;
   return '<div class="wl-update-composer">' +
     '<div class="wl-update-composer-head"><span class="wl-trail-icon-chip"><i data-lucide="pencil-line" style="width:12px;height:12px;"></i></span><span>Add an update</span></div>' +
-    '<textarea id="wlTrailComposeInput_' + itemId + '" class="mono" ' +
-      'oninput="wlTrailDraftText[\'' + itemId + '\'] = this.value" ' +
-      'placeholder="Add a dated update — price hit my zone, invalidated, etc…">' + escapeHtml(draftText) + '</textarea>' +
+    rtToolbarHtml(composeEditorId, true) +
+    '<div id="' + composeEditorId + '" class="mono rt-editor" contenteditable="true" data-placeholder="Add a dated update — price hit my zone, invalidated, etc…" ' +
+      'oninput="wlTrailDraftText[\'' + itemId + '\'] = this.innerHTML" onpaste="rtHandlePaste(event)">' + rtInitialHtml(draftText) + '</div>' +
     previewHtml + voicePreviewHtml +
     '<div class="wl-update-composer-actions">' +
       '<div class="wl-update-composer-tools">' +
@@ -12075,11 +12374,11 @@ async function removeWlTrailDraftVoice(itemId, idx) {
 async function addWatchlistTrailEntry(itemId) {
   const item = allWatchlistItems.find((it) => it.id === itemId);
   if (!item) return;
-  const text = (wlTrailDraftText[itemId] || '').trim();
+  const text = rtSanitize(wlTrailDraftText[itemId] || '');
   const images = wlTrailDraftImages[itemId] || [];
   const video = wlTrailDraftVideo[itemId] || null;
   const voices = wlTrailDraftVoices[itemId] || [];
-  if (!text && !images.length && !video && !voices.length) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
+  if (!rtToText(text) && !images.length && !video && !voices.length) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
 
   if (!Array.isArray(item.trail)) item.trail = [];
   // Accountability roadmap Phase A: each trail update is its own appendable
@@ -12158,11 +12457,11 @@ async function saveWatchlistTrailEditEntry(itemId, entryId) {
   if (!item || !Array.isArray(item.trail)) return;
   const idx = item.trail.findIndex((e) => e.id === entryId);
   if (idx === -1) return;
-  const text = (wlTrailEditDraftText[entryId] || '').trim();
+  const text = rtSanitize(wlTrailEditDraftText[entryId] || '');
   const images = wlTrailEditDraftImages[entryId] || [];
   const video = wlTrailEditDraftVideo[entryId] || null;
   const voices = wlTrailEditDraftVoices[entryId] || [];
-  if (!text && !images.length && !video && !voices.length) {
+  if (!rtToText(text) && !images.length && !video && !voices.length) {
     setWlTrailEditStatus(entryId, "An update can't be emptied out completely — delete it instead if you want it gone.", 'error');
     return;
   }
@@ -12212,10 +12511,11 @@ function watchlistTrailEditFormHtml(itemId, entry) {
         }).join('') +
       '</div>'
     : '';
-  return '<div class="wl-update-composer" style="margin-top:8px;">' +
-    '<textarea id="wlTrailEditInput_' + entryId + '" class="mono" ' +
-      'oninput="wlTrailEditDraftText[\'' + entryId + '\'] = this.value" ' +
-      'placeholder="Update text…">' + escapeHtml(draftText) + '</textarea>' +
+  const editEditorId = 'wlTrailEditInput_' + entryId;
+  return '<div class="wl-update-composer">' +
+    rtToolbarHtml(editEditorId, true) +
+    '<div id="' + editEditorId + '" class="mono rt-editor" contenteditable="true" data-placeholder="Update text…" ' +
+      'oninput="wlTrailEditDraftText[\'' + entryId + '\'] = this.innerHTML" onpaste="rtHandlePaste(event)">' + rtInitialHtml(draftText) + '</div>' +
     previewHtml + voicePreviewHtml +
     '<div class="wl-update-composer-actions">' +
       '<div class="wl-update-composer-tools">' +
@@ -19394,7 +19694,7 @@ function strategyMatchesSearchText(s, query) {
 }
 
 function watchlistItemMatchesSearchText(it, query) {
-  const trailText = (it.trail || []).map((t) => t.text || '').join(' ');
+  const trailText = (it.trail || []).map((t) => rtToText(t.text)).join(' ');
   const trailMedia = (it.trail || []).reduce((acc, t) => acc.concat(t.images || []), []);
   const haystack = [
     it.pair, it.model, it.htf, it.poiType, it.ltf, trailText,
@@ -19455,7 +19755,7 @@ function renderGlobalSearchResults(query) {
       const mediaHit = findMediaHit(allMedia, q);
       const thumb = mediaHit ? gridThumbSrc(mediaHit) : '';
       const title = e.title || (e.pair ? e.pair + ' idea' : 'Untitled entry');
-      const snippetSrc = mediaHit ? (mediaCaption(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (e.body || e.pair || '');
+      const snippetSrc = mediaHit ? (mediaCaption(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (rtToText(e.body) || e.pair || '');
       return globalSearchRowHtml({
         thumb: thumb, icon: 'book-open', title: title,
         snippet: globalSearchSnippet(snippetSrc, q),
@@ -19471,7 +19771,7 @@ function renderGlobalSearchResults(query) {
       const mediaHit = findMediaHit(trailMedia, q);
       const thumb = mediaHit ? gridThumbSrc(mediaHit) : '';
       const title = (it.pair || 'Unknown') + ' · ' + (it.direction || '').toUpperCase() + (it.model ? ' · ' + it.model : '');
-      const trailText = (it.trail || []).map((t) => t.text || '').filter(Boolean).join(' ');
+      const trailText = (it.trail || []).map((t) => rtToText(t.text)).filter(Boolean).join(' ');
       const snippetSrc = mediaHit ? (mediaCaption(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (trailText || it.htf || '');
       return globalSearchRowHtml({
         thumb: thumb, icon: 'eye', title: title,
