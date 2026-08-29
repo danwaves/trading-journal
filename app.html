@@ -189,7 +189,7 @@
   @keyframes syncPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   @media (max-width: 480px) { .sync-indicator .sync-label { display: none; } }
 
-  .screen { display: none; max-width: 900px; margin: 0 auto; padding: var(--space-5) var(--space-4) 60px; }
+  .screen { display: none; max-width: 900px; margin: 0 auto; padding: var(--space-5) var(--space-2) 60px; }
   .screen.active { display: block; animation: screenFadeIn var(--duration-base) var(--ease); }
   /* Tab switch transition — plays once whenever a screen gains .active (every
      showScreen() call removes .active from all screens first, so re-adding
@@ -503,11 +503,136 @@
   /* Roadmap Step 5: fullscreen viewer dropup — tab always visible at the
      bottom edge, sliding the body up on toggle. Kept viewer-scoped rather
      than reusing .trade-thumb classes since nothing else needs this shape. */
-  .viewer-dropup { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; transform: translateY(calc(100% - 34px)); transition: transform var(--duration-slow) var(--ease); }
+  /* Group-boundary divider screen (openViewerGrouped/renderViewerGroupLabel)
+     — the subfolder/post name shown when crossing into it, before its media. */
+  .viewer-group-label-title { font-family: 'Space Grotesk'; font-size: 19px; font-weight: 600; color: var(--light); line-height: 1.35; }
+  .viewer-group-label-sub { font-size: 12.5px; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+  /* ---- Viewer notepad (caption/notes panel) ----
+     Deliberately a fixed dark "frosted glass" surface, not tied to the
+     light/dark theme variables — it's opaque enough (gradient + blur) to
+     guarantee every rt-editor swatch color (see RT_COLORS, all light/vivid
+     tones meant for a dark backdrop) stays readable regardless of what
+     photo or chart is showing behind the viewer. A slim brand gradient
+     line on the top edge is the one accent color; everything else stays
+     neutral so it doesn't compete with the note's own colored text. */
+  .viewer-dropup {
+    background: linear-gradient(165deg, rgba(21,25,38,0.92), rgba(10,12,19,0.96));
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -18px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+    overflow: hidden;
+  }
+  .viewer-dropup::before {
+    content: ''; display: block; height: 2.5px; width: 100%;
+    background: linear-gradient(90deg, var(--brand-3, #F4A093), var(--brand, #EE82B3), var(--brand-2, #B279B2));
+  }
+  .viewer-dropup-tab {
+    background: transparent; border: none; border-radius: 0; min-height: 36px;
+    padding: 9px var(--space-4); font-size: 11px; color: #C7CBDA;
+    font-family: 'Space Grotesk'; font-weight: 600; letter-spacing: 0.02em;
+    display: flex; align-items: center; gap: 7px; width: 100%; box-sizing: border-box; cursor: pointer;
+  }
+  .viewer-dropup-tab [data-lucide] { color: var(--brand, #EE82B3); }
+  .viewer-dropup-chevron { font-size: 9px; color: var(--muted); transition: transform var(--duration-base) var(--ease); }
+  .viewer-dropup.open .viewer-dropup-chevron { color: var(--brand, #EE82B3); }
+  #viewerDropupSaveState { margin-left: auto; font-size: 9.5px; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .viewer-dropup-body {
+    width: 100%; max-width: 640px; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box;
+  }
+  /* Card shell shared by the Note and Voice notes sections — gives the
+     panel clear, organized boundaries instead of everything running
+     together against the frosted glass background. */
+  .viewer-dropup-card {
+    background: rgba(255,255,255,0.025); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 12px; padding: 12px;
+  }
+  .viewer-dropup-section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+  .viewer-dropup-section-label {
+    display: flex; align-items: center; gap: 5px; font-family: 'Space Grotesk';
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted, #8B90A3);
+  }
+  .viewer-dropup-section-label [data-lucide] { width: 11px; height: 11px; color: var(--brand, #EE82B3); }
+  .viewer-dropup-section-actions { display: flex; gap: 6px; }
+  .viewer-mini-btn {
+    width: 27px; height: 27px; flex: none; display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); border-radius: 8px;
+    color: #C7CBDA; cursor: pointer; transition: border-color 0.15s, color 0.15s, transform 0.1s;
+  }
+  .viewer-mini-btn [data-lucide] { width: 13px; height: 13px; }
+  .viewer-mini-btn:active { transform: scale(0.93); }
+  .viewer-mini-btn:not(:disabled):hover { border-color: var(--brand, #EE82B3); color: var(--brand, #EE82B3); }
+  .viewer-mini-btn.danger:not(:disabled):hover { border-color: var(--loss); color: var(--loss); }
+  .viewer-mini-btn:disabled { opacity: 0.3; cursor: default; }
+  /* Read-only by default — contenteditable is only flipped to true by the
+     Edit button (see viewerEnterNoteEdit), so tapping the note text itself
+     doesn't silently start an edit. */
+  #viewerDropupEditor.rt-editor[contenteditable="false"] { cursor: default; }
+  .viewer-dropup-body.rt-editing #viewerDropupEditor.rt-editor { border-color: var(--brand, #EE82B3); background: rgba(255,255,255,0.055); }
+  /* Toolbar + Save/Cancel are hidden until Edit is tapped (see
+     viewerEnterNoteEdit / viewerExitNoteEdit) — keeps the idle state clean
+     and only surfaces formatting controls while actually editing. */
+  .viewer-dropup-body:not(.rt-editing) .viewer-rt-toolbar,
+  .viewer-dropup-body:not(.rt-editing) .viewer-dropup-actions {
+    display: none;
+  }
+  .viewer-dropup-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+  .viewer-dropup-cancel-btn {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); color: #C7CBDA;
+    border-radius: 8px; font-family: 'Space Grotesk'; font-weight: 600; font-size: 12px; padding: 7px 14px; cursor: pointer;
+  }
+  .viewer-dropup-cancel-btn:active { transform: scale(0.97); }
+  .viewer-dropup-save-btn {
+    background: linear-gradient(135deg, var(--brand-3, #F4A093), var(--brand, #EE82B3));
+    color: #1a0e14; border: none; border-radius: 8px; font-family: 'Space Grotesk';
+    font-weight: 700; font-size: 12px; padding: 7px 16px; cursor: pointer;
+  }
+  .viewer-dropup-save-btn:active { transform: scale(0.97); }
+  .viewer-dropup-voice-row { margin-bottom: 2px; }
+  .viewer-dropup-mic-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%;
+    padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 8px; color: #E7E9F3; font-size: 11.5px; font-weight: 600; cursor: pointer;
+    -webkit-user-select: none; user-select: none; touch-action: none;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .viewer-dropup-mic-btn:active { transform: scale(0.97); }
+  .viewer-dropup-mic-btn.recording { background: rgba(255,92,92,0.14); border-color: var(--loss); color: var(--loss); }
+  .viewer-dropup-mic-btn.recording i { animation: voicePulse 1s ease-in-out infinite; }
+  #viewerDropupVoiceLive { font-size: 11px; color: var(--loss); margin-top: 8px; }
+  #viewerDropupVoiceList { margin-top: 8px; }
+  #viewerDropupVoiceList:empty::before {
+    content: 'No voice notes yet.'; display: block; font-size: 11.5px; font-style: italic;
+    color: #6B7182; padding: 2px;
+  }
+  #viewerDropupVoiceList .voice-note-row:last-child { margin-bottom: 0; }
+  #viewerDropupVoiceList .voice-note-row { background: rgba(255,255,255,0.035); border-color: rgba(255,255,255,0.08); }
+  .viewer-rt-toolbar.rt-toolbar {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 5px 6px; margin-bottom: 8px;
+  }
+  .viewer-rt-toolbar .rt-btn {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); color: #E7E9F3;
+    border-radius: 7px; min-width: 28px; height: 28px;
+  }
+  .viewer-rt-toolbar .rt-btn:hover { border-color: var(--brand, #EE82B3); background: rgba(238,130,179,0.14); }
+  .viewer-rt-toolbar .rt-select {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09); color: #E7E9F3; border-radius: 7px;
+  }
+  .viewer-rt-toolbar .rt-swatch { border-color: rgba(255,255,255,0.35); }
+  .viewer-rt-toolbar .rt-swatch:hover { box-shadow: 0 0 0 2px rgba(255,255,255,0.25); }
+  #viewerDropupEditor.rt-editor {
+    width: 100%; min-height: 64px; max-height: 30vh; overflow-y: auto;
+    background: rgba(255,255,255,0.035); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 10px 12px; color: var(--light);
+    font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word;
+    transition: border-color var(--duration-fast) var(--ease), background-color var(--duration-fast) var(--ease);
+  }
+  #viewerDropupEditor.rt-editor:focus { outline: none; border-color: var(--brand, #EE82B3); background: rgba(255,255,255,0.055); }
+  #viewerDropupEditor.rt-editor[data-placeholder]:empty:before { color: #6B7182; font-style: italic; }
+  .viewer-dropup { position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; display: flex; flex-direction: column; align-items: center; transform: translateY(calc(100% - 39px)); transition: transform var(--duration-slow) var(--ease); }
   .viewer-dropup.open { transform: translateY(0); }
-  .viewer-dropup-tab { background: rgba(11,14,20,0.92); border: 1px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0; padding: var(--space-2) var(--space-4); font-size: 11px; color: var(--muted); cursor: pointer; display: flex; align-items: center; gap: 6px; width: fit-content; }
-  .viewer-dropup-body { width: 100%; max-width: 640px; background: rgba(11,14,20,0.97); border-top: 1px solid var(--border); padding: 14px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; }
-  #viewerDropupTextarea { width: 100%; min-height: 90px; max-height: 30vh; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; color: var(--light); font-size: 13px; font-family: inherit; resize: vertical; box-sizing: border-box; }
 
   .extract-btn {
     width: 100%; padding: 11px; margin-top: var(--space-3); border: none; border-radius: 8px;
@@ -1153,11 +1278,7 @@
     padding: 14px 14px 14px 18px;
   }
   .wl-card-detail { max-height: 0; opacity: 0; overflow: hidden; background: var(--surface); border-top: 1px solid var(--border); transition: max-height var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
-  /* Left/right padding matched to .wl-card .trade-row's 18px/14px above
-     (was 10px/10px) so the trail entries + composer share the same
-     left/right edges as the header row instead of sitting narrower —
-     2026-08-27 width-alignment pass. */
-  .wl-card-detail > div { padding: var(--space-2) 14px 14px 18px; }
+  .wl-card-detail > div { padding: var(--space-2) 10px 10px; }
   .wl-card.expanded .wl-card-detail { max-height: 3000px; opacity: 1; border-top-color: var(--accent, var(--border)); }
   .wl-card-chevron { flex: none; color: var(--muted); font-size: 9px; margin-right: 2px; transform: rotate(0deg); transition: transform var(--duration-base) var(--ease); }
   .wl-card.expanded .wl-card-chevron { transform: rotate(90deg); color: var(--accent, var(--brand)); }
@@ -1171,17 +1292,13 @@
      of updates reads as a clear story rather than a flat log. */
   .wl-trail-timeline { position: relative; margin-bottom: 10px; }
   .wl-trail-timeline::before {
-    /* Tightened 2026-08-27 (was left:14px) — entry cards were sitting
-       noticeably narrower than the header/composer above and below them;
-       shrinking the reserved timeline column gives them back that width.
-       See .wl-trail-entry/.wl-trail-dot below for the matching change. */
-    content: ''; position: absolute; left: 4px; top: 4px; bottom: 4px; width: 2px;
+    content: ''; position: absolute; left: 14px; top: 4px; bottom: 4px; width: 2px;
     background: linear-gradient(var(--accent, var(--border)), var(--accent, var(--border)) 85%, transparent);
     opacity: .5;
   }
-  .wl-trail-entry { position: relative; padding-left: 18px; margin-bottom: 10px; }
+  .wl-trail-entry { position: relative; padding-left: 34px; margin-bottom: 10px; }
   .wl-trail-dot {
-    position: absolute; left: 0px; top: 15px; width: 13px; height: 13px; border-radius: 50%;
+    position: absolute; left: 8px; top: 15px; width: 13px; height: 13px; border-radius: 50%;
     background: var(--surface); border: 2px solid var(--border); z-index: 1;
     transition: border-color var(--duration-base) var(--ease), background-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
   }
@@ -1293,20 +1410,6 @@
     display:inline-block; padding:0; transition: transform var(--duration-fast) var(--ease);
   }
   .rt-swatch:hover { transform: scale(1.2); }
-  /* Compact toolbar (Watchlist trail composer/edit only — see
-     watchlist-composer-denesting roadmap Phase 3): Font/Size collapse into
-     an "Aa" button + popover instead of two inline <select>s, so B/I/U +
-     swatches fit on one row. */
-  .rt-toolbar-compact { flex-wrap: nowrap; }
-  .rt-aa-wrap { position: relative; display: inline-flex; }
-  .rt-aa-btn { font-size: 11px; font-weight: 700; font-style: italic; min-width: 30px; }
-  .rt-aa-popover {
-    display: none; flex-direction: column; gap: 6px; position: absolute; top: 100%; left: 0; margin-top: 4px;
-    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px;
-    min-width: 100px; z-index: 5; box-shadow: 0 4px 14px rgba(0,0,0,0.4);
-  }
-  .rt-aa-popover.open { display: flex; }
-  .rt-aa-popover .rt-select { width: 100%; max-width: none; }
   .rt-editor { outline:none; cursor:text; }
   .rt-editor[data-placeholder]:empty:before { content: attr(data-placeholder); color: var(--muted); pointer-events:none; }
   .rt-editor b, .rt-editor strong { font-weight:700; }
@@ -1554,7 +1657,7 @@
   }
   .subfolder-body { display: block; max-height: 0; opacity: 0; overflow: hidden; transition: max-height var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
   .subfolder-body > div { overflow: hidden; min-height: 0; }
-  .subfolder-card.expanded .subfolder-body { max-height: 3000px; opacity: 1; }
+  .subfolder-card.expanded .subfolder-body { max-height: 60000px; opacity: 1; }
   .subfolder-pad { padding-top: 10px; }
 
   .subfolder-block { position: relative; }
@@ -3012,7 +3115,7 @@
       <div id="viewerZoomOutBtn" class="icon-btn" onclick="viewerZoom(1/1.4)" title="Zoom out">－</div>
       <div id="viewerResetZoomBtn" class="icon-btn" onclick="viewerResetZoom()" title="Reset">⤢</div>
       <div class="icon-btn" onclick="viewerToggleFullscreen()" title="Full screen"><i data-lucide="maximize"></i></div>
-      <div class="icon-btn" onclick="viewerDownload()" title="Download"><i data-lucide="download"></i></div>
+      <div id="viewerDownloadBtn" class="icon-btn" onclick="viewerDownload()" title="Download"><i data-lucide="download"></i></div>
       <div id="viewerReplaceBtn" class="icon-btn" style="display:none;" onclick="viewerReplace()" title="Replace"><i data-lucide="refresh-cw"></i></div>
       <div id="viewerDeleteBtn" class="icon-btn" style="display:none; color:var(--loss);" onclick="viewerDelete()" title="Delete"><i data-lucide="trash-2"></i></div>
       <div id="viewerGoToTradeBtn" class="icon-btn" style="display:none;" onclick="viewerGoToTrade()" title="View trade"><i data-lucide="external-link"></i></div>
@@ -3022,6 +3125,9 @@
   <div id="viewerStage" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:grab;">
     <img id="viewerImg" src="" style="max-width:100%; max-height:100%; user-select:none; -webkit-user-drag:none; transform-origin:center center;" draggable="false" />
     <video id="viewerVideo" controls playsinline style="display:none; max-width:100%; max-height:100%;"></video>
+    <!-- Group-boundary divider: shown instead of img/video while the viewer
+         is on a subfolder's/post's label step (see openViewerGrouped). -->
+    <div id="viewerGroupLabel" style="display:none; flex-direction:column; align-items:center; gap:6px; text-align:center; padding:0 40px; max-width:340px;"></div>
   </div>
   <div class="icon-btn" onclick="viewerNav(-1)" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); z-index:5; width:42px; height:42px; font-size:18px;">‹</div>
   <div class="icon-btn" onclick="viewerNav(1)" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); z-index:5; width:42px; height:42px; font-size:18px;">›</div>
@@ -3030,14 +3136,56 @@
        viewer for every item, image or video — .viewer-dropup is translated
        down by its own height minus the tab's height when closed, so only the
        tab pokes up above the screen edge; toggling .open slides the whole
-       thing up to reveal the textarea. -->
+       thing up to reveal the editor. Frosted dark glass by design (fixed
+       dark backdrop, not theme-linked) so any of the rich-text swatch
+       colors stays readable no matter what's showing behind it. -->
   <div id="viewerDropup" class="viewer-dropup">
     <div class="viewer-dropup-tab" onclick="toggleViewerDropup()">
-      <span id="viewerDropupIcon">▲</span> <span id="viewerDropupLabel">Notes</span>
-      <span id="viewerDropupSaveState" class="mono muted" style="font-size:9px;"></span>
+      <span id="viewerDropupIcon" class="viewer-dropup-chevron">▲</span>
+      <i data-lucide="pen-line" style="width:12px; height:12px;"></i>
+      <span id="viewerDropupLabel">Notes</span>
+      <span id="viewerDropupSaveState" class="mono"></span>
     </div>
-    <div class="viewer-dropup-body">
-      <textarea id="viewerDropupTextarea" placeholder="Write a note about this screenshot or video…" oninput="onViewerCaptionInput()" onblur="onViewerCaptionBlur()"></textarea>
+    <div class="viewer-dropup-body" id="viewerDropupBody">
+
+      <!-- Note card: read-only by default (contenteditable toggled only by
+           the Edit button below, see viewerEnterNoteEdit) so tapping the
+           text doesn't silently start an edit — Edit/Delete are the only
+           ways in. -->
+      <div class="viewer-dropup-card">
+        <div class="viewer-dropup-section-head">
+          <span class="viewer-dropup-section-label"><i data-lucide="file-text"></i>Note</span>
+          <div class="viewer-dropup-section-actions">
+            <button type="button" id="viewerNoteEditBtn" class="viewer-mini-btn" onclick="viewerEnterNoteEdit()" title="Edit note"><i data-lucide="pencil"></i></button>
+            <button type="button" id="viewerNoteDeleteBtn" class="viewer-mini-btn danger" onclick="viewerDeleteNoteText()" title="Delete note"><i data-lucide="trash-2"></i></button>
+          </div>
+        </div>
+        <div id="viewerDropupToolbar" class="viewer-rt-toolbar"></div>
+        <div id="viewerDropupEditor" class="rt-editor" contenteditable="false"
+          data-placeholder="No note yet — tap Edit to write one…"
+          oninput="onViewerCaptionInput()" onblur="onViewerCaptionBlur()" onpaste="rtHandlePaste(event)"></div>
+        <div class="viewer-dropup-actions">
+          <button type="button" class="viewer-dropup-cancel-btn" onmousedown="event.preventDefault();" onclick="viewerCancelNoteEdit()">Cancel</button>
+          <button type="button" class="viewer-dropup-save-btn" onmousedown="event.preventDefault();" onclick="viewerSaveCaptionClick()">Save</button>
+        </div>
+      </div>
+
+      <!-- Voice notes card -->
+      <div class="viewer-dropup-card" style="margin-top:10px;">
+        <div class="viewer-dropup-section-head">
+          <span class="viewer-dropup-section-label"><i data-lucide="mic"></i>Voice notes</span>
+        </div>
+        <div class="viewer-dropup-voice-row">
+          <button type="button" id="viewerDropupVoiceBtn" class="viewer-dropup-mic-btn"
+            onmousedown="startVoiceRecording('viewer')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()"
+            ontouchstart="event.preventDefault(); startVoiceRecording('viewer');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">
+            <i data-lucide="mic" style="width:13px;height:13px;"></i><span>Hold to record</span>
+          </button>
+        </div>
+        <div id="viewerDropupVoiceLive" class="mono" style="display:none;"></div>
+        <div id="viewerDropupVoiceList"></div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -3639,7 +3787,14 @@ function rtHandlePaste(event) {
 let rtLastRange = {}; // editorId -> Range
 document.addEventListener('selectionchange', () => {
   const sel = window.getSelection();
-  if (!sel || !sel.rangeCount) return;
+  // Tapping the Font/Size <select> collapses the editor's on-screen
+  // selection (focus moves to the dropdown) right before this fires again —
+  // without this guard that collapsed, no-longer-useful range would
+  // overwrite the real word/phrase the user actually highlighted, so
+  // rtRestoreSelection would then have nothing to restore and the size/font
+  // change would silently apply to nothing. Only remember genuine
+  // (non-collapsed) selections so the last real highlight survives.
+  if (!sel || !sel.rangeCount || sel.isCollapsed) return;
   const range = sel.getRangeAt(0);
   let node = range.commonAncestorContainer;
   if (node.nodeType === 3) node = node.parentNode;
@@ -3705,67 +3860,23 @@ function rtSize(editorId, px) {
   rtAfterExec(editorId);
 }
 
-function rtToolbarHtml(editorId, compact) {
+function rtToolbarHtml(editorId) {
   const colorSwatches = RT_COLORS.map((c) =>
     '<span class="rt-swatch" style="background:' + c + ';" title="Text color" onmousedown="event.preventDefault();" onclick="rtColor(\'' + editorId + '\', \'' + c + '\')"></span>'
   ).join('');
-  const boldItalicUnderline =
+  return '<div class="rt-toolbar">' +
     '<button type="button" class="rt-btn" title="Bold" onmousedown="event.preventDefault();" onclick="rtExec(\'' + editorId + '\', \'bold\')"><b>B</b></button>' +
     '<button type="button" class="rt-btn" title="Italic" onmousedown="event.preventDefault();" onclick="rtExec(\'' + editorId + '\', \'italic\')"><i>I</i></button>' +
-    '<button type="button" class="rt-btn" title="Underline" onmousedown="event.preventDefault();" onclick="rtExec(\'' + editorId + '\', \'underline\')"><u>U</u></button>';
-  if (!compact) {
-    return '<div class="rt-toolbar">' +
-      boldItalicUnderline +
-      '<select class="rt-select" title="Font" onchange="rtFont(\'' + editorId + '\', this.value); this.selectedIndex=0;">' +
-        RT_FONT_FACES.map((f) => '<option value="' + f.value + '">' + f.label + '</option>').join('') +
-      '</select>' +
-      '<select class="rt-select" title="Size" onchange="rtSize(\'' + editorId + '\', this.value); this.selectedIndex=0;">' +
-        '<option value="">Size</option>' + RT_FONT_SIZES.map((s) => '<option value="' + s.px + '">' + s.label + '</option>').join('') +
-      '</select>' +
-      '<span class="rt-swatches">' + colorSwatches + '</span>' +
-    '</div>';
-  }
-  // Compact variant — currently only the Watchlist trail composer/edit
-  // form (see roadmap: watchlist-composer-denesting Phase 3). Font/Size
-  // move off the main row into an "Aa" popover so B/I/U + swatches fit on
-  // one row instead of the toolbar wrapping to 2-3 rows. Journal and
-  // Subfolder callers pass no second arg and keep the original layout above.
-  const popoverId = 'rtAaPopover_' + editorId;
-  return '<div class="rt-toolbar rt-toolbar-compact">' +
-    boldItalicUnderline +
-    '<div class="rt-aa-wrap">' +
-      '<button type="button" class="rt-btn rt-aa-btn" title="Font & size" onmousedown="event.preventDefault();" onclick="rtToggleAaPopover(\'' + editorId + '\', event)">Aa</button>' +
-      '<div class="rt-aa-popover" id="' + popoverId + '">' +
-        '<select class="rt-select" title="Font" onchange="rtFont(\'' + editorId + '\', this.value); this.selectedIndex=0; rtCloseAaPopovers();">' +
-          RT_FONT_FACES.map((f) => '<option value="' + f.value + '">' + f.label + '</option>').join('') +
-        '</select>' +
-        '<select class="rt-select" title="Size" onchange="rtSize(\'' + editorId + '\', this.value); this.selectedIndex=0; rtCloseAaPopovers();">' +
-          '<option value="">Size</option>' + RT_FONT_SIZES.map((s) => '<option value="' + s.px + '">' + s.label + '</option>').join('') +
-        '</select>' +
-      '</div>' +
-    '</div>' +
+    '<button type="button" class="rt-btn" title="Underline" onmousedown="event.preventDefault();" onclick="rtExec(\'' + editorId + '\', \'underline\')"><u>U</u></button>' +
+    '<select class="rt-select" title="Font" onchange="rtFont(\'' + editorId + '\', this.value); this.selectedIndex=0;">' +
+      RT_FONT_FACES.map((f) => '<option value="' + f.value + '">' + f.label + '</option>').join('') +
+    '</select>' +
+    '<select class="rt-select" title="Size" onchange="rtSize(\'' + editorId + '\', this.value); this.selectedIndex=0;">' +
+      '<option value="">Size</option>' + RT_FONT_SIZES.map((s) => '<option value="' + s.px + '">' + s.label + '</option>').join('') +
+    '</select>' +
     '<span class="rt-swatches">' + colorSwatches + '</span>' +
   '</div>';
 }
-
-// Aa popover (compact toolbar only): opens/closes the Font+Size flyout
-// anchored under its button. Only one open at a time; a document-level
-// click listener below closes it on outside click, and each select's
-// onchange also closes it directly once a choice is made.
-function rtToggleAaPopover(editorId, event) {
-  if (event) event.stopPropagation();
-  const pop = document.getElementById('rtAaPopover_' + editorId);
-  if (!pop) return;
-  const opening = !pop.classList.contains('open');
-  rtCloseAaPopovers();
-  if (opening) pop.classList.add('open');
-}
-function rtCloseAaPopovers() {
-  document.querySelectorAll('.rt-aa-popover.open').forEach((p) => p.classList.remove('open'));
-}
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.rt-aa-wrap')) rtCloseAaPopovers();
-});
 
 function escapeHtml(value) {
   if (value === null || value === undefined) return '';
@@ -5037,6 +5148,7 @@ async function stopVoiceRecording() {
     else if (state.kind === 'trade') await onTradeVoiceNoteRecorded(voiceNote);
     else if (state.kind === 'wltrail') await onWlTrailVoiceNoteRecorded(voiceNote, state.context);
     else if (state.kind === 'wltrailedit') await onWlTrailEditVoiceNoteRecorded(voiceNote, state.context);
+    else if (state.kind === 'viewer') await onViewerVoiceNoteRecorded(voiceNote);
     else await onSubfolderVoiceNoteRecorded(voiceNote, state.context);
     setVoiceStatus(state.kind, '', '', state.context);
   } catch (err) {
@@ -5049,6 +5161,15 @@ async function stopVoiceRecording() {
 // has many independent mic buttons (one per insert row), so it routes
 // through that specific subfolder's own status line instead via context.
 function setVoiceStatus(kind, msg, cls, context) {
+  if (kind === 'viewer') {
+    const el = document.getElementById('viewerDropupVoiceLive');
+    if (!el) return;
+    if (!msg) { el.style.display = 'none'; el.textContent = ''; return; }
+    el.style.display = 'block';
+    el.textContent = msg;
+    el.className = 'mono' + (cls ? ' ' + cls : '');
+    return;
+  }
   if (kind === 'subfolder') {
     if (context && context.subfolderId) setSubfolderStatus(context.subfolderId, msg, cls);
     return;
@@ -5074,6 +5195,23 @@ function setVoiceStatus(kind, msg, cls, context) {
 // mousedown) gets the pulse, and the live timer/transcript reuses that
 // subfolder's own status line via setSubfolderStatus.
 function updateVoiceRecordingUI(kind, forceIdle, context) {
+  if (kind === 'viewer') {
+    const btn = document.getElementById('viewerDropupVoiceBtn');
+    const live = document.getElementById('viewerDropupVoiceLive');
+    const state = voiceRecordingState;
+    if (!state || forceIdle || state.kind !== kind) {
+      if (btn) btn.classList.remove('recording');
+      if (live) { live.style.display = 'none'; live.textContent = ''; }
+      return;
+    }
+    if (btn) btn.classList.add('recording');
+    if (live) {
+      live.style.display = 'block';
+      live.className = 'mono';
+      live.textContent = '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…');
+    }
+    return;
+  }
   if (kind === 'subfolder') {
     const btnEl = context && context.btnEl;
     const state = voiceRecordingState;
@@ -5235,11 +5373,12 @@ function voicePlayerSeek(e, id) {
 // render identically otherwise (author badge reuses the same AUTHOR_BADGES
 // map the rest of the app's accountability badges use).
 function voiceNoteRowHtml(vn, kind) {
+  const deleteFn = kind === 'journal' ? 'deleteJournalVoiceNote' : (kind === 'viewer' ? 'deleteViewerVoiceNote' : 'deleteTradeVoiceNote');
   return '<div class="voice-note-row">' +
     '<div class="voice-note-top">' +
       authorBadgeHtml(vn.createdBy) +
       voicePlayerHtml(vn.url, vn.durationSec) +
-      '<span class="icon-btn" style="width:26px;height:26px;flex:none;" onclick="' + (kind === 'journal' ? 'deleteJournalVoiceNote' : 'deleteTradeVoiceNote') + '(\'' + vn.id + '\')" title="Delete voice note"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></span>' +
+      '<span class="icon-btn" style="width:26px;height:26px;flex:none;" onclick="' + deleteFn + '(\'' + vn.id + '\')" title="Delete voice note"><i data-lucide="trash-2" style="width:13px;height:13px;"></i></span>' +
     '</div>' +
     (vn.transcript ? '<div class="muted" style="font-size:11px; padding:0 2px;">' + escapeHtml(vn.transcript) + '</div>' : '') +
   '</div>';
@@ -8509,32 +8648,32 @@ async function deleteSubfolderBlock(subfolderId, blockId) {
   renderJournalSubfoldersSection();
 }
 
-// Opens the fullscreen viewer scoped to just this subfolder's image/video
-// blocks (text and link blocks aren't viewable media), same editable
-// onDelete/onReplace/onCaptionSave contract as openViewerForJournal.
-function openViewerForSubfolderBlock(subfolderId, blockId) {
-  const entry = currentJournalEntryForEdit();
-  const sf = entry && (entry.subfolders || []).find((s) => s.id === subfolderId);
-  if (!sf) return;
+// Builds this one subfolder's viewer group — { label, images,
+// onDelete/onReplace/onCaptionSave } — used both for opening the viewer
+// directly on it and as one entry in the cross-subfolder group list below.
+// mediaBlocks is captured in the closure so index-based edits (delete/
+// replace/caption) keep hitting the right block even as viewerNav moves
+// between subfolders.
+function buildSubfolderViewerGroup(sf, entry) {
   const mediaBlocks = (sf.blocks || []).filter((b) => b.type === 'image');
-  const startIndex = mediaBlocks.findIndex((b) => b.id === blockId);
-  if (startIndex === -1) return;
-  const mediaList = mediaBlocks.map((b) => b.media);
-  openViewer(mediaList, startIndex, {
-    editable: true,
+  return {
+    label: sf.name || 'Untitled',
+    images: mediaBlocks.map((b) => b.media),
     onDelete: async (imgIndex) => {
       const removedBlock = mediaBlocks[imgIndex];
+      if (!removedBlock) return;
       sf.blocks = sf.blocks.filter((b) => b.id !== removedBlock.id);
-      const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
+      const ok = await persistSubfolderBlocks(sf, entry, sf.id);
       if (ok && removedBlock.media && removedBlock.media.source === 'cloudinary' && removedBlock.media.publicId) deleteFromCloudinary(removedBlock.media.publicId, mediaType(removedBlock.media));
       renderJournalSubfoldersSection();
       if (!ok) showToast('Failed to delete this item — check your connection and try again.');
     },
     onReplace: async (imgIndex, newImg) => {
       const targetBlock = mediaBlocks[imgIndex];
+      if (!targetBlock) return;
       const oldImg = targetBlock.media;
       targetBlock.media = newImg;
-      const ok = await persistSubfolderBlocks(sf, entry, subfolderId);
+      const ok = await persistSubfolderBlocks(sf, entry, sf.id);
       if (ok && oldImg && oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId, mediaType(oldImg));
       renderJournalSubfoldersSection();
       if (!ok) showToast('Failed to save the replacement — check your connection and try again.');
@@ -8543,9 +8682,26 @@ function openViewerForSubfolderBlock(subfolderId, blockId) {
       const targetBlock = mediaBlocks.find((b) => b.media && b.media.id === imgId) || mediaBlocks[imgIndex];
       if (!targetBlock) return false;
       targetBlock.media.caption = caption;
-      return await persistSubfolderBlocks(sf, entry, subfolderId);
+      return await persistSubfolderBlocks(sf, entry, sf.id);
     },
-  });
+  };
+}
+
+// Opens the fullscreen viewer on this subfolder's image/video blocks (text
+// and link blocks aren't viewable media) — but scoped to every subfolder on
+// this journal entry, not just this one, so viewerNav can carry across into
+// the next/previous subfolder (announced by its label first) without
+// closing the viewer. Stays within this entry; never crosses into another.
+function openViewerForSubfolderBlock(subfolderId, blockId) {
+  const entry = currentJournalEntryForEdit();
+  const allSubfolders = entry && entry.subfolders || [];
+  const sfIndex = allSubfolders.findIndex((s) => s.id === subfolderId);
+  if (sfIndex === -1) return;
+  const groups = allSubfolders.map((sf) => buildSubfolderViewerGroup(sf, entry));
+  const mediaBlocks = (allSubfolders[sfIndex].blocks || []).filter((b) => b.type === 'image');
+  const startIndex = mediaBlocks.findIndex((b) => b.id === blockId);
+  if (startIndex === -1) return;
+  openViewerGrouped(groups, sfIndex, startIndex, { editable: true });
 }
 
 // ================= TIMEFRAME MANAGER (persists in Supabase — table: timeframes) =================
@@ -11175,6 +11331,23 @@ function mediaType(item) {
 function mediaCaption(item) {
   return (item && typeof item.caption === 'string') ? item.caption : '';
 }
+// Voice notes attached to a single image/video in the viewer's Notes panel —
+// same { id, url, publicId, sizeKB, durationSec, transcript, createdBy,
+// createdAt } shape as Journal/Trade voice notes. Legacy media items have no
+// .voiceNotes field at all, so default to an empty list rather than requiring
+// a migration.
+function mediaVoiceNotes(item) {
+  return (item && Array.isArray(item.voiceNotes)) ? item.voiceNotes : [];
+}
+// Plain-text form of a caption — captions are now rich HTML (bold/italic/
+// underline/font/size/color via the viewer's rt-editor), so anywhere a
+// caption is used as plain text (search snippets, title tooltips) needs
+// this instead of raw mediaCaption(), or formatting tags would show up as
+// literal text. Safe on legacy plain-string captions too (rtToText no-ops
+// on content with no tags).
+function mediaCaptionText(item) {
+  return rtToText(mediaCaption(item));
+}
 
 // Roadmap Phase 11: one shared numeric sequence for every image/video ever
 // uploaded across Trades/Journal/Strategy — same tag for both images and
@@ -11230,7 +11403,7 @@ function backfillMediaDisplayIds(list) {
 // below. Shared here rather than duplicated per call site.
 function mediaSearchTokens(item) {
   const tokens = [];
-  const cap = mediaCaption(item);
+  const cap = mediaCaptionText(item);
   if (cap) tokens.push(cap);
   const did = mediaDisplayId(item);
   if (did) { tokens.push(did); tokens.push('#' + did); }
@@ -12118,18 +12291,27 @@ function watchlistCardDetailHtml(item) {
   return '<div class="wl-card-detail" onclick="event.stopPropagation();"><div>' + timelineHtml + watchlistTrailComposerHtml(item.id) + '</div></div>';
 }
 
-// Opens the shared media viewer for a posted trail entry's images/video —
-// same viewer every other .trade-thumb in the app opens, just missing here
-// until now (the grid <img> tags had no onclick at all). Images come first,
-// the entry's single video (if any) last, matching the index math used when
-// building videoHtml's onclick above.
-function openViewerForWlTrailEntry(itemId, entryId, index) {
-  const item = allWatchlistItems.find((it) => it.id === itemId);
-  const entry = item && Array.isArray(item.trail) ? item.trail.find((e) => e.id === entryId) : null;
-  if (!entry) return;
+// One trail entry's ("post's") viewer group — labeled with its post date,
+// since posts don't have names the way journal subfolders do. Read-only, so
+// no onDelete/onReplace/onCaptionSave (matches the original behavior).
+function buildWlTrailViewerGroup(entry) {
   const images = Array.isArray(entry.images) ? entry.images.slice() : [];
   if (entry.video) images.push(entry.video);
-  openViewer(images, index, { editable: false });
+  return { label: watchlistTrailDateLabel(entry.timestamp) || 'Update', images };
+}
+
+// Opens the shared media viewer for a posted trail entry's images/video —
+// but scoped to every post on this watchlist item, not just this one, so
+// viewerNav can carry across into the next/previous post (announced by its
+// date first) without closing the viewer. Stays within this item; never
+// crosses into another watchlist item.
+function openViewerForWlTrailEntry(itemId, entryId, index) {
+  const item = allWatchlistItems.find((it) => it.id === itemId);
+  const trail = item && Array.isArray(item.trail) ? item.trail : [];
+  const entryIndex = trail.findIndex((e) => e.id === entryId);
+  if (entryIndex === -1) return;
+  const groups = trail.map((e) => buildWlTrailViewerGroup(e));
+  openViewerGrouped(groups, entryIndex, index, { editable: false });
 }
 
 // Merge-then-save against the current in-memory item, same pattern as
@@ -12225,7 +12407,7 @@ function watchlistTrailComposerHtml(itemId) {
   const composeEditorId = 'wlTrailComposeInput_' + itemId;
   return '<div class="wl-update-composer">' +
     '<div class="wl-update-composer-head"><span class="wl-trail-icon-chip"><i data-lucide="pencil-line" style="width:12px;height:12px;"></i></span><span>Add an update</span></div>' +
-    rtToolbarHtml(composeEditorId, true) +
+    rtToolbarHtml(composeEditorId) +
     '<div id="' + composeEditorId + '" class="mono rt-editor" contenteditable="true" data-placeholder="Add a dated update — price hit my zone, invalidated, etc…" ' +
       'oninput="wlTrailDraftText[\'' + itemId + '\'] = this.innerHTML" onpaste="rtHandlePaste(event)">' + rtInitialHtml(draftText) + '</div>' +
     previewHtml + voicePreviewHtml +
@@ -12513,7 +12695,7 @@ function watchlistTrailEditFormHtml(itemId, entry) {
     : '';
   const editEditorId = 'wlTrailEditInput_' + entryId;
   return '<div class="wl-update-composer">' +
-    rtToolbarHtml(editEditorId, true) +
+    rtToolbarHtml(editEditorId) +
     '<div id="' + editEditorId + '" class="mono rt-editor" contenteditable="true" data-placeholder="Update text…" ' +
       'oninput="wlTrailEditDraftText[\'' + entryId + '\'] = this.innerHTML" onpaste="rtHandlePaste(event)">' + rtInitialHtml(draftText) + '</div>' +
     previewHtml + voicePreviewHtml +
@@ -13374,7 +13556,7 @@ function openViewerForStrategy(strategyId, index, editable) {
     // same reasoning as onReplace above — re-fetch the real list right
     // before writing to avoid clobbering a concurrent edit from another
     // tab/device, then match by image id (not index).
-    onCaptionSave: async (imgIndex, caption, imgId) => {
+    onCaptionSave: async (imgIndex, caption, imgId, voiceNotes) => {
       await loadStrategyList();
       if (!strategyListLoaded) { console.error('Could not confirm the latest strategy list before autosaving caption'); return false; }
       const freshStrategy = strategyList.find((s) => s.id === strategyId);
@@ -13382,6 +13564,7 @@ function openViewerForStrategy(strategyId, index, editable) {
       const freshImg = (freshStrategy.images || []).find((i) => i.id === imgId);
       if (!freshImg) return false;
       freshImg.caption = caption;
+      freshImg.voiceNotes = voiceNotes || []; // the re-fetch above discards the viewer's in-memory copy, so voice notes need carrying over explicitly (captions are already covered by the caption param)
       const ok = await saveStrategyList();
       if (!ok) { console.error('Failed to autosave caption for strategy', strategyId); return false; }
       renderStrategyManagerList();
@@ -13393,6 +13576,9 @@ function openViewerForStrategy(strategyId, index, editable) {
 
 // ================= FULLSCREEN IMAGE VIEWER (zoom / pan / pinch / keyboard / nav) =================
 let viewerImages = [], viewerIndex = 0, viewerOpts = {};
+// Grouped mode (cross-subfolder/cross-post nav): viewerGroups/viewerSteps
+// are null in ordinary flat-viewer mode — see openViewerGrouped above.
+let viewerGroups = null, viewerSteps = null, viewerStepIndex = 0;
 let viewerScale = 1, viewerX = 0, viewerY = 0;
 let viewerDragging = false, viewerDragStart = null;
 let viewerPinchDist = null, viewerPinchStartScale = 1;
@@ -13411,14 +13597,134 @@ function saveViewerDropupOpen() {
   catch (e) { /* storage unavailable */ }
 }
 
+// Lazily builds the rich-text toolbar inside the viewer's notes panel —
+// same shared rt-editor engine as everywhere else in the app (see RICH TEXT
+// EDITOR section), just skinned via .viewer-rt-toolbar. The overlay markup
+// lives in the page once, so this only needs to run the first time any
+// viewer opens.
+let viewerDropupToolbarBuilt = false;
+function ensureViewerDropupToolbar() {
+  if (viewerDropupToolbarBuilt) return;
+  const el = document.getElementById('viewerDropupToolbar');
+  if (!el) return;
+  el.innerHTML = rtToolbarHtml('viewerDropupEditor');
+  viewerDropupToolbarBuilt = true;
+  refreshIcons();
+  initViewerDropupEditingToggle();
+}
+
+// Shows the formatting toolbar + Save/Cancel only while a note is actually
+// being edited (entered via the Edit button — see viewerEnterNoteEdit),
+// never just from tapping into the text. Uses focusin/focusout (they
+// bubble, unlike focus/blur) delegated on the whole panel so clicking a
+// toolbar button or a font/size <select> — both still inside
+// #viewerDropupBody — doesn't prematurely close editing. A short timeout on
+// focusout re-checks document.activeElement once the browser has finished
+// moving focus, so tapping away from the panel entirely both saves and
+// cleanly falls back to read-only.
+let viewerDropupEditingToggleBound = false;
+function initViewerDropupEditingToggle() {
+  if (viewerDropupEditingToggleBound) return;
+  const body = document.getElementById('viewerDropupBody');
+  if (!body) return;
+  viewerDropupEditingToggleBound = true;
+  body.addEventListener('focusin', () => body.classList.add('rt-editing'));
+  body.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (!body.contains(document.activeElement)) viewerExitNoteEdit();
+    }, 0);
+  });
+}
+
+// Enters edit mode: only reachable via the pencil button, not by tapping
+// the note text itself. Snapshots the caption first so Cancel can revert
+// cleanly, flips the editor editable, and places the cursor at the end.
+let viewerNoteEditOriginal = null;
+function viewerEnterNoteEdit() {
+  const editor = document.getElementById('viewerDropupEditor');
+  const body = document.getElementById('viewerDropupBody');
+  const img = viewerImages[viewerIndex];
+  if (!editor || !body || !img) return;
+  viewerNoteEditOriginal = img.caption || '';
+  body.classList.add('rt-editing');
+  editor.contentEditable = 'true'; // property (not setAttribute) so the browser registers it as editable in the same tick
+  // focus() has to happen synchronously, inside this same click handler —
+  // deferring it (e.g. via requestAnimationFrame) drops out of the tap's
+  // "user activation" window on mobile, so the field becomes editable but
+  // the on-screen keyboard doesn't open until a second tap. Only the
+  // cursor placement below is deferred a frame, since selection doesn't
+  // need that activation to stick.
+  editor.focus();
+  requestAnimationFrame(() => {
+    const range = document.createRange();
+    range.selectNodeContents(editor);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  });
+}
+
+// Leaves edit mode visually (toolbar/Save/Cancel collapse, editor goes
+// back to read-only) without touching the saved content — used both by
+// Save (after flushing) and by tapping away from the panel.
+function viewerExitNoteEdit() {
+  const editor = document.getElementById('viewerDropupEditor');
+  const body = document.getElementById('viewerDropupBody');
+  if (editor) { editor.blur(); editor.contentEditable = 'false'; }
+  if (body) body.classList.remove('rt-editing');
+  updateViewerNoteButtonsState();
+}
+
+// Discards whatever was typed since Edit was tapped and restores the
+// note to what it was before.
+function viewerCancelNoteEdit() {
+  const img = viewerImages[viewerIndex];
+  const editor = document.getElementById('viewerDropupEditor');
+  if (img) img.caption = viewerNoteEditOriginal || '';
+  if (editor) editor.innerHTML = rtDisplayHtml(viewerNoteEditOriginal || '');
+  viewerCaptionDirty = false;
+  viewerExitNoteEdit();
+}
+
+// Explicit Save button: flushes the caption immediately (rather than
+// waiting for blur), then leaves edit mode.
+function viewerSaveCaptionClick() {
+  flushViewerCaption();
+  viewerExitNoteEdit();
+}
+
+// Clears just the written note (voice notes have their own per-row delete
+// and are untouched by this).
+async function viewerDeleteNoteText() {
+  const img = viewerImages[viewerIndex];
+  if (!img || !mediaCaptionText(img)) return;
+  if (!(await confirmDialog('Delete this note? This can\'t be undone.', { confirmLabel: 'Delete', danger: true }))) return;
+  img.caption = '';
+  const editor = document.getElementById('viewerDropupEditor');
+  if (editor) editor.innerHTML = '';
+  viewerExitNoteEdit();
+  viewerCaptionDirty = true;
+  await flushViewerCaption();
+}
+
+// Disables the Delete button when there's no note text to delete — Edit
+// stays enabled always, since it's also how you add the first note.
+function updateViewerNoteButtonsState() {
+  const img = viewerImages[viewerIndex];
+  const delBtn = document.getElementById('viewerNoteDeleteBtn');
+  if (delBtn) delBtn.disabled = !(img && mediaCaptionText(img));
+}
+
 function openViewer(images, index, opts) {
   if (!images || !images.length) return;
+  viewerGroups = null; // flat mode — see openViewerGrouped for cross-subfolder/post nav
+  viewerSteps = null;
   viewerImages = images;
   viewerIndex = index || 0;
   viewerOpts = opts || {};
+  ensureViewerDropupToolbar();
   document.getElementById('viewerOverlay').style.display = 'block';
-  document.getElementById('viewerReplaceBtn').style.display = viewerOpts.editable ? 'flex' : 'none';
-  document.getElementById('viewerDeleteBtn').style.display = viewerOpts.editable ? 'flex' : 'none';
   document.getElementById('viewerGoToTradeBtn').style.display = (viewerOpts.trades && viewerOpts.trades.length) ? 'flex' : 'none';
   // Roadmap Phase 10: no longer force-closed here — viewerDropupOpen carries
   // over from the last session (loaded via loadViewerDropupOpen() at startup)
@@ -13427,6 +13733,56 @@ function openViewer(images, index, opts) {
   renderViewerImage();
   document.addEventListener('keydown', viewerKeyHandler);
 }
+
+// Cross-subfolder/cross-post viewer: `groups` is every subfolder (or every
+// watchlist post) belonging to the current entry/item, in on-page order —
+// [{ label, images, onDelete, onReplace, onCaptionSave }, ...]. The viewer
+// flattens these into a single step sequence where each group is preceded
+// by its own label/divider step (shown even when that group has zero
+// media), so crossing into a new group always announces it by name before
+// its media appears — then viewerNav(±1) walks the whole sequence, wrapping
+// at the ends, without ever leaving the entry/item it was opened from.
+function openViewerGrouped(groups, startGroupIndex, startImageIndex, opts) {
+  if (!groups || !groups.length) return;
+  viewerGroups = groups;
+  viewerSteps = buildViewerSteps(viewerGroups);
+  let stepIdx = viewerSteps.findIndex((s) => s.type === 'media' && s.groupIndex === startGroupIndex && s.itemIndex === startImageIndex);
+  if (stepIdx === -1) stepIdx = viewerSteps.findIndex((s) => s.groupIndex === startGroupIndex); // fall back to that group's label step
+  viewerStepIndex = stepIdx === -1 ? 0 : stepIdx;
+  viewerOpts = opts || {};
+  ensureViewerDropupToolbar();
+  document.getElementById('viewerOverlay').style.display = 'block';
+  document.getElementById('viewerGoToTradeBtn').style.display = 'none';
+  updateViewerDropupUI();
+  renderViewerImage();
+  document.addEventListener('keydown', viewerKeyHandler);
+}
+
+function buildViewerSteps(groups) {
+  const steps = [];
+  groups.forEach((g, gi) => {
+    steps.push({ type: 'label', groupIndex: gi });
+    (g.images || []).forEach((_, ii) => steps.push({ type: 'media', groupIndex: gi, itemIndex: ii }));
+  });
+  return steps;
+}
+function rebuildViewerSteps() {
+  if (!viewerGroups) return;
+  viewerSteps = buildViewerSteps(viewerGroups);
+}
+// The group backing whichever step is currently showing — null in flat mode.
+function viewerActiveGroup() {
+  if (!viewerGroups) return null;
+  const step = viewerSteps[viewerStepIndex];
+  return step ? viewerGroups[step.groupIndex] : null;
+}
+// These three resolve to the per-group callback when grouped, or the
+// top-level viewerOpts callback when flat — every other viewer function
+// (delete/replace/caption-save) calls through these instead of viewerOpts
+// directly, so the same code works in both modes.
+function viewerOnDelete() { const g = viewerActiveGroup(); return g ? g.onDelete : (viewerOpts && viewerOpts.onDelete); }
+function viewerOnReplace() { const g = viewerActiveGroup(); return g ? g.onReplace : (viewerOpts && viewerOpts.onReplace); }
+function viewerOnCaptionSaveFn() { const g = viewerActiveGroup(); return g ? g.onCaptionSave : (viewerOpts && viewerOpts.onCaptionSave); }
 
 function closeViewer() {
   flushViewerCaption(); // Roadmap Step 6: don't lose an unsaved edit if the viewer closes before blur fires
@@ -13442,7 +13798,10 @@ function closeViewer() {
 // native controls (scrub bar, tap-to-play, pinch-to-fullscreen on most
 // browsers) — so those buttons hide and the pan/zoom transform is skipped
 // entirely while a video is showing (see initViewerGestures below).
-function renderViewerImage() {
+// The actual img/video paint + counter/caption refresh, shared by flat mode
+// and grouped mode's media steps — assumes viewerImages/viewerIndex are
+// already pointed at the right item.
+function renderViewerMediaCommon() {
   const img = viewerImages[viewerIndex];
   const isVideo = mediaType(img) === 'video';
   const imgEl = document.getElementById('viewerImg');
@@ -13465,7 +13824,6 @@ function renderViewerImage() {
     const el = document.getElementById(id);
     if (el) el.style.display = isVideo ? 'none' : 'flex';
   });
-  document.getElementById('viewerCounter').textContent = (viewerIndex + 1) + ' / ' + viewerImages.length;
   // Roadmap Phase 11: shows the shared image/video sequence number so this
   // item can be found again via search (Phase 13) without opening the viewer.
   const midLabel = document.getElementById('viewerMediaIdLabel');
@@ -13474,10 +13832,71 @@ function renderViewerImage() {
   // Roadmap Step 5: refresh the dropup textarea for whichever item is now
   // showing — same panel, per-item content, works identically for image or
   // video since it's keyed off the item, not the media type.
-  document.getElementById('viewerDropupTextarea').value = mediaCaption(img);
+  document.getElementById('viewerDropupEditor').innerHTML = rtDisplayHtml(mediaCaption(img));
   document.getElementById('viewerDropupSaveState').textContent = ''; // Roadmap Step 6: clear any stale "Saved"/"Saving…" left over from the previous item
+  renderViewerVoiceNotes(); // per-item voice notes list, same "keyed off the item" pattern as the caption above
+  const dropupEditor = document.getElementById('viewerDropupEditor');
+  if (dropupEditor) dropupEditor.contentEditable = 'false'; // back to read-only until Edit is tapped again for this item
+  const dropupBody = document.getElementById('viewerDropupBody');
+  if (dropupBody) dropupBody.classList.remove('rt-editing'); // collapse toolbar/Save when navigating to a new item
+  updateViewerNoteButtonsState();
   viewerCaptionDirty = false;
   if (!isVideo) viewerResetZoom();
+  const downloadBtn = document.getElementById('viewerDownloadBtn');
+  if (downloadBtn) downloadBtn.style.display = '';
+}
+
+// A group-boundary "divider" screen — no image/video, just the subfolder's
+// or post's name (+ item count, or "No media yet") — shown every time
+// viewerNav crosses into a new group, before that group's own media.
+function renderViewerGroupLabel(step) {
+  const group = viewerGroups[step.groupIndex];
+  document.getElementById('viewerVideo').pause();
+  const imgEl = document.getElementById('viewerImg');
+  const videoEl = document.getElementById('viewerVideo');
+  imgEl.style.display = 'none'; imgEl.removeAttribute('src');
+  videoEl.style.display = 'none'; videoEl.removeAttribute('src');
+  const labelEl = document.getElementById('viewerGroupLabel');
+  if (labelEl) {
+    labelEl.style.display = 'flex';
+    const count = (group.images || []).length;
+    labelEl.innerHTML = '<div class="viewer-group-label-title">' + escapeHtml(group.label || 'Untitled') + '</div>' +
+      '<div class="viewer-group-label-sub">' + (count ? (count + (count === 1 ? ' item' : ' items')) : 'No media yet') + '</div>';
+  }
+  document.getElementById('viewerCounter').textContent = '';
+  document.getElementById('viewerMediaIdLabel').textContent = '';
+  ['viewerZoomInBtn', 'viewerZoomOutBtn', 'viewerResetZoomBtn', 'viewerReplaceBtn', 'viewerDeleteBtn', 'viewerDownloadBtn'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('viewerDropup').style.display = 'none';
+  viewerImages = group.images || [];
+  viewerIndex = 0;
+}
+
+function renderViewerImage() {
+  const labelEl = document.getElementById('viewerGroupLabel');
+  if (viewerGroups) {
+    const step = viewerSteps[viewerStepIndex];
+    if (!step) return;
+    if (step.type === 'label') { renderViewerGroupLabel(step); return; }
+    if (labelEl) labelEl.style.display = 'none';
+    document.getElementById('viewerDropup').style.display = '';
+    viewerImages = viewerGroups[step.groupIndex].images;
+    viewerIndex = step.itemIndex;
+    renderViewerMediaCommon();
+    const mediaSteps = viewerSteps.filter((s) => s.type === 'media');
+    document.getElementById('viewerCounter').textContent = (mediaSteps.indexOf(step) + 1) + ' / ' + mediaSteps.length;
+    document.getElementById('viewerReplaceBtn').style.display = (viewerOpts.editable && viewerOnReplace()) ? 'flex' : 'none';
+    document.getElementById('viewerDeleteBtn').style.display = (viewerOpts.editable && viewerOnDelete()) ? 'flex' : 'none';
+    return;
+  }
+  if (labelEl) labelEl.style.display = 'none';
+  document.getElementById('viewerDropup').style.display = '';
+  renderViewerMediaCommon();
+  document.getElementById('viewerCounter').textContent = (viewerIndex + 1) + ' / ' + viewerImages.length;
+  document.getElementById('viewerReplaceBtn').style.display = viewerOpts.editable ? 'flex' : 'none';
+  document.getElementById('viewerDeleteBtn').style.display = viewerOpts.editable ? 'flex' : 'none';
 }
 
 // Roadmap Step 5: toggles the dropup open/closed and flips the tab's arrow.
@@ -13497,16 +13916,20 @@ function updateViewerDropupUI() {
 // is the same object reference the underlying trade/strategy array holds,
 // not a copy), so the write-up shows immediately if you reopen the viewer
 // or look at the thumbnail dot — no save/reload needed to see it locally.
+// Now a rich-text rt-editor (bold/italic/underline/font/size/color) instead
+// of a plain textarea — stored as sanitized HTML, same rtSanitize whitelist
+// used by every other rt-editor field in the app (see RICH TEXT EDITOR
+// section), so nothing but plain formatting tags ever gets persisted.
 function onViewerCaptionInput() {
   const img = viewerImages[viewerIndex];
   if (!img) return;
-  img.caption = document.getElementById('viewerDropupTextarea').value;
+  img.caption = rtSanitize(document.getElementById('viewerDropupEditor').innerHTML);
   viewerCaptionDirty = true;
   document.getElementById('viewerDropupSaveState').textContent = '';
 }
 
 // Roadmap Step 6: autosave — fires on blur (tabbing/clicking away from the
-// textarea), not on every keystroke, so typing doesn't hammer Supabase with
+// editor), not on every keystroke, so typing doesn't hammer Supabase with
 // a write per character.
 function onViewerCaptionBlur() {
   flushViewerCaption();
@@ -13516,25 +13939,80 @@ function onViewerCaptionBlur() {
 // the current entry point supplied (openViewerForTrade / openViewerForStrategy
 // / openViewerFromGrid) — captures idx/img/caption synchronously before the
 // async call, so it's safe to fire-and-forget from viewerNav/closeViewer
-// without blocking navigation on the network round trip.
+// without blocking navigation on the network round trip. Also passes the
+// item's current voiceNotes array so a save triggered right after
+// recording/deleting a voice note (see onViewerVoiceNoteRecorded /
+// deleteViewerVoiceNote below) persists those too — needed only by the one
+// call site (openViewerForStrategy) that re-fetches a fresh copy of the
+// image rather than mutating the same object the viewer already holds.
 function flushViewerCaption() {
   if (!viewerCaptionDirty) return;
   const idx = viewerIndex;
   const img = viewerImages[idx];
   viewerCaptionDirty = false;
-  if (!img || !viewerOpts.onCaptionSave) return;
+  const onCaptionSave = viewerOnCaptionSaveFn();
+  if (!img || !onCaptionSave) return;
   const stateEl = document.getElementById('viewerDropupSaveState');
   const isStillCurrent = () => viewerImages[viewerIndex] === img; // guards against updating the label after nav'ing away
   if (isStillCurrent() && stateEl) stateEl.textContent = 'Saving…';
-  Promise.resolve(viewerOpts.onCaptionSave(idx, img.caption || '', img.id))
+  return Promise.resolve(onCaptionSave(idx, img.caption || '', img.id, img.voiceNotes || []))
     .then((ok) => {
       if (!isStillCurrent() || !stateEl) return;
       stateEl.textContent = ok === false ? 'Save failed' : 'Saved';
+      return ok;
     })
     .catch((e) => {
       console.error('Caption autosave failed:', e);
       if (isStillCurrent() && stateEl) stateEl.textContent = 'Save failed';
+      return false;
     });
+}
+
+// Fired when the "Hold to record" mic button in the viewer's Notes panel
+// finishes uploading a voice note (see startVoiceRecording('viewer') /
+// stopVoiceRecording dispatch above). Same in-place-mutate-then-save pattern
+// as onViewerCaptionInput — pushes onto the current item's own voiceNotes
+// array and reuses flushViewerCaption to persist, so it rides the same
+// per-call-site save logic (persistTrade / persistJournalEntry / etc.)
+// already wired up for captions instead of needing its own copy.
+async function onViewerVoiceNoteRecorded(voiceNote) {
+  const img = viewerImages[viewerIndex];
+  if (!img) return;
+  if (!Array.isArray(img.voiceNotes)) img.voiceNotes = [];
+  img.voiceNotes.push(voiceNote);
+  if (voiceNote.transcript) {
+    const editor = document.getElementById('viewerDropupEditor');
+    if (editor) {
+      const line = document.createElement('div');
+      line.textContent = voiceNote.transcript;
+      editor.appendChild(line);
+      onViewerCaptionInput(); // syncs img.caption + marks dirty from the transcript we just appended
+    }
+  }
+  renderViewerVoiceNotes();
+  viewerCaptionDirty = true;
+  await flushViewerCaption();
+}
+
+function renderViewerVoiceNotes() {
+  const container = document.getElementById('viewerDropupVoiceList');
+  if (!container) return;
+  const img = viewerImages[viewerIndex];
+  container.innerHTML = mediaVoiceNotes(img).map((vn) => voiceNoteRowHtml(vn, 'viewer')).join('');
+  refreshIcons();
+}
+
+async function deleteViewerVoiceNote(id) {
+  const img = viewerImages[viewerIndex];
+  if (!img) return;
+  const vn = mediaVoiceNotes(img).find((v) => v.id === id);
+  if (!vn) return;
+  if (!(await confirmDialog('Delete this voice note? This can\'t be undone.', { confirmLabel: 'Delete', danger: true }))) return;
+  img.voiceNotes = mediaVoiceNotes(img).filter((v) => v.id !== id);
+  renderViewerVoiceNotes();
+  viewerCaptionDirty = true;
+  await flushViewerCaption();
+  deleteFromCloudinary(vn.publicId, 'video'); // fine to delete right away — same as deleteTradeVoiceNote
 }
 
 // Roadmap Step 4: current-item type check used to gate pan/zoom gestures and
@@ -13546,7 +14024,14 @@ function viewerCurrentIsVideo() {
 
 function viewerNav(delta) {
   flushViewerCaption(); // Roadmap Step 6: save the item we're leaving before switching away from it
-  viewerIndex = (viewerIndex + delta + viewerImages.length) % viewerImages.length;
+  if (viewerGroups) {
+    // Walks the flattened label+media sequence built by openViewerGrouped,
+    // wrapping at the ends — stays within the entry/item the viewer was
+    // opened from, never spills into a different entry/item.
+    viewerStepIndex = (viewerStepIndex + delta + viewerSteps.length) % viewerSteps.length;
+  } else {
+    viewerIndex = (viewerIndex + delta + viewerImages.length) % viewerImages.length;
+  }
   renderViewerImage();
 }
 
@@ -13572,7 +14057,7 @@ function viewerKeyHandler(e) {
   // viewer shortcuts (typing "-" zooming out, arrow keys jumping items,
   // etc.) — Escape still works, but blurs the textarea first rather than
   // closing the viewer, so one more Escape is needed to actually close.
-  if (document.activeElement && document.activeElement.id === 'viewerDropupTextarea') {
+  if (document.activeElement && document.activeElement.id === 'viewerDropupEditor') {
     if (e.key === 'Escape') document.activeElement.blur();
     return;
   }
@@ -13592,6 +14077,7 @@ function viewerToggleFullscreen() {
 
 function viewerDownload() {
   const img = viewerImages[viewerIndex];
+  if (!img) return; // on a group label step — nothing to download
   // Cloudinary-hosted images/videos are cross-origin, so a plain <a download> link
   // gets ignored by the browser (it just opens the file in a new tab instead of
   // saving it). Fetch the bytes first, then download from a same-origin blob URL,
@@ -13614,19 +14100,36 @@ function viewerDownload() {
 }
 
 async function viewerDelete() {
-  if (!viewerOpts.editable || !viewerOpts.onDelete) return;
+  const onDelete = viewerOnDelete();
+  if (!viewerOpts.editable || !onDelete) return;
   if (!(await confirmDialog('Delete this screenshot? This frees its storage immediately.', { danger: true }))) return;
   const idx = viewerIndex;
-  const wasLast = viewerImages.length === 1;
-  viewerOpts.onDelete(idx);
-  if (wasLast) { closeViewer(); return; }
-  viewerImages.splice(idx, 1);
-  viewerIndex = Math.min(viewerIndex, viewerImages.length - 1);
+  if (!viewerGroups) {
+    const wasLast = viewerImages.length === 1;
+    onDelete(idx);
+    if (wasLast) { closeViewer(); return; }
+    viewerImages.splice(idx, 1);
+    viewerIndex = Math.min(viewerIndex, viewerImages.length - 1);
+    renderViewerImage();
+    return;
+  }
+  // Grouped mode: deleting a group's last item never closes the viewer —
+  // it just falls back to that group's label step, showing "No media yet",
+  // same as navigating into an empty subfolder/post normally would.
+  const groupIdx = viewerSteps[viewerStepIndex].groupIndex;
+  onDelete(idx);
+  viewerImages.splice(idx, 1); // viewerImages is the live reference to viewerGroups[groupIdx].images
+  rebuildViewerSteps();
+  let stepIdx = viewerSteps.findIndex((s) => s.type === 'media' && s.groupIndex === groupIdx && s.itemIndex === idx);
+  if (stepIdx === -1) stepIdx = viewerSteps.findIndex((s) => s.type === 'media' && s.groupIndex === groupIdx && s.itemIndex === idx - 1);
+  if (stepIdx === -1) stepIdx = viewerSteps.findIndex((s) => s.groupIndex === groupIdx); // that group's label step
+  viewerStepIndex = stepIdx === -1 ? 0 : stepIdx;
   renderViewerImage();
 }
 
 function viewerReplace() {
-  if (!viewerOpts.editable || !viewerOpts.onReplace) return;
+  const onReplace = viewerOnReplace();
+  if (!viewerOpts.editable || !onReplace) return;
   const input = document.createElement('input');
   input.type = 'file';
   input.accept = 'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v';
@@ -13651,7 +14154,7 @@ function viewerReplace() {
         name: file.name,
       };
       if (viewerImages[idx] && viewerImages[idx].slot) newImg.slot = viewerImages[idx].slot; // preserve Before/After tag on replace
-      viewerOpts.onReplace(idx, newImg); // old screenshot is overwritten, never kept around
+      onReplace(idx, newImg); // old screenshot is overwritten, never kept around
       viewerImages[idx] = newImg;
       renderViewerImage();
     } catch (e) {
@@ -19739,7 +20242,7 @@ function renderGlobalSearchResults(query) {
       const mediaHit = findMediaHit(t.images, q);
       const thumb = mediaHit ? gridThumbSrc(mediaHit) : '';
       const title = (t.pair || 'Unknown') + ' · ' + (t.direction || '').toUpperCase() + (t.model ? ' · ' + t.model : '');
-      const snippetSrc = mediaHit ? (mediaCaption(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (t.notes || t.strategy || '');
+      const snippetSrc = mediaHit ? (mediaCaptionText(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (t.notes || t.strategy || '');
       return globalSearchRowHtml({
         thumb: thumb, icon: 'trending-up', title: title,
         snippet: globalSearchSnippet(snippetSrc, q),
@@ -19755,7 +20258,7 @@ function renderGlobalSearchResults(query) {
       const mediaHit = findMediaHit(allMedia, q);
       const thumb = mediaHit ? gridThumbSrc(mediaHit) : '';
       const title = e.title || (e.pair ? e.pair + ' idea' : 'Untitled entry');
-      const snippetSrc = mediaHit ? (mediaCaption(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (rtToText(e.body) || e.pair || '');
+      const snippetSrc = mediaHit ? (mediaCaptionText(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (rtToText(e.body) || e.pair || '');
       return globalSearchRowHtml({
         thumb: thumb, icon: 'book-open', title: title,
         snippet: globalSearchSnippet(snippetSrc, q),
@@ -19772,7 +20275,7 @@ function renderGlobalSearchResults(query) {
       const thumb = mediaHit ? gridThumbSrc(mediaHit) : '';
       const title = (it.pair || 'Unknown') + ' · ' + (it.direction || '').toUpperCase() + (it.model ? ' · ' + it.model : '');
       const trailText = (it.trail || []).map((t) => rtToText(t.text)).filter(Boolean).join(' ');
-      const snippetSrc = mediaHit ? (mediaCaption(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (trailText || it.htf || '');
+      const snippetSrc = mediaHit ? (mediaCaptionText(mediaHit) || 'Media #' + mediaDisplayId(mediaHit)) : (trailText || it.htf || '');
       return globalSearchRowHtml({
         thumb: thumb, icon: 'eye', title: title,
         snippet: globalSearchSnippet(snippetSrc, q),
