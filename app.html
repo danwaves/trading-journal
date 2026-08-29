@@ -568,7 +568,7 @@
   /* Read-only by default — contenteditable is only flipped to true by the
      Edit button (see viewerEnterNoteEdit), so tapping the note text itself
      doesn't silently start an edit. */
-  #viewerDropupEditor.rt-editor[contenteditable="false"] { cursor: default; }
+  #viewerDropupEditor.rt-editor[contenteditable="false"] { cursor: text; }
   .viewer-dropup-body.rt-editing #viewerDropupEditor.rt-editor { border-color: var(--brand, #EE82B3); background: rgba(255,255,255,0.055); }
   /* Toolbar + Save/Cancel are hidden until Edit is tapped (see
      viewerEnterNoteEdit / viewerExitNoteEdit) — keeps the idle state clean
@@ -3161,8 +3161,9 @@
           </div>
         </div>
         <div id="viewerDropupToolbar" class="viewer-rt-toolbar"></div>
-        <div id="viewerDropupEditor" class="rt-editor" contenteditable="false"
-          data-placeholder="No note yet — tap Edit to write one…"
+        <div id="viewerDropupEditor" class="rt-editor" contenteditable="false" inputmode="text"
+          data-placeholder="No note yet — tap to write one…"
+          onclick="viewerEditorTap()"
           oninput="onViewerCaptionInput()" onblur="onViewerCaptionBlur()" onpaste="rtHandlePaste(event)"></div>
         <div class="viewer-dropup-actions">
           <button type="button" class="viewer-dropup-cancel-btn" onmousedown="event.preventDefault();" onclick="viewerCancelNoteEdit()">Cancel</button>
@@ -13636,9 +13637,13 @@ function initViewerDropupEditingToggle() {
   });
 }
 
-// Enters edit mode: only reachable via the pencil button, not by tapping
-// the note text itself. Snapshots the caption first so Cancel can revert
-// cleanly, flips the editor editable, and places the cursor at the end.
+// Enters edit mode — reachable both via the pencil button and by tapping
+// the note text directly (see viewerEditorTap below; the tap-on-text path
+// exists because some Android WebViews only summon the soft keyboard when
+// focus() is called on the exact element the user's finger touched, not
+// on the pencil button redirecting focus elsewhere). Snapshots the caption
+// first so Cancel can revert cleanly, flips the editor editable, and
+// places the cursor at the end.
 let viewerNoteEditOriginal = null;
 function viewerEnterNoteEdit() {
   const editor = document.getElementById('viewerDropupEditor');
@@ -13648,6 +13653,11 @@ function viewerEnterNoteEdit() {
   viewerNoteEditOriginal = img.caption || '';
   body.classList.add('rt-editing');
   editor.contentEditable = 'true'; // property (not setAttribute) so the browser registers it as editable in the same tick
+  // Some Android WebViews won't reliably summon the soft keyboard for a
+  // genuinely empty contenteditable (no child nodes at all) — give it a
+  // <br> to anchor the caret to before focusing. Cleaned back up in
+  // viewerExitNoteEdit if nothing was actually typed.
+  if (!editor.childNodes.length) editor.innerHTML = '<br>';
   // focus() has to happen synchronously, inside this same click handler —
   // deferring it (e.g. via requestAnimationFrame) drops out of the tap's
   // "user activation" window on mobile, so the field becomes editable but
@@ -13665,13 +13675,29 @@ function viewerEnterNoteEdit() {
   });
 }
 
+// Fired by tapping the note text itself (onclick on #viewerDropupEditor).
+// No-ops once already editing, so it doesn't fight the native caret
+// placement from a second tap inside the text.
+function viewerEditorTap() {
+  const editor = document.getElementById('viewerDropupEditor');
+  if (!editor || editor.contentEditable === 'true') return;
+  viewerEnterNoteEdit();
+}
+
 // Leaves edit mode visually (toolbar/Save/Cancel collapse, editor goes
 // back to read-only) without touching the saved content — used both by
 // Save (after flushing) and by tapping away from the panel.
 function viewerExitNoteEdit() {
   const editor = document.getElementById('viewerDropupEditor');
   const body = document.getElementById('viewerDropupBody');
-  if (editor) { editor.blur(); editor.contentEditable = 'false'; }
+  if (editor) {
+    editor.blur();
+    editor.contentEditable = 'false';
+    // Strip the caret-anchor <br> back out if nothing was typed, so the
+    // empty-state placeholder (":empty" CSS) shows again instead of a
+    // blank line.
+    if (!editor.textContent.trim() && !editor.querySelector('img,video')) editor.innerHTML = '';
+  }
   if (body) body.classList.remove('rt-editing');
   updateViewerNoteButtonsState();
 }
