@@ -1914,7 +1914,7 @@
   <button id="tabLogin" class="active" onclick="showScreen('login', this)">Login</button>
   <button class="app-tab is-hidden" onclick="showScreen('dashboard', this); refreshDashboardTradeSummary();">Dashboard</button>
   <button class="app-tab is-hidden" id="tabTrades" onclick="showScreen('trades', this); renderTradeList();">Trades</button>
-  <button class="app-tab is-hidden" onclick="showScreen('entry', this); resetEntryForm();" id="tabEntry">New Trade</button>
+  <button class="app-tab is-hidden" onclick="openNewTradeTab();" id="tabEntry">New Trade</button>
   <button class="app-tab is-hidden" onclick="showScreen('insights', this); inheritDashboardFiltersToInsights();">Insights</button>
   <button class="app-tab is-hidden" onclick="showScreen('history', this); inheritDashboardFiltersToHistory(); restoreHistoryCardCollapseState(); refreshDashboardTradeSummary();">History</button>
   <button class="app-tab is-hidden" id="tabWatchlist" onclick="showScreen('watchlist', this); renderWatchlistList();">Watchlist</button>
@@ -11338,6 +11338,19 @@ async function saveTrade() {
   }
 }
 
+// Watchlist → Trade handoff roadmap — bugfix: the "New Trade" tab used to
+// call resetEntryForm() unconditionally, which also wiped an in-progress
+// watchlist handoff draft (pre-filled pair/direction/notes/before-images
+// from an Entry-tagged watchlist update, not yet saved) if the user
+// stepped away to check the Watchlist tab and then tapped back in here.
+// Since the draft only ever lived in memory, that reset was unrecoverable
+// — the watchlist card was already frozen/Pending with no trade to show
+// for it. Only reset when there's no such draft waiting to be saved.
+function openNewTradeTab() {
+  if (!watchlistEntryHandoff) resetEntryForm();
+  showScreen('entry', document.getElementById('tabEntry'));
+}
+
 function resetEntryForm() {
   editingTradeId = null;
   // Watchlist → Trade handoff roadmap, Phase 2: any in-progress handoff is
@@ -12895,7 +12908,10 @@ function watchlistTrailComposerHtml(itemId) {
       '<div class="mono muted" style="font-size:11.5px;">This idea went live — no more updates here. Further notes and screenshots continue on the linked trade.</div>' +
       (wlItem.linkedTradeId
         ? '<button class="wl-post-update-btn" style="margin-top:8px;" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(wlItem.linkedTradeId) + '\')">View linked trade →</button>'
-        : '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen.</div>') +
+        : (wlItem.status === 'pending'
+            ? '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen, or cancel below if the draft was lost (e.g. the app was closed or refreshed before saving).</div>' +
+              '<button class="wl-post-update-btn" style="margin-top:8px; background:var(--surface2); color:var(--light); box-shadow:none;" onclick="event.stopPropagation(); cancelUnlinkedWatchlistHandoff(\'' + itemId + '\')">Cancel — trade was never saved</button>'
+            : '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen.</div>')) +
     '</div>';
   }
   const draftText = wlTrailDraftText[itemId] || '';
@@ -13097,13 +13113,19 @@ async function addWatchlistTrailEntry(itemId) {
   const images = wlTrailDraftImages[itemId] || [];
   const video = wlTrailDraftVideo[itemId] || null;
   const voices = wlTrailDraftVoices[itemId] || [];
-  if (!rtToText(text) && !images.length && !video && !voices.length) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
+  const tagAsEntry = !!wlTrailDraftEntryTag[itemId];
+  // Bugfix: this emptiness guard used to run unconditionally, before
+  // tagAsEntry was even read below — checking "Tag as Entry" with no new
+  // text/image/video/voice attached (the entry itself often needs no extra
+  // note; the trail already tells the story) hit this `return` and the
+  // button did nothing at all: no confirm dialog, no error, no feedback.
+  // An Entry tag is meaningful on its own, so it's exempted here.
+  if (!tagAsEntry && !rtToText(text) && !images.length && !video && !voices.length) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
 
   // Watchlist → Trade handoff roadmap, Phase 2. "One life per card" — the
   // composer that offers this checkbox is itself hidden once status leaves
   // 'idea' (see watchlistTrailComposerHtml's frozen-state branch), but this
   // is the hard guard against a stale render still showing it.
-  const tagAsEntry = !!wlTrailDraftEntryTag[itemId];
   if (tagAsEntry && item.status && item.status !== 'idea') {
     setWlTrailStatus(itemId, 'This idea has already gone live — reload to see its current state.', 'error');
     return;
@@ -13174,6 +13196,34 @@ async function addWatchlistTrailEntry(itemId) {
 // user to pick: it's already a hard requirement on every trade and this
 // doesn't change that, so nothing is actually saved until they hit Save
 // Trade themselves.
+// Watchlist → Trade handoff roadmap — bugfix/recovery: undoes a Take Trade
+// that never actually produced a saved trade — the card is stuck showing
+// "Pending" with a frozen composer and no linkedTradeId, because the New
+// Trade draft it redirected to was lost before Save Trade was pressed
+// (form reset by navigating away, app closed, page refreshed, etc.). Since
+// no trade row was ever created, there's nothing else to unwind: clears
+// the 'entry' statusTag off whichever trail update carried it and puts the
+// card's status back to 'idea' so it accepts updates again, exactly as if
+// Take Trade had never been tapped.
+async function cancelUnlinkedWatchlistHandoff(itemId) {
+  const item = allWatchlistItems.find((it) => it.id === itemId);
+  if (!item) return;
+  if (item.linkedTradeId) return; // safety net — never unwind a handoff that did complete
+  const confirmed = await confirmDialog(
+    'Cancel this handoff? No trade was ever saved, so nothing is lost — this idea goes back to accepting updates.',
+    { confirmLabel: 'Cancel handoff', danger: true }
+  );
+  if (!confirmed) return;
+  const trail = Array.isArray(item.trail) ? item.trail : [];
+  const updatedTrail = trail.map((e) => (e.statusTag === 'entry' ? { ...e, statusTag: null } : e));
+  const ok = await updateWatchlistItem(itemId, { status: 'idea', trail: updatedTrail });
+  if (!ok) {
+    setWlTrailStatus(itemId, 'Failed to save — check your connection and try again.', 'error');
+    return;
+  }
+  renderWatchlistList();
+}
+
 function beginWatchlistEntryHandoff(item) {
   const trail = Array.isArray(item.trail) ? item.trail : [];
   const allImages = [];
