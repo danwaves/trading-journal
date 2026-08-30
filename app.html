@@ -6282,10 +6282,22 @@ function updateWinButtonVisibility() {
 // touch the pendingSticky flag. Any direct tap — Win, Loss, or Pending —
 // updates the flag: Pending sets it (turning on the override), Win/Loss
 // clears it (handing control back to the auto-calculation).
-function setTradeResult(result, opts) {
+// `opts.loading: true` (Phase 4) marks a call coming from
+// applyTradeResultToForm() while a trade's already-saved result is being
+// loaded into the form (New Trade reset, or opening an existing trade to
+// edit) — never a live user action, so it must never trigger the
+// close-out R:R prompt below even when the loaded trade happens to be Win
+// or Loss and the form's leftover sticky flag happens to read Pending.
+async function setTradeResult(result, opts) {
+  opts = opts || {};
   const winBtn = document.getElementById('resultWinBtn');
   const lossBtn = document.getElementById('resultLossBtn');
   const pendingBtn = document.getElementById('resultPendingBtn');
+  // Watchlist → Trade handoff roadmap, Phase 4: captured before the sticky
+  // flag below gets overwritten, so we still know whether the trade WAS
+  // Pending going into this tap — that's what distinguishes "closing an
+  // open trade" from every other way this function gets called.
+  const wasPending = document.getElementById('tradeResultToggle').dataset.pendingSticky === '1';
   winBtn.classList.remove('win-active');
   lossBtn.classList.remove('loss-active');
   pendingBtn.classList.remove('pending-active');
@@ -6296,10 +6308,17 @@ function setTradeResult(result, opts) {
   } else if (result === 'pending') {
     pendingBtn.classList.add('pending-active');
   }
-  if (!opts || !opts.auto) {
+  if (!opts.auto) {
     document.getElementById('tradeResultToggle').dataset.pendingSticky = (result === 'pending') ? '1' : '0';
   }
   applyPendingLockToRRFields();
+  // Watchlist → Trade handoff roadmap, Phase 4: "closing a Pending trade to
+  // Win/Loss prompts Target R:R + Highest R:R if not already set" — only
+  // fires for a real, direct close-out tap (not an auto recalculation, not
+  // a form-load), and only when the trade was actually Pending a moment ago.
+  if (!opts.auto && !opts.loading && wasPending && (result === 'win' || result === 'loss')) {
+    await promptCloseTradeRRIfNeeded();
+  }
 }
 
 // A trade that hasn't resolved yet can't have a known peak R time or
@@ -6332,6 +6351,37 @@ function applyPendingLockToRRFields() {
       rrWrap.dataset.selected = '';
       rrWrap.querySelectorAll('.rr-btn').forEach((b) => b.classList.remove('rr-active'));
     }
+  }
+}
+
+// Watchlist → Trade handoff roadmap, Phase 4: called from setTradeResult()
+// the moment a Pending trade is tapped Win or Loss. Target R:R always has a
+// value (defaults to '1:1' the moment the form exists — see the markup),
+// so in practice only Highest R Reached is ever actually unset: it's
+// deliberately blanked by applyPendingLockToRRFields() while Pending and
+// never re-populated on its own once unlocked. Either dialog being
+// cancelled reverts the result back to Pending rather than leaving the
+// trade toggled to Win/Loss with a missing value.
+async function promptCloseTradeRRIfNeeded() {
+  if (!getTargetRR()) {
+    const chosen = await chooseFromListDialog(
+      'Set Target R:R before closing this trade:',
+      RR_LEVELS.map((rr) => ({ id: rr, label: rr }))
+    );
+    if (!chosen) { setTradeResult('pending'); return; }
+    const btn = document.getElementById('targetRRToggle').querySelector('.rr-btn[data-rr="' + chosen + '"]');
+    if (btn) setTargetRR(chosen, btn);
+  }
+  if (getHighestRR() === null) {
+    const options = ['0', ...RR_LEVELS];
+    const chosen = await chooseFromListDialog(
+      'What was the Highest R Reached before this trade closed?',
+      options.map((rr) => ({ id: rr, label: rr }))
+    );
+    if (!chosen) { setTradeResult('pending'); return; }
+    const wrap = document.getElementById('highestRRToggle');
+    const btn = wrap.querySelector('.rr-btn[data-rr="' + chosen + '"]');
+    if (btn) setHighestRR(chosen, btn);
   }
 }
 
@@ -10748,8 +10798,10 @@ function applyTradeResultToForm(value) {
   // Routed through setTradeResult() (not an auto call) so loading a trade
   // that was saved as Pending correctly re-arms the sticky flag, and
   // loading a resolved Win/Loss trade correctly clears it.
+  // Phase 4: `{ loading: true }` marks this as a form-load, not a live user
+  // tap — see setTradeResult()'s comment on why that distinction matters.
   if (value === 'win' || value === 'loss' || value === 'pending') {
-    setTradeResult(value);
+    setTradeResult(value, { loading: true });
   } else {
     document.getElementById('resultWinBtn').classList.remove('win-active');
     document.getElementById('resultLossBtn').classList.remove('loss-active');
@@ -11200,6 +11252,23 @@ async function saveTrade() {
     if (watchlistEntryHandoff) {
       await updateWatchlistItem(watchlistEntryHandoff.itemId, { linkedTradeId: id });
       showToast('Linked back to the watchlist idea.', 'success');
+    }
+    // Watchlist → Trade handoff roadmap, Phase 4: mirror a resolved Win/Loss
+    // back onto the idea's own status — same one-way sync as the Phase 2
+    // linkedTradeId backlink above, just for the closing side. Runs on every
+    // save (not only a fresh handoff's first save), so re-editing a trade
+    // that later flips between Win and Loss keeps the idea's status accurate
+    // too. The composer's frozen-state notice (watchlistTrailComposerHtml)
+    // and the "View linked trade" link already read wlItem.status/
+    // linkedTradeId live, so this is the only write this phase needs — the
+    // card-level status badge itself is Phase 5's job.
+    if (trade.sourceWatchlistItemId && (result === 'win' || result === 'loss')) {
+      if (!watchlistItemsLoaded) await loadAllWatchlistItems();
+      const closedStatus = result === 'win' ? 'won' : 'lost';
+      const wlItem = allWatchlistItems.find((it) => it.id === trade.sourceWatchlistItemId);
+      if (wlItem && wlItem.status !== closedStatus) {
+        await updateWatchlistItem(trade.sourceWatchlistItemId, { status: closedStatus });
+      }
     }
     await loadAllTrades();
     if (document.getElementById('statTotalTrades')) {
