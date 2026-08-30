@@ -5570,6 +5570,14 @@ function voiceNoteRowHtml(vn, kind) {
 
 let tradeImages = []; // { id, slot: 'before'|'after', source: 'cloudinary', url, publicId, sizeKB, name }
 let tradeVoiceNotes = []; // { id, url, publicId, sizeKB, durationSec, transcript, createdBy, createdAt } — same in-memory-until-Save-Trade pattern as tradeImages above
+// Watchlist → Trade handoff roadmap, Phase 2: set to { itemId } by
+// beginWatchlistEntryHandoff() right when an Entry-tagged update redirects
+// into this form pre-filled. saveTrade() reads it to stamp the new trade's
+// sourceWatchlistItemId and to write the backlink onto the watchlist item
+// once the save actually succeeds. Cleared by resetEntryForm() and
+// loadTradeIntoForm() so an abandoned handoff (navigated away without
+// saving) can never silently attach to some later, unrelated trade.
+let watchlistEntryHandoff = null;
 
 // Called once a voice note has finished uploading to Cloudinary. Unlike the
 // Journal version, a trade doesn't need to exist in Supabase yet — it just
@@ -11095,6 +11103,12 @@ async function saveTrade() {
     images: tradeImages.slice(), // replaces whatever was stored before — old images are never orphaned
     notes: finalNotes,
     voiceNotes: tradeVoiceNotes.slice(),
+    // Watchlist → Trade handoff roadmap, Phase 2: stamped once, from
+    // watchlistEntryHandoff, the moment this trade is first saved after an
+    // Entry-tagged redirect. Preserved on every later edit of this same
+    // trade (falls back to whatever the row already had) — same "stamped
+    // once, never overwritten" treatment as createdBy above.
+    sourceWatchlistItemId: watchlistEntryHandoff ? watchlistEntryHandoff.itemId : ((allTrades.find(t => t.id === id) || {}).sourceWatchlistItemId || null),
   };
 
   // Cloudinary assets that existed on this trade before this save but aren't
@@ -11118,6 +11132,15 @@ async function saveTrade() {
     droppedImages.forEach(img => deleteFromCloudinary(img.publicId, mediaType(img)));
     setSaveTradeBanner('✓ Trade saved.', 'success');
     flashSaveResult(result);
+    // Watchlist → Trade handoff roadmap, Phase 2: this is the moment the
+    // handoff actually completes — the watchlist card's `status` was
+    // already set to 'pending' back when the Entry tag was posted, but the
+    // backlink to a real trade only exists now that the trade itself has
+    // actually been saved (Strategy required, same as any other trade).
+    if (watchlistEntryHandoff) {
+      await updateWatchlistItem(watchlistEntryHandoff.itemId, { linkedTradeId: id });
+      showToast('Linked back to the watchlist idea.', 'success');
+    }
     await loadAllTrades();
     if (document.getElementById('statTotalTrades')) {
       await refreshDashboardTradeSummary();
@@ -11150,6 +11173,12 @@ async function saveTrade() {
 
 function resetEntryForm() {
   editingTradeId = null;
+  // Watchlist → Trade handoff roadmap, Phase 2: any in-progress handoff is
+  // abandoned once the form resets — whether that's because the handoff's
+  // own save just completed, or because the user navigated away/started a
+  // fresh manual trade instead. Either way, the NEXT trade saved from this
+  // form must never inherit a stale backlink.
+  watchlistEntryHandoff = null;
   tradeImages = [];
   tradeVoiceNotes = [];
   renderImageGrid();
@@ -11200,6 +11229,12 @@ async function loadTradeIntoForm(id) {
   const trade = allTrades.find(t => t.id === id);
   if (!trade) return;
   editingTradeId = id;
+  // Watchlist → Trade handoff roadmap, Phase 2: editing an existing trade is
+  // never itself a new handoff — its sourceWatchlistItemId (if any) already
+  // lives on the row and is preserved by saveTrade()'s fallback, not by this
+  // flag. Any handoff left dangling from an abandoned New Trade attempt must
+  // not leak onto this unrelated edit.
+  watchlistEntryHandoff = null;
   tradeImages = (trade.images || []).slice();
   tradeVoiceNotes = (trade.voiceNotes || []).slice();
   renderTradeVoiceNotes();
@@ -12605,6 +12640,10 @@ let wlTrailDraftText = {};   // itemId -> string
 let wlTrailDraftImages = {}; // itemId -> array of uploaded (not yet posted) image objects
 let wlTrailDraftVideo = {};  // itemId -> single uploaded (not yet posted) video object, or absent
 let wlTrailDraftVoices = {}; // itemId -> array of recorded (not yet posted) voice note objects — same array shape as tradeVoiceNotes
+// Watchlist → Trade handoff roadmap, Phase 2: itemId -> true while the
+// composer's "Tag as Entry" checkbox is checked for that card's in-progress
+// draft update. Read once, at post time, by addWatchlistTrailEntry().
+let wlTrailDraftEntryTag = {};
 
 // ---- Editing an already-posted trail entry ----
 // Only one entry per item can be in edit mode at a time (mirrors only one
@@ -12633,6 +12672,28 @@ function setWlTrailEditStatus(entryId, msg, cls) {
 }
 
 function watchlistTrailComposerHtml(itemId) {
+  // Watchlist → Trade handoff roadmap, Phase 2: once an Entry-tagged update
+  // has taken this idea live, the composer is replaced with a frozen notice
+  // — "the card freezes once it goes live" from the roadmap. All further
+  // narration continues on the Trade page itself (During images/notes),
+  // not back here, so there is deliberately no way to post another update
+  // from this state. Card-level status badges + richer styling here are
+  // Phase 5's job; this is just the functional freeze.
+  const wlItem = allWatchlistItems.find((it) => it.id === itemId);
+  if (wlItem && wlItem.status && wlItem.status !== 'idea') {
+    const statusLabel = wlItem.status === 'pending' ? 'Live — trade in progress'
+      : wlItem.status === 'won' ? 'Closed — Won'
+      : wlItem.status === 'lost' ? 'Closed — Lost'
+      : wlItem.status === 'invalidated' ? 'Invalidated'
+      : 'Live';
+    return '<div class="wl-update-composer">' +
+      '<div class="wl-update-composer-head"><span class="wl-trail-icon-chip"><i data-lucide="lock" style="width:12px;height:12px;"></i></span><span>' + escapeHtml(statusLabel) + '</span></div>' +
+      '<div class="mono muted" style="font-size:11.5px;">This idea went live — no more updates here. Further notes and screenshots continue on the linked trade.</div>' +
+      (wlItem.linkedTradeId
+        ? '<button class="wl-post-update-btn" style="margin-top:8px;" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(wlItem.linkedTradeId) + '\')">View linked trade →</button>'
+        : '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen.</div>') +
+    '</div>';
+  }
   const draftText = wlTrailDraftText[itemId] || '';
   const draftImages = wlTrailDraftImages[itemId] || [];
   const draftVideo = wlTrailDraftVideo[itemId];
@@ -12663,6 +12724,16 @@ function watchlistTrailComposerHtml(itemId) {
     '<div id="' + composeEditorId + '" class="mono rt-editor" contenteditable="true" data-placeholder="Add a dated update — price hit my zone, invalidated, etc…" ' +
       'oninput="wlTrailDraftText[\'' + itemId + '\'] = this.innerHTML" onpaste="rtHandlePaste(event)">' + rtInitialHtml(draftText) + '</div>' +
     previewHtml + voicePreviewHtml +
+    // Watchlist → Trade handoff roadmap, Phase 2: the one way to tag an
+    // update Entry — full None/Entry/Win/Loss/Invalidated chips across every
+    // update are Phase 5's job, but Win/Loss/Invalidated can't actually mean
+    // anything until AFTER an Entry exists and the story has moved to the
+    // Trade page, so this composer only ever needs to offer Entry itself.
+    '<label style="display:flex; align-items:flex-start; gap:7px; font-size:11.5px; color:var(--muted); margin-top:8px; cursor:pointer;">' +
+      '<input type="checkbox" id="wlTrailEntryTag_' + itemId + '" ' + (wlTrailDraftEntryTag[itemId] ? 'checked' : '') + ' ' +
+        'onchange="toggleWlTrailEntryTag(\'' + itemId + '\', this.checked)" style="width:14px; height:14px; margin-top:1px; flex-shrink:0;" />' +
+      '<span>Tag as <b style="color:var(--light);">Entry</b> — take this idea live as a trade (pre-fills a New Trade form from this card\'s trail; the card then stops accepting new updates)</span>' +
+    '</label>' +
     '<div class="wl-update-composer-actions">' +
       '<div class="wl-update-composer-tools">' +
         '<div class="icon-btn" onclick="document.getElementById(\'wlTrailMediaInput_' + itemId + '\').click()" title="Attach image or video"><i data-lucide="paperclip"></i></div>' +
@@ -12672,10 +12743,20 @@ function watchlistTrailComposerHtml(itemId) {
           '<i data-lucide="mic"></i></div>' +
       '</div>' +
       '<input type="file" id="wlTrailMediaInput_' + itemId + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleWlTrailMediaSelect(event, \'' + itemId + '\')" />' +
-      '<button class="wl-post-update-btn" onclick="addWatchlistTrailEntry(\'' + itemId + '\')">+ Post update</button>' +
+      '<button class="wl-post-update-btn" onclick="addWatchlistTrailEntry(\'' + itemId + '\')">' + (wlTrailDraftEntryTag[itemId] ? '+ Post & Take Trade' : '+ Post update') + '</button>' +
     '</div>' +
     '<div id="wlTrailStatus_' + itemId + '" class="extract-status"></div>' +
   '</div>';
+}
+
+// Watchlist → Trade handoff roadmap, Phase 2: flips the composer's Entry-tag
+// checkbox for one card's in-progress draft. Re-renders just to update the
+// "+ Post update" / "+ Post & Take Trade" button label — cheap, and the same
+// pattern handleWlTrailMediaSelect() already uses after a draft change.
+function toggleWlTrailEntryTag(itemId, checked) {
+  if (checked) wlTrailDraftEntryTag[itemId] = true;
+  else delete wlTrailDraftEntryTag[itemId];
+  renderWatchlistList();
 }
 
 // Draft (not-yet-posted) voice note row inside the trail composer — same
@@ -12814,6 +12895,23 @@ async function addWatchlistTrailEntry(itemId) {
   const voices = wlTrailDraftVoices[itemId] || [];
   if (!rtToText(text) && !images.length && !video && !voices.length) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
 
+  // Watchlist → Trade handoff roadmap, Phase 2. "One life per card" — the
+  // composer that offers this checkbox is itself hidden once status leaves
+  // 'idea' (see watchlistTrailComposerHtml's frozen-state branch), but this
+  // is the hard guard against a stale render still showing it.
+  const tagAsEntry = !!wlTrailDraftEntryTag[itemId];
+  if (tagAsEntry && item.status && item.status !== 'idea') {
+    setWlTrailStatus(itemId, 'This idea has already gone live — reload to see its current state.', 'error');
+    return;
+  }
+  if (tagAsEntry) {
+    const confirmed = await confirmDialog(
+      'Tag this update as Entry and take "' + (item.pair || 'this idea') + '" live? This card stops accepting new updates — further notes and screenshots happen on the Trade page instead.',
+      { confirmLabel: 'Take Trade' }
+    );
+    if (!confirmed) return;
+  }
+
   if (!Array.isArray(item.trail)) item.trail = [];
   // Accountability roadmap Phase A: each trail update is its own appendable
   // entry, so it gets its own createdBy — whoever posted THIS update, not
@@ -12826,10 +12924,16 @@ async function addWatchlistTrailEntry(itemId) {
     images,
     video,
     voices,
+    // Watchlist → Trade handoff roadmap, Phase 1/2: this composer only ever
+    // writes 'entry' — Win/Loss/Invalidated tagging is Phase 4/5's job, once
+    // the story has moved to the Trade page per the freeze rule.
+    statusTag: tagAsEntry ? 'entry' : null,
   };
   const updated = [...item.trail, entry];
   wlTrailEntryExpanded.add(entry.id); // show the update you just posted, not collapsed
-  const ok = await updateWatchlistItem(itemId, { trail: updated });
+  const patch = { trail: updated };
+  if (tagAsEntry) patch.status = 'pending'; // freezes the composer on next render
+  const ok = await updateWatchlistItem(itemId, patch);
   if (!ok) {
     setWlTrailStatus(itemId, 'Failed to save — check your connection and try again.', 'error');
     return;
@@ -12838,6 +12942,7 @@ async function addWatchlistTrailEntry(itemId) {
   delete wlTrailDraftImages[itemId];
   delete wlTrailDraftVideo[itemId];
   delete wlTrailDraftVoices[itemId];
+  delete wlTrailDraftEntryTag[itemId];
   renderWatchlistList();
   notifyOtherAccount({
     type: 'watchlist_trail',
@@ -12846,6 +12951,62 @@ async function addWatchlistTrailEntry(itemId) {
     message: `${currentAccountName()} posted an update on ${item.pair}`,
     deepLink: `watchlist:${itemId}:trail:${entry.id}`,
   });
+
+  // Watchlist → Trade handoff roadmap, Phase 2: the Entry tag itself is now
+  // saved (trail + status:'pending') — hand off to the New Trade form next.
+  // `item` is the same object updateWatchlistItem() just mutated in place,
+  // so item.trail/item.status already reflect what was just persisted.
+  if (tagAsEntry) {
+    beginWatchlistEntryHandoff(item);
+  }
+}
+
+// Watchlist → Trade handoff roadmap, Phase 2: called right after an
+// Entry-tagged update has been saved. Builds the New Trade form's starting
+// state straight from the idea's trail — every trail image becomes a Before
+// shot (newest-first cap at MAX_IMAGES_PER_SLOT_BEFORE if the trail has more
+// than that), every trail update's own text becomes the Notes pre-fill, in
+// date order — then hands off to the real form. Strategy is left for the
+// user to pick: it's already a hard requirement on every trade and this
+// doesn't change that, so nothing is actually saved until they hit Save
+// Trade themselves.
+function beginWatchlistEntryHandoff(item) {
+  const trail = Array.isArray(item.trail) ? item.trail : [];
+  const allImages = [];
+  trail.forEach((e) => (Array.isArray(e.images) ? e.images : []).forEach((img) => allImages.push(img)));
+  const capped = allImages.slice(-MAX_IMAGES_PER_SLOT_BEFORE);
+  const beforeImages = capped.map((img, i) => ({
+    id: 'img_' + Date.now() + '_' + i,
+    displayId: nextMediaSeq(), // Roadmap Phase 11
+    slot: 'before',
+    type: img.type || 'image',
+    caption: '', // Roadmap Step 5/6
+    source: img.source || 'cloudinary',
+    url: img.url,
+    publicId: img.publicId,
+    sizeKB: img.sizeKB,
+    name: img.name || '',
+  }));
+  const notesText = trail
+    .map((e) => ({ label: watchlistTrailDateLabel(e.timestamp), text: rtToText(e.text) }))
+    .filter((e) => e.text)
+    .map((e) => e.label + ': ' + e.text)
+    .join('\n\n');
+
+  resetEntryForm(); // also clears any previous watchlistEntryHandoff before this one is set below
+  watchlistEntryHandoff = { itemId: item.id };
+  document.getElementById('pairInput').value = item.pair || '';
+  setDirection(item.direction === 'sell' ? 'sell' : 'buy');
+  applyTradeResultToForm('pending');
+  tradeImages = beforeImages;
+  renderImageGrid();
+  document.getElementById('tradeNotesInput').value = notesText;
+  document.getElementById('entryTitle').textContent = 'New Trade — from Watchlist';
+  showScreen('entry', document.getElementById('tabEntry'));
+  showToast('Pick a Strategy and fill in the rest, then Save Trade to link it back to this idea.', 'info');
+  if (allImages.length > beforeImages.length) {
+    showToast('Only the most recent ' + MAX_IMAGES_PER_SLOT_BEFORE + ' trail images fit as Before shots — the rest stay on the watchlist card.', 'info');
+  }
 }
 
 // ================= WATCHLIST TRAIL ENTRY EDIT (post-publish edit) =================
