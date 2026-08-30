@@ -467,6 +467,12 @@
      overlap; when there's no remove button (read-only contexts) it just
      shows alone in the same top-right corner. */
   .trade-thumb-id-badge { position: absolute; top: 26px; right: 4px; background: rgba(11,14,20,0.85); border: 1px solid var(--border); color: var(--muted); font-size: 8px; font-family: 'JetBrains Mono', monospace; padding: 1px var(--space-1); border-radius: 4px; letter-spacing: 0.3px; pointer-events: none; }
+  /* Phase 3 (Watchlist → Trade handoff): marks a screenshot added to the
+     gallery while the trade is live (slot 'during'), distinguishing it from
+     the original Before shots and the closing After shots at a glance.
+     Sits just above the bottom size bar, left-aligned, so it never collides
+     with the top-corner remove/id/reorder badges above. */
+  .trade-thumb-during-badge { position: absolute; bottom: 16px; left: 4px; background: var(--brand); color: #1a0f16; font-size: 8px; font-weight: 700; letter-spacing: 0.4px; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
   /* Roadmap Phase 14: reorder handle — mirrors the id badge's left/right
      symmetry (caption dot top-left, this sits below it; remove sits
      top-right, id badge sits below that). Drag-and-drop itself works on the
@@ -2803,6 +2809,32 @@
           <div id="tradeImgGridBefore" class="trade-img-grid"></div>
         </div>
 
+        <!-- Phase 3 (Watchlist → Trade handoff): only shown while Trade Result
+             is Pending — see applyPendingLockToRRFields(), which toggles this
+             wrap's visibility alongside the R:R lock it already does on every
+             result change. New images added here are tagged slot 'during' and
+             badged accordingly in the gallery (mediaBadgesHtml). Always
+             image-anchored — there's no text-only "During" entry, same as
+             Before/After. -->
+        <div class="screenshot-slot" id="duringSlotWrap" style="display:none; margin-top:20px;">
+          <label style="display:block; font-size:11px; color:var(--muted); margin-bottom: var(--space-2); font-weight:600;">During Trade <span style="font-weight:400;">(while it's live — up to 20)</span></label>
+          <input type="file" id="tradeImageInputDuring" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleFileSelect(event, 'during')" />
+          <div id="uploadDropDuring" class="upload-drop"
+               onclick="document.getElementById('tradeImageInputDuring').click()"
+               ondragover="event.preventDefault(); this.classList.add('dragover');"
+               ondragleave="this.classList.remove('dragover');"
+               ondrop="event.preventDefault(); this.classList.remove('dragover'); handleFileSelect(event, 'during');">
+            <div class="upload-icon"><i data-lucide="camera"></i></div>
+            <div class="upload-label">Tap, drop, or paste (Ctrl+V) a screenshot or video</div>
+            <div class="upload-sub">PNG, JPG, WEBP, GIF, MP4, MOV, WEBM</div>
+          </div>
+          <div class="url-paste-row">
+            <input id="imageUrlInputDuring" placeholder="Or paste an image/video link…" onkeydown="if(event.key==='Enter'){event.preventDefault(); addImageFromUrl('during');}" />
+            <button class="url-add-btn" onclick="addImageFromUrl('during')">Add</button>
+          </div>
+          <div id="tradeImgGridDuring" class="trade-img-grid"></div>
+        </div>
+
         <div class="screenshot-slot" style="margin-top:20px;">
           <label style="display:block; font-size:11px; color:var(--muted); margin-bottom: var(--space-2); font-weight:600;">After Trade <span style="font-weight:400;">(up to 4)</span></label>
           <input type="file" id="tradeImageInputAfter" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleFileSelect(event, 'after')" />
@@ -5058,7 +5090,8 @@ const LOSS_KEYS = Object.keys(OUTCOME_META).filter(k => OUTCOME_META[k].group ==
 
 
 // ----- New Trade: Before/After screenshots (per-slot, compressed, with URL paste) -----
-// One image per slot ('before' | 'after'). tradeImages stays a flat array (each entry
+// One image per Before/After slot, plus any number tagged During (Phase 3).
+// tradeImages stays a flat array (each entry
 // tagged with .slot) so storage (images jsonb column), the Trades-tab thumbnail/count
 // badge, the cross-trade screenshot gallery, and the fullscreen viewer's next/prev nav
 // — none of which know about slots — keep working unchanged against the plain array.
@@ -5068,9 +5101,26 @@ const LOSS_KEYS = Object.keys(OUTCOME_META).filter(k => OUTCOME_META[k].group ==
 // outcome is normally just one chart.
 const MAX_IMAGES_PER_SLOT_BEFORE = 12; // was 6 — bumped per request, 12 before + 8 after = 20 total
 const MAX_IMAGES_PER_SLOT_AFTER = 8; // was 4 — bumped per request, 12 before + 8 after = 20 total
+// Phase 3 (Watchlist → Trade handoff): a third slot for screenshots added
+// while the trade is live (Pending). Generous cap since a screenshot is
+// already being taken constantly for these ideas anyway (see roadmap).
+const MAX_IMAGES_PER_SLOT_DURING = 20;
 function maxImagesForSlot(slot) {
-  return slot === 'before' ? MAX_IMAGES_PER_SLOT_BEFORE : MAX_IMAGES_PER_SLOT_AFTER;
+  if (slot === 'before') return MAX_IMAGES_PER_SLOT_BEFORE;
+  if (slot === 'during') return MAX_IMAGES_PER_SLOT_DURING;
+  return MAX_IMAGES_PER_SLOT_AFTER;
 }
+// Shared before/during/after → DOM id + label lookups, used everywhere the
+// upload UI needs to address a specific slot's markup (drop zone, URL input,
+// grid, status copy) without repeating a three-way ternary at each call site.
+const SLOT_DROP_IDS = { before: 'uploadDropBefore', during: 'uploadDropDuring', after: 'uploadDropAfter' };
+const SLOT_GRID_IDS = { before: 'tradeImgGridBefore', during: 'tradeImgGridDuring', after: 'tradeImgGridAfter' };
+const SLOT_URL_INPUT_IDS = { before: 'imageUrlInputBefore', during: 'imageUrlInputDuring', after: 'imageUrlInputAfter' };
+const SLOT_LABELS = { before: 'Before', during: 'During', after: 'After' };
+function slotDropId(slot) { return SLOT_DROP_IDS[slot] || SLOT_DROP_IDS.after; }
+function slotGridId(slot) { return SLOT_GRID_IDS[slot] || SLOT_GRID_IDS.after; }
+function slotUrlInputId(slot) { return SLOT_URL_INPUT_IDS[slot] || SLOT_URL_INPUT_IDS.after; }
+function slotLabel(slot) { return SLOT_LABELS[slot] || 'After'; }
 const MAX_RAW_BYTES = 20 * 1024 * 1024;      // reject anything absurdly large before we even try to upload (images)
 const MAX_VIDEO_BYTES = 100 * 1024 * 1024;   // videos run bigger — separate cap (Roadmap Step 2)
 const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp', 'image/gif'];
@@ -5568,7 +5618,7 @@ function voiceNoteRowHtml(vn, kind) {
   '</div>';
 }
 
-let tradeImages = []; // { id, slot: 'before'|'after', source: 'cloudinary', url, publicId, sizeKB, name }
+let tradeImages = []; // { id, slot: 'before'|'during'|'after', source: 'cloudinary', url, publicId, sizeKB, name }
 let tradeVoiceNotes = []; // { id, url, publicId, sizeKB, durationSec, transcript, createdBy, createdAt } — same in-memory-until-Save-Trade pattern as tradeImages above
 // Watchlist → Trade handoff roadmap, Phase 2: set to { itemId } by
 // beginWatchlistEntryHandoff() right when an Entry-tagged update redirects
@@ -5620,13 +5670,13 @@ function imagesForSlot(slot) {
 }
 
 function updateSlotDropVisibility(slot) {
-  const drop = document.getElementById(slot === 'before' ? 'uploadDropBefore' : 'uploadDropAfter');
+  const drop = document.getElementById(slotDropId(slot));
   if (drop) drop.style.display = imagesForSlot(slot).length >= maxImagesForSlot(slot) ? 'none' : 'block';
 }
 
 function renderImageGrid() {
-  ['before', 'after'].forEach(slot => {
-    const grid = document.getElementById(slot === 'before' ? 'tradeImgGridBefore' : 'tradeImgGridAfter');
+  ['before', 'during', 'after'].forEach(slot => {
+    const grid = document.getElementById(slotGridId(slot));
     if (!grid) return;
     grid.innerHTML = '';
     const slotImages = imagesForSlot(slot);
@@ -5682,12 +5732,12 @@ async function handleFileSelect(event, slot) {
   const files = Array.from(rawFiles);
   if (event.target) event.target.value = ''; // allow re-selecting the same file later
 
-  const slotLabel = slot === 'before' ? 'Before' : 'After';
+  const slotLbl = slotLabel(slot);
   const slotMax = maxImagesForSlot(slot);
   const accepted = [];
   for (const file of files) {
     if (imagesForSlot(slot).length + accepted.length >= slotMax) {
-      setImageStatus((slotMax === 1 ? 'Only one ' + slotLabel + ' item' : 'Only ' + slotMax + ' ' + slotLabel + ' items') + ' — remove one first to add another.', 'error');
+      setImageStatus((slotMax === 1 ? 'Only one ' + slotLbl + ' item' : 'Only ' + slotMax + ' ' + slotLbl + ' items') + ' — remove one first to add another.', 'error');
       break;
     }
     if (!isAcceptedFile(file)) {
@@ -5736,13 +5786,13 @@ async function handleFileSelect(event, slot) {
 
 // ---- paste-an-image-link support ----
 async function addImageFromUrl(slot) {
-  const input = document.getElementById(slot === 'before' ? 'imageUrlInputBefore' : 'imageUrlInputAfter');
+  const input = document.getElementById(slotUrlInputId(slot));
   const url = input.value.trim();
   if (!url) return;
-  const slotLabel = slot === 'before' ? 'Before' : 'After';
+  const slotLbl = slotLabel(slot);
   const slotMax = maxImagesForSlot(slot);
   if (imagesForSlot(slot).length >= slotMax) {
-    setImageStatus((slotMax === 1 ? 'Only one ' + slotLabel + ' screenshot' : 'Only ' + slotMax + ' ' + slotLabel + ' screenshots') + ' — remove one first to add another.', 'error');
+    setImageStatus((slotMax === 1 ? 'Only one ' + slotLbl + ' screenshot' : 'Only ' + slotMax + ' ' + slotLbl + ' screenshots') + ' — remove one first to add another.', 'error');
     return;
   }
   let parsed;
@@ -5873,6 +5923,7 @@ document.addEventListener('paste', (event) => {
   const journalDrop = active && active.closest && active.closest('[data-journal-media-drop]');
   const subfolderCard = active && active.closest && active.closest('.subfolder-card[data-subfolder-id]');
   const beforeDrop = active && active.closest && active.closest('#uploadDropBefore, #imageUrlInputBefore');
+  const duringDrop = active && active.closest && active.closest('#uploadDropDuring, #imageUrlInputDuring');
   const afterDrop = active && active.closest && active.closest('#uploadDropAfter, #imageUrlInputAfter');
 
   if (strategyDrop) {
@@ -5898,6 +5949,9 @@ document.addEventListener('paste', (event) => {
     // renderJournalMediaSection) — nothing to attach media to until the
     // entry has been created by a first blur on title/status/pair/body.
     if (journalEditingId) { event.preventDefault(); handleJournalMediaSelect({ target: { files } }); }
+  } else if (duringDrop) {
+    event.preventDefault();
+    handleFileSelect({ target: { files } }, 'during');
   } else if (afterDrop) {
     event.preventDefault();
     handleFileSelect({ target: { files } }, 'after');
@@ -6258,6 +6312,11 @@ function setTradeResult(result, opts) {
 // flow exactly as before.
 function applyPendingLockToRRFields() {
   const pending = getTradeResult() === 'pending';
+  // Phase 3 (Watchlist → Trade handoff): the During screenshot section only
+  // makes sense while the trade is actually open, so it rides the same
+  // Pending check as the R:R lock above rather than a separate listener.
+  const duringWrap = document.getElementById('duringSlotWrap');
+  if (duringWrap) duringWrap.style.display = pending ? 'block' : 'none';
   const timeInput = document.getElementById('highestRAtInput');
   const rrWrap = document.getElementById('highestRRToggle');
   if (timeInput) {
@@ -10696,6 +10755,7 @@ function applyTradeResultToForm(value) {
     document.getElementById('resultLossBtn').classList.remove('loss-active');
     document.getElementById('resultPendingBtn').classList.remove('pending-active');
     document.getElementById('tradeResultToggle').dataset.pendingSticky = '0';
+    applyPendingLockToRRFields(); // keeps the During section (and R:R lock) in sync with the cleared result
   }
 }
 
@@ -11695,6 +11755,10 @@ function gridThumbSrc(item) {
 // the same overlays without duplicating the check-and-build logic per site.
 function mediaBadgesHtml(item) {
   let out = '';
+  // Phase 3 (Watchlist → Trade handoff): distinguishes a screenshot added
+  // while the trade was live from the original Before shots / closing After
+  // shots, wherever this thumbnail is rendered.
+  if (item && item.slot === 'during') out += '<div class="trade-thumb-during-badge">DURING</div>';
   if (mediaType(item) === 'video') out += '<div class="trade-thumb-play">▶</div>';
   if (mediaCaption(item)) out += '<div class="trade-thumb-caption-dot" title="Has notes"><i data-lucide="file-text"></i></div>';
   // Roadmap Phase 11: visible, searchable ID — same badge style/position
@@ -11796,7 +11860,7 @@ async function promptMediaReorder(key, index, total) {
 // display ids — only the array's order — so unlike delete/replace there's
 // no asset cleanup to worry about here.
 async function applyMediaReorder(key, fromIndex, toIndex) {
-  if (key === 'tradeSlot:before' || key === 'tradeSlot:after') {
+  if (key.indexOf('tradeSlot:') === 0) {
     const slot = key.split(':')[1];
     // imagesForSlot() returns a filtered COPY, not a live view — reorder that
     // copy, then write the new relative order back into tradeImages at the
@@ -13814,6 +13878,22 @@ async function openSidePanel(id) {
     '<div style="flex:1;">' + slotThumb(beforeIdx, 'Before') + '</div>' +
     '<div style="flex:1;">' + slotThumb(afterIdx, 'After') + '</div>' +
   '</div>';
+  // Phase 3 (Watchlist → Trade handoff): During shots don't fit the fixed
+  // Before/After pair above (there can be many, added over the trade's
+  // whole live duration), so they get their own row — only rendered when
+  // at least one exists.
+  const duringIdxs = [];
+  tradeImgs.forEach((img, idx) => { if (img.slot === 'during' && img.url) duringIdxs.push(idx); });
+  const duringThumbs = duringIdxs.length
+    ? '<div style="margin-top:10px;">' +
+        '<div class="sub" style="font-size:10.5px; margin-bottom: var(--space-1);">During (' + duringIdxs.length + ')</div>' +
+        '<div class="trade-img-grid">' +
+          duringIdxs.map((idx) =>
+            '<div class="trade-thumb" onclick="openViewerForTrade(\'' + trade.id + '\', ' + idx + ')"><img src="' + gridThumbSrc(tradeImgs[idx]).replace(/"/g,'&quot;') + '" />' + mediaBadgesHtml(tradeImgs[idx]) + '</div>'
+          ).join('') +
+        '</div>' +
+      '</div>'
+    : '';
   panel.innerHTML =
     '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-4);">' +
       '<h2 style="margin:0;">' + escapeHtml(trade.pair || 'Trade') + ' ' + authorBadgeHtml(trade.createdBy) + '</h2>' +
@@ -13845,6 +13925,7 @@ async function openSidePanel(id) {
     '</div>' +
     '<h2 style="margin-top:10px;">Screenshots</h2>' +
     thumbs +
+    duringThumbs +
     '<div style="margin-top:14px;">' +
       '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Journal Origin</label>' +
       journalOriginSectionHtml(trade.id) +
