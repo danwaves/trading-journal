@@ -3949,6 +3949,12 @@ function otherAccountName() {
   const email = otherAccountEmail();
   return (email && AUTHOR_BADGES[email]) ? AUTHOR_BADGES[email].name : 'Other';
 }
+// Display name for whoever is currently signed in — used in notification
+// messages sent to the other account ("Dan added a new trade: EURUSD").
+function currentAccountName() {
+  if (!currentAccount) return 'Someone';
+  return AUTHOR_BADGES[currentAccount.email] ? AUTHOR_BADGES[currentAccount.email].name : 'Someone';
+}
 
 // ================= NOTIFICATIONS — Phase 2 (subscribe flow) =================
 // Registers the push service worker, requests permission, subscribes this
@@ -4058,6 +4064,42 @@ async function enablePushNotifications() {
     console.error('enablePushNotifications failed:', e);
     if (statusEl) statusEl.textContent = "Couldn't enable notifications — try again.";
     if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Enable notifications on this device'; }
+  }
+}
+
+// ================= NOTIFICATIONS — Phase 3/4 (send trigger) =================
+// Fire-and-forget: call this after any successful save that the OTHER
+// account should hear about. Never throws — a notification failing to
+// send should never block or roll back the actual save it's attached to.
+//
+// IMPORTANT: fill this in with the exact same value you set for the
+// NOTIFY_API_SECRET environment variable on Vercel. It's sent as a header
+// so the /api/send-notification endpoint can tell this app is the one
+// calling it — not a security boundary against someone reading this
+// file's source (anyone can view page source), just enough to stop
+// randoms from hitting the endpoint directly and spamming pushes.
+const NOTIFY_API_SECRET_CLIENT = 'dw-notify-8x2k9';
+
+// { type, sourceTable, sourceId, message, deepLink }
+async function notifyOtherAccount({ type, sourceTable, sourceId, message, deepLink }) {
+  try {
+    const recipientEmail = otherAccountEmail();
+    if (!recipientEmail || !currentAccount) return; // nothing to notify, or not logged in
+    await fetch('/api/send-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_API_SECRET_CLIENT },
+      body: JSON.stringify({
+        recipientEmail,
+        senderEmail: currentAccount.email,
+        type,
+        sourceTable,
+        sourceId,
+        message,
+        deepLink: deepLink || '',
+      }),
+    });
+  } catch (e) {
+    console.error('notifyOtherAccount failed (non-fatal):', e);
   }
 }
 
@@ -6559,6 +6601,13 @@ async function createJournalEntry(fields) {
   const ok = await persistJournalEntry(entry);
   if (!ok) return null;
   allJournalEntries.unshift(entry);
+  notifyOtherAccount({
+    type: 'journal_entry',
+    sourceTable: 'journal_entries',
+    sourceId: id,
+    message: `${currentAccountName()} added a new journal entry${entry.title ? ': ' + entry.title : ''}`,
+    deepLink: `journal:${id}`,
+  });
   return entry;
 }
 
@@ -7640,6 +7689,13 @@ async function onJournalVoiceNoteRecorded(voiceNote) {
     renderJournalVoiceNotes();
     return;
   }
+  notifyOtherAccount({
+    type: 'voice_note',
+    sourceTable: 'journal_entries',
+    sourceId: journalEditingId,
+    message: `${currentAccountName()} added a voice note on "${entry.title || 'a journal entry'}"`,
+    deepLink: `journal:${journalEditingId}`,
+  });
   // Transcript, if any, drops straight into the Notes field — same as if it
   // had been typed — and goes through the normal autosave flow.
   if (voiceNote.transcript) {
@@ -8002,6 +8058,13 @@ async function addJournalSubNote() {
   if (!ok) { setJournalSubNoteStatus('Failed to save — check your connection and try again.', 'error'); return; }
   setJournalSubNoteStatus('', '');
   renderJournalSubNotesSection();
+  notifyOtherAccount({
+    type: 'journal_subnote',
+    sourceTable: 'journal_entries',
+    sourceId: journalEditingId,
+    message: `${currentAccountName()} posted an update on "${entry.title || 'a journal entry'}"`,
+    deepLink: `journal:${journalEditingId}:sub:${subNote.id}`,
+  });
 }
 
 async function onJournalSubNoteBodyBlur(subNoteId, value) {
@@ -8611,7 +8674,17 @@ async function persistSubfolderBlocks(sf, entry, subfolderId, errMsg) {
   sf.updatedAt = Date.now();
   entry.updatedAt = Date.now();
   const ok = await persistJournalEntry(entry);
-  if (!ok) setSubfolderStatus(subfolderId, errMsg || 'Failed to save — check your connection and try again.', 'error');
+  if (!ok) { setSubfolderStatus(subfolderId, errMsg || 'Failed to save — check your connection and try again.', 'error'); return ok; }
+  // Single hook for every subfolder block change (text/link/image/audio —
+  // add, edit, or delete all funnel through here), rather than repeating
+  // this in each call site.
+  notifyOtherAccount({
+    type: 'journal_subfolder',
+    sourceTable: 'journal_entries',
+    sourceId: entry.id,
+    message: `${currentAccountName()} updated a subfolder in "${entry.title || 'a journal entry'}"`,
+    deepLink: `journal:${entry.id}:subfolder:${subfolderId}`,
+  });
   return ok;
 }
 
@@ -10953,6 +11026,7 @@ async function saveTrade() {
   // overwrite one trade with the other instead of erroring. The random
   // suffix makes that collision astronomically unlikely without changing
   // the readable 'trade_<timestamp>' shape the rest of the app expects.
+  const isNewTradeForNotify = !editingTradeId; // captured before editingTradeId gets reset by resetEntryForm()
   const id = editingTradeId || ('trade_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
   const targetRR = getTargetRR();
   const highestRR = isPending ? null : getHighestRR();
@@ -11041,6 +11115,13 @@ async function saveTrade() {
     if (document.getElementById('statTotalTrades')) {
       await refreshDashboardTradeSummary();
     }
+    notifyOtherAccount({
+      type: 'trade',
+      sourceTable: 'trades',
+      sourceId: id,
+      message: `${currentAccountName()} ${isNewTradeForNotify ? 'added a new trade' : 'updated a trade'}: ${pair}`,
+      deepLink: `trade:${id}`,
+    });
     // Brief pause so the success banner is actually visible before the
     // redirect — navigating away instantly would mean the confirmation the
     // banner exists to show never actually gets seen.
@@ -12050,6 +12131,13 @@ async function createWatchlistItem(fields) {
   const ok = await persistWatchlistItem(item);
   if (!ok) return null;
   allWatchlistItems.push(item);
+  notifyOtherAccount({
+    type: 'watchlist_item',
+    sourceTable: 'watchlist_items',
+    sourceId: id,
+    message: `${currentAccountName()} added a new watchlist idea: ${item.pair}`,
+    deepLink: `watchlist:${id}`,
+  });
   return item;
 }
 
@@ -12729,6 +12817,13 @@ async function addWatchlistTrailEntry(itemId) {
   delete wlTrailDraftVideo[itemId];
   delete wlTrailDraftVoices[itemId];
   renderWatchlistList();
+  notifyOtherAccount({
+    type: 'watchlist_trail',
+    sourceTable: 'watchlist_items',
+    sourceId: itemId,
+    message: `${currentAccountName()} posted an update on ${item.pair}`,
+    deepLink: `watchlist:${itemId}:trail:${entry.id}`,
+  });
 }
 
 // ================= WATCHLIST TRAIL ENTRY EDIT (post-publish edit) =================
@@ -12803,6 +12898,13 @@ async function saveWatchlistTrailEditEntry(itemId, entryId) {
   delete wlTrailEditDraftVideo[entryId];
   delete wlTrailEditDraftVoices[entryId];
   renderWatchlistList();
+  notifyOtherAccount({
+    type: 'watchlist_trail_edit',
+    sourceTable: 'watchlist_items',
+    sourceId: itemId,
+    message: `${currentAccountName()} edited an update on ${item.pair}`,
+    deepLink: `watchlist:${itemId}:trail:${entryId}`,
+  });
 }
 
 function watchlistTrailEditFormHtml(itemId, entry) {
@@ -14124,6 +14226,17 @@ function flushViewerCaption() {
   if (isStillCurrent() && stateEl) stateEl.textContent = 'Saving…';
   return Promise.resolve(onCaptionSave(idx, img.caption || '', img.id, img.voiceNotes || []))
     .then((ok) => {
+      if (ok !== false) {
+        // deepLink left blank for now — no per-image nav target exists yet
+        // to jump straight to; Phase 5 will fill this in once one does.
+        notifyOtherAccount({
+          type: 'note',
+          sourceTable: 'media_notes',
+          sourceId: img.id,
+          message: `${currentAccountName()} updated a note on an image/video`,
+          deepLink: '',
+        });
+      }
       if (!isStillCurrent() || !stateEl) return;
       stateEl.textContent = ok === false ? 'Save failed' : 'Saved';
       return ok;
