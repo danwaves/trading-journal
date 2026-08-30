@@ -5137,12 +5137,12 @@ const LOSS_KEYS = Object.keys(OUTCOME_META).filter(k => OUTCOME_META[k].group ==
 // multi-timeframe methodologies) since the decision that led to a trade is
 // usually informed by more than one chart. After Trade stays at 1 — the
 // outcome is normally just one chart.
-const MAX_IMAGES_PER_SLOT_BEFORE = 12; // was 6 — bumped per request, 12 before + 8 after = 20 total
-const MAX_IMAGES_PER_SLOT_AFTER = 8; // was 4 — bumped per request, 12 before + 8 after = 20 total
+const MAX_IMAGES_PER_SLOT_BEFORE = Infinity; // uncapped per request — Before/After were 12/8, now unlimited
+const MAX_IMAGES_PER_SLOT_AFTER = Infinity; // uncapped per request — Before/After were 12/8, now unlimited
 // Phase 3 (Watchlist → Trade handoff): a third slot for screenshots added
-// while the trade is live (Pending). Generous cap since a screenshot is
-// already being taken constantly for these ideas anyway (see roadmap).
-const MAX_IMAGES_PER_SLOT_DURING = 20;
+// while the trade is live (Pending). Uncapped per request, same as
+// Before/After.
+const MAX_IMAGES_PER_SLOT_DURING = Infinity;
 function maxImagesForSlot(slot) {
   if (slot === 'before') return MAX_IMAGES_PER_SLOT_BEFORE;
   if (slot === 'during') return MAX_IMAGES_PER_SLOT_DURING;
@@ -12796,12 +12796,37 @@ function watchlistCardDetailHtml(item) {
 }
 
 // One trail entry's ("post's") viewer group — labeled with its post date,
-// since posts don't have names the way journal subfolders do. Read-only, so
-// no onDelete/onReplace/onCaptionSave (matches the original behavior).
-function buildWlTrailViewerGroup(entry) {
+// since posts don't have names the way journal subfolders do. No
+// onDelete/onReplace (deleting/replacing an image outright isn't offered
+// here — deleting the whole post via deleteWatchlistTrailEntry covers that),
+// but onCaptionSave IS wired up: per the Roadmap Step 6 rule elsewhere in
+// this file, "captions are editable everywhere media appears," not gated by
+// the `editable` flag — that flag only governs Replace/Delete button
+// visibility. This was previously missing here, which is why notes/voice
+// notes typed in this viewer looked like they saved (they update the
+// in-memory img.caption immediately) but silently vanished on refresh —
+// flushViewerCaption() no-ops when onCaptionSave is absent.
+function buildWlTrailViewerGroup(itemId, entry) {
   const images = Array.isArray(entry.images) ? entry.images.slice() : [];
   if (entry.video) images.push(entry.video);
-  return { label: watchlistTrailDateLabel(entry.timestamp) || 'Update', images };
+  return {
+    label: watchlistTrailDateLabel(entry.timestamp) || 'Update',
+    images,
+    onCaptionSave: async (imgIndex, caption, imgId, voiceNotes) => {
+      const item = allWatchlistItems.find((it) => it.id === itemId);
+      const liveEntry = item && Array.isArray(item.trail) ? item.trail.find((e) => e.id === entry.id) : null;
+      if (!liveEntry) return false;
+      const pool = Array.isArray(liveEntry.images) ? liveEntry.images.slice() : [];
+      if (liveEntry.video) pool.push(liveEntry.video);
+      const img = pool.find((im) => im.id === imgId);
+      if (!img) return false;
+      img.caption = caption;
+      if (voiceNotes) img.voiceNotes = voiceNotes;
+      const ok = await updateWatchlistItem(itemId, { trail: item.trail });
+      if (!ok) console.error('Failed to autosave caption for watchlist trail entry', entry.id);
+      return !!ok;
+    },
+  };
 }
 
 // Opens the shared media viewer for a posted trail entry's images/video —
@@ -12814,7 +12839,7 @@ function openViewerForWlTrailEntry(itemId, entryId, index) {
   const trail = item && Array.isArray(item.trail) ? item.trail : [];
   const entryIndex = trail.findIndex((e) => e.id === entryId);
   if (entryIndex === -1) return;
-  const groups = trail.map((e) => buildWlTrailViewerGroup(e));
+  const groups = trail.map((e) => buildWlTrailViewerGroup(itemId, e));
   openViewerGrouped(groups, entryIndex, index, { editable: false });
 }
 
@@ -13208,13 +13233,13 @@ async function addWatchlistTrailEntry(itemId) {
 
 // Watchlist → Trade handoff roadmap, Phase 2: called right after an
 // Entry-tagged update has been saved. Builds the New Trade form's starting
-// state straight from the idea's trail — every trail image becomes a Before
-// shot (newest-first cap at MAX_IMAGES_PER_SLOT_BEFORE if the trail has more
-// than that), every trail update's own text becomes the Notes pre-fill, in
-// date order — then hands off to the real form. Strategy is left for the
-// user to pick: it's already a hard requirement on every trade and this
-// doesn't change that, so nothing is actually saved until they hit Save
-// Trade themselves.
+// state straight from the idea's trail — every trail image AND video becomes
+// a Before shot (uncapped — Before is unlimited, so every trail item comes
+// across), each carrying over its own note/voice notes, and every trail
+// update's own text becomes the Notes pre-fill, in date order — then hands
+// off to the real form. Strategy is left for the user to pick: it's already
+// a hard requirement on every trade and this doesn't change that, so
+// nothing is actually saved until they hit Save Trade themselves.
 // Watchlist → Trade handoff roadmap — bugfix/recovery: undoes a Take Trade
 // that never actually produced a saved trade — the card is stuck showing
 // "Pending" with a frozen composer and no linkedTradeId, because the New
@@ -13245,15 +13270,23 @@ async function cancelUnlinkedWatchlistHandoff(itemId) {
 
 function beginWatchlistEntryHandoff(item) {
   const trail = Array.isArray(item.trail) ? item.trail : [];
-  const allImages = [];
-  trail.forEach((e) => (Array.isArray(e.images) ? e.images : []).forEach((img) => allImages.push(img)));
-  const capped = allImages.slice(-MAX_IMAGES_PER_SLOT_BEFORE);
+  const allMedia = [];
+  // bugfix: a trail update's video was never included here at all — only
+  // images made the jump to Before. Push each entry's video right after its
+  // images so chronological order (oldest→newest across the whole trail) is
+  // preserved the same way it already was for images-only.
+  trail.forEach((e) => {
+    (Array.isArray(e.images) ? e.images : []).forEach((img) => allMedia.push(img));
+    if (e.video) allMedia.push(e.video);
+  });
+  const capped = allMedia.slice(-MAX_IMAGES_PER_SLOT_BEFORE);
   const beforeImages = capped.map((img, i) => ({
     id: 'img_' + Date.now() + '_' + i,
     displayId: nextMediaSeq(), // Roadmap Phase 11
     slot: 'before',
-    type: img.type || 'image',
-    caption: '', // Roadmap Step 5/6
+    type: img.type || 'image', // trail video objects already carry type:'video' (set at upload, see handleWlTrailMediaSelect), so this passes through unchanged
+    caption: img.caption || '', // bugfix: carry the trail image's own note over, don't drop it
+    voiceNotes: Array.isArray(img.voiceNotes) ? img.voiceNotes.slice() : [], // bugfix: carry per-image voice notes over too
     source: img.source || 'cloudinary',
     url: img.url,
     publicId: img.publicId,
@@ -13277,9 +13310,6 @@ function beginWatchlistEntryHandoff(item) {
   document.getElementById('entryTitle').textContent = 'New Trade — from Watchlist';
   showScreen('entry', document.getElementById('tabEntry'));
   showToast('Pick a Strategy and fill in the rest, then Save Trade to link it back to this idea.', 'info');
-  if (allImages.length > beforeImages.length) {
-    showToast('Only the most recent ' + MAX_IMAGES_PER_SLOT_BEFORE + ' trail images fit as Before shots — the rest stay on the watchlist card.', 'info');
-  }
 }
 
 // ================= WATCHLIST TRAIL ENTRY EDIT (post-publish edit) =================
