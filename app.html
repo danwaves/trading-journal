@@ -1288,6 +1288,44 @@
   .wl-direction-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
   .wl-direction-pill.buy { background: rgba(0,200,150,0.12); color: var(--win); }
   .wl-direction-pill.sell { background: rgba(255,92,92,0.12); color: var(--loss); }
+  /* Watchlist → Trade handoff roadmap, Phase 5: card-level status pill —
+     same pill shape as .wl-direction-pill (dot + label) so it reads as part
+     of the same family, colored by lifecycle stage: pending mirrors the
+     amber --lead "in progress" semantic used elsewhere in the app, won/lost
+     reuse --win/--loss, invalidated is deliberately neutral (muted, no dot
+     color implying an outcome that didn't happen). Only rendered once
+     item.status leaves 'idea' — see wlStatusPillHtml(). */
+  .wl-status-pill {
+    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
+    font-size: 10px; font-weight: 700; letter-spacing: .2px;
+    padding: 3px 9px 3px 7px; border-radius: 999px;
+  }
+  .wl-status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+  .wl-status-pill.pending { background: rgba(245,166,35,0.14); color: var(--lead); }
+  .wl-status-pill.won { background: rgba(0,200,150,0.12); color: var(--win); }
+  .wl-status-pill.lost { background: rgba(255,92,92,0.12); color: var(--loss); }
+  .wl-status-pill.invalidated { background: var(--surface2); color: var(--muted); }
+  /* Small inline "View trade →" quick-link shown at card-row level once
+     linked, so the trade is reachable without expanding the card first.
+     Sits in the tag row alongside the other badges. */
+  .wl-view-trade-link {
+    font-size: 10.5px; font-weight: 600; color: var(--accent, var(--brand)); cursor: pointer;
+    white-space: nowrap;
+  }
+  .wl-view-trade-link:hover { text-decoration: underline; }
+  /* Phase 5: small status tag chip on an individual trail entry (Entry /
+     Win / Loss / Invalidated) — sits next to the date so the update that
+     actually turned the idea live/closed it stands out in the timeline at
+     a glance, distinct from ordinary untagged updates. */
+  .wl-trail-tag-chip {
+    display: inline-flex; align-items: center; font-size: 9px; font-weight: 700;
+    letter-spacing: .3px; text-transform: uppercase; padding: 2px 6px; border-radius: 5px;
+    flex-shrink: 0;
+  }
+  .wl-trail-tag-chip.entry { background: rgba(245,166,35,0.16); color: var(--lead); }
+  .wl-trail-tag-chip.win { background: rgba(0,200,150,0.16); color: var(--win); }
+  .wl-trail-tag-chip.loss { background: rgba(255,92,92,0.16); color: var(--loss); }
+  .wl-trail-tag-chip.invalidated { background: var(--surface2); color: var(--muted); }
   /* Swipe-to-delete was removed 2026-08-27 (redundant with the row's own
      delete icon) — the row's clipping/rounding still lives directly on
      .wl-card (see above) and the row itself just needs its gradient fill. */
@@ -12469,6 +12507,22 @@ async function deleteWatchlistItemFromList(id) {
   if (ok) renderWatchlistList();
 }
 
+// Watchlist → Trade handoff roadmap, Phase 5: card-level status pill shown
+// next to the direction pill on the collapsed row, so an idea's lifecycle
+// stage (pending/won/lost/invalidated) is visible without expanding the
+// card. Returns '' for 'idea' (or missing) status — a plain idea gets no
+// pill, only the direction pill, same as before this phase.
+function wlStatusPillHtml(status) {
+  if (!status || status === 'idea') return '';
+  const label = status === 'pending' ? 'PENDING'
+    : status === 'won' ? 'WON'
+    : status === 'lost' ? 'LOST'
+    : status === 'invalidated' ? 'INVALIDATED'
+    : '';
+  if (!label) return '';
+  return ' <span class="wl-status-pill ' + escapeHtml(status) + '">' + label + '</span>';
+}
+
 async function renderWatchlistList() {
   const wrap = document.getElementById('watchlistList');
   if (!wrap) return;
@@ -12529,7 +12583,7 @@ async function renderWatchlistList() {
           '<span class="wl-pair-icon-chip"><i data-lucide="' + (isSell ? 'trending-down' : 'trending-up') + '" style="width:20px;height:20px;"></i></span>' +
           '<div class="trade-row-info">' +
             '<div class="trade-row-top">' +
-              '<span style="font-weight:600; font-size:14.5px; display:inline-flex; align-items:center; gap:7px;"><span class="wl-card-chevron">▶</span>' + escapeHtml(it.pair || 'Unknown') + ' <span class="wl-direction-pill ' + (isSell ? 'sell' : 'buy') + '">' + escapeHtml((it.direction || '').toUpperCase()) + '</span></span>' +
+              '<span style="font-weight:600; font-size:14.5px; display:inline-flex; align-items:center; gap:7px;"><span class="wl-card-chevron">▶</span>' + escapeHtml(it.pair || 'Unknown') + ' <span class="wl-direction-pill ' + (isSell ? 'sell' : 'buy') + '">' + escapeHtml((it.direction || '').toUpperCase()) + '</span>' + wlStatusPillHtml(it.status) + '</span>' +
               '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
             '</div>' +
             '<div class="trade-row-tags">' +
@@ -12538,6 +12592,7 @@ async function renderWatchlistList() {
               (it.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.htf) + ' POI</span>' : '') +
               (it.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.poiType) + '</span>' : '') +
               (it.ltf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.ltf) + '</span>' : '') +
+              (it.linkedTradeId ? '<span class="wl-view-trade-link" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(it.linkedTradeId) + '\')">View trade →</span>' : '') +
             '</div>' +
           '</div>' +
         '</div>' +
@@ -12589,6 +12644,21 @@ function watchlistTrailDateLabel(ts) {
   if (!ts) return '';
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
     ' · ' + new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+// Watchlist → Trade handoff roadmap, Phase 5: small tag chip on a trail
+// entry that carries a statusTag ('entry' | 'win' | 'loss' | 'invalidated')
+// — makes the turning-point update stand out in the timeline. Untagged
+// updates (statusTag null/absent — the normal case) render nothing extra.
+function wlTrailTagChipHtml(statusTag) {
+  if (!statusTag) return '';
+  const label = statusTag === 'entry' ? 'Entry'
+    : statusTag === 'win' ? 'Win'
+    : statusTag === 'loss' ? 'Loss'
+    : statusTag === 'invalidated' ? 'Invalidated'
+    : '';
+  if (!label) return '';
+  return '<span class="wl-trail-tag-chip ' + escapeHtml(statusTag) + '">' + label + '</span>';
 }
 
 function watchlistTrailEntryHtml(itemId, entry) {
@@ -12662,6 +12732,7 @@ function watchlistTrailEntryHtml(itemId, entry) {
           '<span class="wl-trail-icon-chip"><i data-lucide="' + chipIcon + '" style="width:11px;height:11px;"></i></span>' +
           '<span class="wl-trail-date">' + escapeHtml(watchlistTrailDateLabel(entry.timestamp)) + '</span>' +
           authorBadgeHtml(entry.createdBy) +
+          wlTrailTagChipHtml(entry.statusTag) +
         '</div>' +
         (isEditing ? '' :
           '<div class="wl-trail-actions">' +
