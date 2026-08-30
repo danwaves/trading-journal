@@ -12938,6 +12938,13 @@ function watchlistTrailComposerHtml(itemId) {
       '</div>'
     : '';
   const composeEditorId = 'wlTrailComposeInput_' + itemId;
+  // Bugfix/hardening: an Entry tag needs a screenshot to back it up — same
+  // image-anchored philosophy as the During requirement later in this
+  // roadmap. "Media" here means the paperclip attachment (image/video), not
+  // a voice note, matching what the wlTrailMediaInput file picker itself
+  // calls "media".
+  const hasMedia = !!(draftImages.length || draftVideo);
+  const entryNeedsMedia = !!wlTrailDraftEntryTag[itemId] && !hasMedia;
   return '<div class="wl-update-composer">' +
     '<div class="wl-update-composer-head"><span class="wl-trail-icon-chip"><i data-lucide="pencil-line" style="width:12px;height:12px;"></i></span><span>Add an update</span></div>' +
     rtToolbarHtml(composeEditorId) +
@@ -12954,6 +12961,9 @@ function watchlistTrailComposerHtml(itemId) {
         'onchange="toggleWlTrailEntryTag(\'' + itemId + '\', this.checked)" style="width:14px; height:14px; margin-top:1px; flex-shrink:0;" />' +
       '<span>Tag as <b style="color:var(--light);">Entry</b> — take this idea live as a trade (pre-fills a New Trade form from this card\'s trail; the card then stops accepting new updates)</span>' +
     '</label>' +
+    (entryNeedsMedia
+      ? '<div class="mono muted" style="font-size:11px; color:var(--warn, #d9a441); margin-top:6px;">Attach a screenshot or video before taking this trade.</div>'
+      : '') +
     '<div class="wl-update-composer-actions">' +
       '<div class="wl-update-composer-tools">' +
         '<div class="icon-btn" onclick="document.getElementById(\'wlTrailMediaInput_' + itemId + '\').click()" title="Attach image or video"><i data-lucide="paperclip"></i></div>' +
@@ -12963,7 +12973,7 @@ function watchlistTrailComposerHtml(itemId) {
           '<i data-lucide="mic"></i></div>' +
       '</div>' +
       '<input type="file" id="wlTrailMediaInput_' + itemId + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleWlTrailMediaSelect(event, \'' + itemId + '\')" />' +
-      '<button class="wl-post-update-btn" onclick="addWatchlistTrailEntry(\'' + itemId + '\')">' + (wlTrailDraftEntryTag[itemId] ? '+ Post & Take Trade' : '+ Post update') + '</button>' +
+      '<button class="wl-post-update-btn" ' + (entryNeedsMedia ? 'disabled style="opacity:0.5; cursor:not-allowed;" title="Attach a screenshot or video first"' : '') + ' onclick="addWatchlistTrailEntry(\'' + itemId + '\')">' + (wlTrailDraftEntryTag[itemId] ? '+ Post & Take Trade' : '+ Post update') + '</button>' +
     '</div>' +
     '<div id="wlTrailStatus_' + itemId + '" class="extract-status"></div>' +
   '</div>';
@@ -13121,6 +13131,15 @@ async function addWatchlistTrailEntry(itemId) {
   // button did nothing at all: no confirm dialog, no error, no feedback.
   // An Entry tag is meaningful on its own, so it's exempted here.
   if (!tagAsEntry && !rtToText(text) && !images.length && !video && !voices.length) return; // nothing to post, mirrors addJournalSubNote's empty-draft guard
+
+  // Bugfix/hardening: Entry needs a screenshot/video attached before it can
+  // take the idea live — mirrors the disabled state on the button itself in
+  // watchlistTrailComposerHtml, but enforced here too as the hard guard
+  // (same pattern as the "already live" stale-render guard just below).
+  if (tagAsEntry && !images.length && !video) {
+    setWlTrailStatus(itemId, 'Attach a screenshot or video before taking this trade.', 'error');
+    return;
+  }
 
   // Watchlist → Trade handoff roadmap, Phase 2. "One life per card" — the
   // composer that offers this checkbox is itself hidden once status leaves
