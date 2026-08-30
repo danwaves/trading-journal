@@ -6403,6 +6403,9 @@ function tradeToRow(t) {
     images: t.images,
     notes: t.notes,
     voice_notes: t.voiceNotes, // needs `alter table trades add column voice_notes jsonb default '[]'::jsonb;` run once in Supabase.
+    // Watchlist → Trade handoff roadmap, Phase 1. Null for trades created
+    // the normal way — most existing trades.
+    source_watchlist_item_id: t.sourceWatchlistItemId || null,
   };
 }
 
@@ -6442,6 +6445,10 @@ function rowToTrade(r) {
     // without a null check at every call site.
     notes: r.notes || '',
     voiceNotes: r.voice_notes || [], // rows saved before this column existed just get an empty list
+    // Watchlist → Trade handoff roadmap, Phase 1. Null for trades not
+    // created via that handoff (i.e. most trades, including all existing
+    // ones — this column didn't exist before).
+    sourceWatchlistItemId: r.source_watchlist_item_id || null,
   };
 }
 
@@ -12051,6 +12058,9 @@ function watchlistItemToRow(item) {
     ltf: item.ltf,
     sort_order: item.order,
     trail: item.trail,
+    // Watchlist → Trade handoff roadmap, Phase 1.
+    status: item.status || 'idea',
+    linked_trade_id: item.linkedTradeId || null,
   };
 }
 
@@ -12070,6 +12080,15 @@ function rowToWatchlistItem(r) {
     ltf: r.ltf || '',
     order: r.sort_order != null ? r.sort_order : 0,
     trail: r.trail || [],
+    // Watchlist → Trade handoff roadmap, Phase 1. Rows saved before this
+    // column existed have no value yet — default to 'idea' so old cards
+    // behave exactly as they always have (still-open ideas, not linked to
+    // any trade). Each trail entry may also carry its own optional
+    // `statusTag` ('entry' | 'win' | 'loss' | 'invalidated') inside the
+    // existing trail jsonb — no column for that, it rides along with the
+    // rest of each entry's fields the same way createdBy already does.
+    status: r.status || 'idea',
+    linkedTradeId: r.linked_trade_id || null,
   };
 }
 
@@ -12127,6 +12146,9 @@ async function createWatchlistItem(fields) {
     ltf: fields.ltf || '',
     order: maxOrder + 1,
     trail: [],
+    // Watchlist → Trade handoff roadmap, Phase 1.
+    status: 'idea',
+    linkedTradeId: null,
   };
   const ok = await persistWatchlistItem(item);
   if (!ok) return null;
