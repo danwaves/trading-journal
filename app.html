@@ -473,6 +473,16 @@
      Sits just above the bottom size bar, left-aligned, so it never collides
      with the top-corner remove/id/reorder badges above. */
   .trade-thumb-during-badge { position: absolute; bottom: 16px; left: 4px; background: var(--brand); color: #1a0f16; font-size: 8px; font-weight: 700; letter-spacing: 0.4px; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+  /* Media Attribution Roadmap Phase 1: who added this thumbnail — reuses
+     the same badge-author-dan/badge-author-ako colors as the row-level
+     author badges (authorBadgeHtml), just sized down to fit a thumbnail
+     corner. Opposite corner from the DURING badge so the two never collide. */
+  .trade-thumb-author-badge { position: absolute; top: 4px; left: 4px; font-size: 8px; font-weight: 700; letter-spacing: 0.3px; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+  /* Opaque overrides (not the translucent row-badge tint) — this sits on
+     top of arbitrary photo content, so it needs real contrast rather than
+     the subtle background that works fine on the app's own dark surface. */
+  .trade-thumb-author-badge.badge-author-dan { background: var(--brand); color: #1a0f16; }
+  .trade-thumb-author-badge.badge-author-ako { background: var(--info); color: #071422; }
   /* Roadmap Phase 14: reorder handle — mirrors the id badge's left/right
      symmetry (caption dot top-left, this sits below it; remove sits
      top-right, id badge sits below that). Drag-and-drop itself works on the
@@ -1234,8 +1244,36 @@
 
   /* Trade list */
   .icon-btn.active { border-color: var(--brand); color: var(--brand); }
-  .trade-row { display: flex; gap: var(--space-3); align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 10px; cursor: pointer; }
+  .trade-row { position: relative; display: flex; gap: var(--space-3); align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px; margin-bottom: 10px; cursor: pointer; }
   .trade-row:hover { border-color: #3a4358; }
+  /* Unseen-activity indicator — small pulsing dot on a Trade/Journal/
+     Watchlist row when the OTHER account has added or changed something
+     here that this account hasn't seen yet (see the UNSEEN ACTIVITY
+     INDICATORS section in the JS). A soft expanding-ring pulse rather than
+     a hard opacity blink, so it reads as "alive" without being jarring in
+     a list of several. */
+  .unseen-dot {
+    position: absolute; top: 8px; right: 8px; width: 9px; height: 9px;
+    border-radius: 50%; background: var(--info);
+    box-shadow: 0 0 0 0 rgba(78, 161, 247, 0.55);
+    animation: unseenPulse 1.8s ease-out infinite;
+    z-index: 2; pointer-events: none;
+  }
+  @keyframes unseenPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(78, 161, 247, 0.55); }
+    70%  { box-shadow: 0 0 0 9px rgba(78, 161, 247, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(78, 161, 247, 0); }
+  }
+  /* Tab-Level Unseen Badges Roadmap, Phase B1: same signal as .unseen-dot
+     above, just sized for a tight tab bar — a plain dot reads fine at this
+     size, no ring pulse needed. Sits inline right after the tab's label
+     text rather than absolutely positioned, so it works the same whether
+     the tab lives in the main bar or inside the "More ▾" dropdown. */
+  .tab-unseen-dot {
+    display: none; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--info); margin-left: 5px; vertical-align: middle;
+  }
+  .tab-unseen-dot.show { display: inline-block; }
   .trade-row-thumb-pair { display: flex; gap: var(--space-1); flex: none; }
   .trade-row-thumb { width: 26px; height: 56px; flex: none; border-radius: 8px; overflow: hidden; background: var(--surface2); display:flex; align-items:center; justify-content:center; font-size:18px; color:var(--muted); }
   .trade-row-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -1339,6 +1377,27 @@
   .wl-card.expanded .wl-card-detail { max-height: 3000px; opacity: 1; border-top-color: var(--accent, var(--border)); }
   .wl-card-chevron { flex: none; color: var(--muted); font-size: 9px; margin-right: 2px; transform: rotate(0deg); transition: transform var(--duration-base) var(--ease); }
   .wl-card.expanded .wl-card-chevron { transform: rotate(90deg); color: var(--accent, var(--brand)); }
+  /* Mobile icon-seating fix 2026-08-31, revised: the pair name should
+     never be cut off (user wants the full name to always show, and is
+     fine with the card growing a row for it). Instead of truncating with
+     an ellipsis, the title now wraps internally (flex-wrap on the title
+     itself, not just min-width:0) — chevron/name/pills spill onto a
+     second line inside the title when they don't fit, while the
+     ban/delete icons (a separate flex:none sibling) stay pinned on the
+     right, vertically centered against however tall the title ends up. */
+  .wl-card-title {
+    font-weight: 600; font-size: 14.5px; display: inline-flex; flex-wrap: wrap;
+    align-items: center; row-gap: 4px; column-gap: 7px; min-width: 0; overflow: visible; flex: 1 1 auto;
+  }
+  .wl-card-title-pair { min-width: 0; white-space: normal; overflow-wrap: break-word; word-break: break-word; }
+  /* The ban/delete icons live in their own flex:none cluster so they're
+     never candidates for shrinking and always stay fully seated on-screen,
+     regardless of how long the pair name/pill combo next to them gets. */
+  .wl-row-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+  @media (max-width: 400px) {
+    .wl-row-actions .icon-btn { width: 30px; height: 30px; }
+    .wl-row-actions .icon-btn i { width: 15px; height: 15px; }
+  }
 
   /* ===== Watchlist follow-up trail — the "post an update" timeline.
      Native classes (kept separate from .journal-subnote so Journal styling
@@ -1913,11 +1972,11 @@
 <div class="preview-tabs">
   <button id="tabLogin" class="active" onclick="showScreen('login', this)">Login</button>
   <button class="app-tab is-hidden" onclick="showScreen('dashboard', this); refreshDashboardTradeSummary();">Dashboard</button>
-  <button class="app-tab is-hidden" id="tabTrades" onclick="showScreen('trades', this); renderTradeList();">Trades</button>
+  <button class="app-tab is-hidden" id="tabTrades" onclick="showScreen('trades', this); renderTradeList();">Trades<span class="tab-unseen-dot" id="tabDot_trade"></span></button>
   <button class="app-tab is-hidden" onclick="openNewTradeTab();" id="tabEntry">New Trade</button>
   <button class="app-tab is-hidden" onclick="showScreen('insights', this); inheritDashboardFiltersToInsights();">Insights</button>
   <button class="app-tab is-hidden" onclick="showScreen('history', this); inheritDashboardFiltersToHistory(); restoreHistoryCardCollapseState(); refreshDashboardTradeSummary();">History</button>
-  <button class="app-tab is-hidden" id="tabWatchlist" onclick="showScreen('watchlist', this); renderWatchlistList();">Watchlist</button>
+  <button class="app-tab is-hidden" id="tabWatchlist" onclick="showScreen('watchlist', this); renderWatchlistList();">Watchlist<span class="tab-unseen-dot" id="tabDot_watchlist"></span></button>
   <div class="more-tab-wrapper is-hidden" id="moreTabWrapper">
     <button id="tabMore" class="app-tab is-hidden" onclick="toggleMoreMenu(event)">More ▾</button>
   </div>
@@ -1960,7 +2019,7 @@
 <div id="moreMenu" class="more-menu">
   <button onclick="closeMoreMenu(); showScreen('compare', this); renderCompareTable();">Compare</button>
   <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
-  <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal</button>
+  <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal<span class="tab-unseen-dot" id="tabDot_journal"></span></button>
   <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
 </div>
 
@@ -4026,6 +4085,115 @@ function currentAccountName() {
   return AUTHOR_BADGES[currentAccount.email] ? AUTHOR_BADGES[currentAccount.email].name : 'Someone';
 }
 
+// ================= UNSEEN ACTIVITY INDICATORS =================
+// A small pulsing dot on Trade/Journal/Watchlist rows marking something the
+// OTHER account added or changed that this account hasn't seen yet.
+// "Seen" is tracked per this device+account in localStorage — same
+// per-device pattern every other UI-state key in this file already uses
+// (HISTORY_FILTER_STORAGE_KEY etc.) — keyed by record id, so it isn't a
+// synced/shared read-state; each device tracks its own.
+//
+// A record's dot clears two ways:
+//   1. Opening it directly — openSidePanel/openJournalEntry/expanding a
+//      watchlist card each call markItemSeen() immediately.
+//   2. Having simply been visible in a list you then navigated away from —
+//      markScreenSeenOnLeave() (called from showScreen() for whichever
+//      screen is being left) stamps every record that was in that list.
+//      This is why a dot you noticed but didn't tap into still shows the
+//      first time you land on a page, but is gone by the next visit —
+//      leaving the page is what counts as "you had the chance to see it."
+function unseenSeenStorageKey(kind) {
+  return 'dwSeen_v1_' + (currentAccount ? currentAccount.email : 'anon') + '_' + kind;
+}
+function loadSeenMap(kind) {
+  try { return JSON.parse(localStorage.getItem(unseenSeenStorageKey(kind))) || {}; }
+  catch (e) { return {}; }
+}
+function saveSeenMap(kind, map) {
+  try { localStorage.setItem(unseenSeenStorageKey(kind), JSON.stringify(map)); }
+  catch (e) { /* storage unavailable */ }
+}
+function markItemSeen(kind, id) {
+  if (!id) return;
+  const map = loadSeenMap(kind);
+  map[id] = Date.now();
+  saveSeenMap(kind, map);
+}
+function markScreenSeenOnLeave(screenId) {
+  const kindsByScreen = {
+    trades: { kind: 'trade', items: typeof allTrades !== 'undefined' ? allTrades : [] },
+    journal: { kind: 'journal', items: typeof allJournalEntries !== 'undefined' ? allJournalEntries : [] },
+    watchlist: { kind: 'watchlist', items: typeof allWatchlistItems !== 'undefined' ? allWatchlistItems : [] },
+  };
+  const cfg = kindsByScreen[screenId];
+  if (!cfg || !Array.isArray(cfg.items) || !cfg.items.length) return;
+  const map = loadSeenMap(cfg.kind);
+  const now = Date.now();
+  cfg.items.forEach((it) => { map[it.id] = now; });
+  saveSeenMap(cfg.kind, map);
+}
+
+// Walks one record for the newest timestamp attributable to the OTHER
+// account — top-level ownership/edits, plus whichever nested collaborative
+// pieces that record type carries (watchlist trail updates, journal
+// subfolders/blocks, voice notes) — so a partner's contribution to
+// something you created still lights the dot, not just records they
+// created outright.
+function latestOtherActivityTs(item, otherEmail) {
+  if (!item || !otherEmail) return 0;
+  let latest = 0;
+  const consider = (createdBy, ts) => { if (createdBy === otherEmail && ts && ts > latest) latest = ts; };
+  consider(item.createdBy, item.updatedAt || item.createdAt);
+  (item.trail || []).forEach((e) => consider(e.createdBy, e.timestamp));
+  (item.subfolders || []).forEach((sf) => {
+    consider(sf.createdBy, sf.updatedAt || sf.createdAt);
+    (sf.blocks || []).forEach((b) => consider(b.createdBy, sf.updatedAt || sf.createdAt));
+  });
+  (item.voiceNotes || []).forEach((vn) => consider(vn.createdBy, vn.createdAt));
+  // Media Attribution Roadmap Phase 1: trade Before/During/After images now
+  // carry createdBy/createdAt too — Phase 2 will add the same for journal's
+  // top-level `media` array.
+  (item.images || []).forEach((img) => consider(img.createdBy, img.createdAt));
+  // Media Attribution Roadmap Phase 2: journal's top-level media grid.
+  (item.media || []).forEach((img) => consider(img.createdBy, img.createdAt));
+  return latest;
+}
+function itemHasUnseenActivity(kind, item) {
+  const otherEmail = otherAccountEmail();
+  if (!otherEmail || !item) return false;
+  const latest = latestOtherActivityTs(item, otherEmail);
+  if (!latest) return false;
+  const seenMap = loadSeenMap(kind);
+  return latest > (seenMap[item.id] || 0);
+}
+function unseenDotHtml(kind, item) {
+  return itemHasUnseenActivity(kind, item)
+    ? '<span class="unseen-dot" title="New from ' + escapeHtml(otherAccountName()) + '"></span>'
+    : '';
+}
+
+// Tab-Level Unseen Badges Roadmap, Phase B1: a tab's dot is on if ANY item
+// of that kind currently has unseen activity — reuses itemHasUnseenActivity
+// per item rather than a separate aggregate check, so it can never drift
+// out of sync with what the row-level dots are showing. Phase B2 wires this
+// into renderTradeList()/renderJournalList()/renderWatchlistList() so it
+// recomputes on every render those functions already run for (load,
+// realtime updates, marking something seen) — this function on its own
+// just does the DOM update once called.
+function updateTabUnseenBadge(kind) {
+  const configByKind = {
+    trade: { items: typeof allTrades !== 'undefined' ? allTrades : [], dotId: 'tabDot_trade' },
+    journal: { items: typeof allJournalEntries !== 'undefined' ? allJournalEntries : [], dotId: 'tabDot_journal' },
+    watchlist: { items: typeof allWatchlistItems !== 'undefined' ? allWatchlistItems : [], dotId: 'tabDot_watchlist' },
+  };
+  const cfg = configByKind[kind];
+  if (!cfg) return;
+  const dot = document.getElementById(cfg.dotId);
+  if (!dot) return;
+  const hasUnseen = (cfg.items || []).some((it) => itemHasUnseenActivity(kind, it));
+  dot.classList.toggle('show', hasUnseen);
+}
+
 // ================= NOTIFICATIONS — Phase 2 (subscribe flow) =================
 // Registers the push service worker, requests permission, subscribes this
 // device via the Push API, and stores the resulting subscription against
@@ -4261,6 +4429,12 @@ function showScreen(id, btn) {
   if (typeof aiPlaying !== 'undefined' && aiPlaying && id !== 'insights') {
     stopAiPlayback();
   }
+  // Unseen-activity indicators: stamp whichever tracked list screen we're
+  // leaving as "seen" before switching currentScreenId out from under it —
+  // see markScreenSeenOnLeave() for why this (rather than marking on
+  // arrival) is what makes a dot disappear by your *next* visit, not your
+  // current one.
+  if (currentScreenId && currentScreenId !== id) markScreenSeenOnLeave(currentScreenId);
   currentScreenId = id; // tracked for the mobile back-button handler below
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.preview-tabs button').forEach(b => b.classList.remove('active'));
@@ -5804,6 +5978,8 @@ async function handleFileSelect(event, slot) {
         slot,
         type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
         caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
+        createdBy: currentAccount ? currentAccount.email : '', // Media Attribution Roadmap Phase 1
+        createdAt: Date.now(), // Media Attribution Roadmap Phase 1
         source: 'cloudinary',
         url: result.url,
         publicId: result.publicId,
@@ -5853,6 +6029,8 @@ async function addImageFromUrl(slot) {
       slot,
       type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
       caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
+      createdBy: currentAccount ? currentAccount.email : '', // Media Attribution Roadmap Phase 1
+      createdAt: Date.now(), // Media Attribution Roadmap Phase 1
       source: 'cloudinary',
       url: result.url,
       publicId: result.publicId,
@@ -5908,7 +6086,7 @@ async function addStrategyImageFromUrl(strategyId) {
     const result = await uploadRemoteUrlToCloudinary(url);
     // type/caption match the tradeImages shape (Roadmap Step 1) — no `slot` here since
     // the strategy gallery is a flat list, not before/after.
-    const newImg = { id: 'simg_' + Date.now(), displayId: nextMediaSeq(), type: result.resourceType, caption: '', source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
+    const newImg = { id: 'simg_' + Date.now(), displayId: nextMediaSeq(), type: result.resourceType, caption: '', createdBy: currentAccount ? currentAccount.email : '', createdAt: Date.now(), source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
     await loadStrategyList();
     if (!strategyListLoaded) {
       setStrategyImageStatus(strategyId, 'Could not confirm the latest strategy list — check your connection and try again.', 'error');
@@ -6056,6 +6234,8 @@ async function handleStrategyImageSelect(event, strategyId) {
         displayId: nextMediaSeq(), // Roadmap Phase 11
         type: result.resourceType, // Roadmap Step 2: 'image' or 'video', straight from Cloudinary
         caption: '', // Roadmap Step 5/6: editable write-up shown via the viewer's dropup panel
+        createdBy: currentAccount ? currentAccount.email : '', // Media Attribution Roadmap Phase 3
+        createdAt: Date.now(), // Media Attribution Roadmap Phase 3
         source: 'cloudinary',
         url: result.url,
         publicId: result.publicId,
@@ -7079,6 +7259,7 @@ async function renderJournalList() {
           '<div class="journal-empty-sub">Capture a thesis while it\'s fresh — tap "+ New Entry" above to start your first one.</div>' +
         '</div>';
     refreshIcons();
+    updateTabUnseenBadge('journal'); // Tab-Level Unseen Badges Roadmap, Phase B2
     return;
   }
 
@@ -7096,6 +7277,7 @@ async function renderJournalList() {
       ? '<div class="journal-card-thumb trade-thumb"><img src="' + gridThumbSrc(firstMedia).replace(/"/g, '&quot;') + '" alt="" />' + mediaBadgesHtml(firstMedia) + '</div>'
       : '';
     return '<div class="journal-card" style="--accent:' + meta.hex + '; --accent-bg:' + meta.bg + ';" onclick="openJournalEntry(' + idArg + ')">' +
+      unseenDotHtml('journal', e) +
       thumbHtml +
       '<div class="journal-card-body">' +
         '<div class="journal-card-title-row">' +
@@ -7118,6 +7300,7 @@ async function renderJournalList() {
     card.classList.add('trade-row-enter');
     card.style.animationDelay = (Math.min(i, 20) * 15) + 'ms';
   });
+  updateTabUnseenBadge('journal'); // Tab-Level Unseen Badges Roadmap, Phase B2
 }
 
 function openNewJournalEntry() {
@@ -7146,6 +7329,7 @@ function openNewJournalEntry() {
 function openJournalEntry(id) {
   const e = allJournalEntries.find((x) => x.id === id);
   if (!e) return;
+  markItemSeen('journal', id); // unseen-activity indicators: clears this card's dot immediately on open
   journalEditingId = id;
   journalFieldsDirty = false;
   journalSubfolderExpanded = new Set(); // don't leak expanded state between entries
@@ -7937,6 +8121,8 @@ async function handleJournalMediaSelect(event) {
         displayId: nextMediaSeq(), // Roadmap Phase 11
         type: result.resourceType, // 'image' or 'video', straight from Cloudinary
         caption: '', // editable via the viewer's dropup panel, same as Trades/Strategy
+        createdBy: currentAccount ? currentAccount.email : '', // Media Attribution Roadmap Phase 2
+        createdAt: Date.now(), // Media Attribution Roadmap Phase 2
         source: 'cloudinary',
         url: result.url,
         publicId: result.publicId,
@@ -8002,7 +8188,7 @@ async function addJournalMediaFromUrl() {
       setJournalMediaStatus('That file is over the ' + Math.round(sizeCap / (1024 * 1024)) + 'MB limit.', 'error');
       return;
     }
-    const newImg = { id: 'jmedia_' + Date.now(), displayId: nextMediaSeq(), type: result.resourceType, caption: '', source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
+    const newImg = { id: 'jmedia_' + Date.now(), displayId: nextMediaSeq(), type: result.resourceType, caption: '', createdBy: currentAccount ? currentAccount.email : '', createdAt: Date.now(), source: 'cloudinary', url: result.url, publicId: result.publicId, sizeKB: result.sizeKB, name: url };
     entry.media.push(newImg);
     entry.updatedAt = Date.now();
     const ok = await persistJournalEntry(entry);
@@ -11879,6 +12065,13 @@ function mediaBadgesHtml(item) {
   // while the trade was live from the original Before shots / closing After
   // shots, wherever this thumbnail is rendered.
   if (item && item.slot === 'during') out += '<div class="trade-thumb-during-badge">DURING</div>';
+  // Media Attribution Roadmap Phase 1: only trade images carry createdBy so
+  // far (Phase 2/3 will extend this to journal/strategy media) — but this
+  // check is generic, so it lights up automatically for those once they do.
+  if (item && item.createdBy && AUTHOR_BADGES[item.createdBy]) {
+    const authorInfo = AUTHOR_BADGES[item.createdBy];
+    out += '<div class="trade-thumb-author-badge ' + authorInfo.cls + '" title="Added by ' + escapeHtml(authorInfo.name) + '">' + escapeHtml(authorInfo.name) + '</div>';
+  }
   if (mediaType(item) === 'video') out += '<div class="trade-thumb-play">▶</div>';
   if (mediaCaption(item)) out += '<div class="trade-thumb-caption-dot" title="Has notes"><i data-lucide="file-text"></i></div>';
   // Roadmap Phase 11: visible, searchable ID — same badge style/position
@@ -12158,6 +12351,7 @@ async function renderTradeList() {
             '<div class="journal-empty-sub">Log your first trade to start tracking your edge — tap "New Trade" above to begin.</div>' +
           '</div>';
       refreshIcons();
+      updateTabUnseenBadge('trade'); // Tab-Level Unseen Badges Roadmap, Phase B2
       return;
     }
     wrap.innerHTML = filtered.map(t => {
@@ -12167,6 +12361,7 @@ async function renderTradeList() {
         (img ? '<img src="' + gridThumbSrc(img).replace(/"/g,'&quot;') + '" />' : '<span class="trade-row-thumb-missing">' + label + '</span>') +
         '</div>';
       return '<div class="trade-row" onclick="openSidePanel(\'' + t.id + '\')">' +
+        unseenDotHtml('trade', t) +
         '<div class="trade-row-thumb-pair">' + slotThumb(beforeImg, 'B') + slotThumb(afterImg, 'A') + '</div>' +
         '<div class="trade-row-info">' +
           '<div class="trade-row-top">' +
@@ -12193,6 +12388,7 @@ async function renderTradeList() {
       row.style.animationDelay = (Math.min(i, 20) * 15) + 'ms';
     });
     refreshIcons();
+    updateTabUnseenBadge('trade'); // Tab-Level Unseen Badges Roadmap, Phase B2
   } else {
     updateGridSlotToggle();
     const wrap = document.getElementById('tradeGridWrap');
@@ -12215,6 +12411,7 @@ async function renderTradeList() {
             '<div class="journal-empty-sub">Log your first trade to start tracking your edge — tap "New Trade" above to begin.</div>' +
           '</div>';
       refreshIcons();
+      updateTabUnseenBadge('trade'); // Tab-Level Unseen Badges Roadmap, Phase B2
       return;
     }
     wrap.innerHTML = '<div class="screenshot-grid">' + allImages.map((entry, i) =>
@@ -12225,6 +12422,7 @@ async function renderTradeList() {
     ).join('') + '</div>';
     window._gridImages = allImages;
     refreshIcons();
+    updateTabUnseenBadge('trade'); // Tab-Level Unseen Badges Roadmap, Phase B2
   }
 }
 
@@ -12438,9 +12636,9 @@ function setWlDirection(dir) {
 // Timeframe list — same source of truth New Trade's htfSelect/ltfSelect use
 // (see renderTimeframeSelects()), but targeting these wl-prefixed elements
 // instead so the New Trade screen's own selects are never touched.
-function populateWlTimeframeSelects() {
-  const htfSel = document.getElementById('wlHtfSelect');
-  const ltfSel = document.getElementById('wlLtfSelect');
+function populateWlTimeframeSelects(htfId, ltfId) {
+  const htfSel = document.getElementById(htfId || 'wlHtfSelect');
+  const ltfSel = document.getElementById(ltfId || 'wlLtfSelect');
   if (htfSel) {
     const current = htfSel.value;
     htfSel.innerHTML = '<option value="">—</option>' + timeframeList.filter((t) => t.type === 'htf')
@@ -12457,8 +12655,8 @@ function populateWlTimeframeSelects() {
 
 // Same idea as populateWlTimeframeSelects() but for POI Type, mirroring
 // renderPoiTypeSelect() without touching its target element.
-function populateWlPoiTypeSelect() {
-  const sel = document.getElementById('wlPoiTypeSelect');
+function populateWlPoiTypeSelect(targetId) {
+  const sel = document.getElementById(targetId || 'wlPoiTypeSelect');
   if (!sel) return;
   const current = sel.value;
   sel.innerHTML = '<option value="">—</option>' + poiTypeList.map((p) => '<option>' + escapeHtml(p) + '</option>').join('');
@@ -12467,8 +12665,8 @@ function populateWlPoiTypeSelect() {
 
 // Same idea as populateWlPoiTypeSelect() but for Trade Model / Setup,
 // mirroring renderModelSelect() without touching its target element.
-function populateWlModelSelect() {
-  const sel = document.getElementById('wlModelSelect');
+function populateWlModelSelect(targetId) {
+  const sel = document.getElementById(targetId || 'wlModelSelect');
   if (!sel) return;
   const current = sel.value;
   sel.innerHTML = '<option value="">—</option>' + modelList.map((m) => '<option>' + escapeHtml(m) + '</option>').join('');
@@ -12512,12 +12710,124 @@ async function createWatchlistItemFromForm() {
   renderWatchlistList();
 }
 
+// Edit existing idea — user-requested 2026-08-31 fix: previously there was
+// no way to change a watchlist idea's pair/direction/model/HTF/LTF/POI type
+// after creation, only delete-and-recreate. Reuses the app's existing
+// #sidePanel/#sidePanelOverlay infra (same one openSidePanel() uses for a
+// Trade) rather than the inline "Add New Idea" form, since that form's
+// fields/ids are already live on the Watchlist screen behind the panel.
+let wlEditCurrentDirection = 'buy';
+
+function setWlEditDirection(dir) {
+  const buy = document.getElementById('wlEditDirBuyBtn');
+  const sell = document.getElementById('wlEditDirSellBtn');
+  wlEditCurrentDirection = dir;
+  if (dir === 'buy') {
+    buy.classList.add('buy-active');
+    sell.classList.remove('sell-active');
+  } else {
+    sell.classList.add('sell-active');
+    buy.classList.remove('buy-active');
+  }
+}
+
+function openWatchlistEditPanel(id) {
+  const item = allWatchlistItems.find((it) => it.id === id);
+  if (!item) return;
+  const panel = document.getElementById('sidePanel');
+  panel.innerHTML =
+    '<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-4);">' +
+      '<h2 style="margin:0;">Edit Idea</h2>' +
+      '<div class="icon-btn" onclick="closeSidePanel()"><i data-lucide="x"></i></div>' +
+    '</div>' +
+    '<div class="field"><label>Currency Pair</label><input id="wlEditPairInput" list="pairSuggestions" placeholder="EURUSD" oninput="this.value = this.value.toUpperCase();" value="' + escapeHtml(item.pair || '') + '" /></div>' +
+    '<div class="grid2" style="margin-bottom:14px;">' +
+      '<div><label style="display:block; font-size:11px; color:var(--muted); margin-bottom:5px;">Direction</label>' +
+        '<div class="dir-toggle"><div id="wlEditDirBuyBtn" class="dir-btn' + (item.direction === 'sell' ? '' : ' buy-active') + '" onclick="setWlEditDirection(\'buy\')">Buy</div><div id="wlEditDirSellBtn" class="dir-btn' + (item.direction === 'sell' ? ' sell-active' : '') + '" onclick="setWlEditDirection(\'sell\')">Sell</div></div>' +
+      '</div>' +
+      '<div class="field" style="margin-bottom:0;"><label>Trade Model / Setup</label>' +
+        '<select id="wlEditModelSelect"><option value="">—</option></select>' +
+      '</div>' +
+    '</div>' +
+    '<div class="grid2" style="margin-bottom:14px;">' +
+      '<div class="field" style="margin-bottom:0;"><label>Higher Timeframe (POI)</label><select id="wlEditHtfSelect"><option value="">—</option></select></div>' +
+      '<div class="field" style="margin-bottom:0;"><label>Lower Timeframe (Entry)</label><select id="wlEditLtfSelect"><option value="">—</option></select></div>' +
+    '</div>' +
+    '<div class="field"><label>POI Type</label><select id="wlEditPoiTypeSelect"><option value="">—</option></select></div>' +
+    '<div id="wlEditStatus" class="extract-status"></div>' +
+    '<div style="display:flex; gap: var(--space-2); margin-top:20px;">' +
+      '<button class="btn-primary" style="flex:1;" onclick="saveWatchlistItemEdit(' + escapeHtml(JSON.stringify(id)) + ')">Save Changes</button>' +
+      '<button style="flex:1; padding: var(--space-3); background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-weight:600; cursor:pointer;" onclick="closeSidePanel()">Cancel</button>' +
+    '</div>';
+  wlEditCurrentDirection = item.direction === 'sell' ? 'sell' : 'buy';
+  populateWlTimeframeSelects('wlEditHtfSelect', 'wlEditLtfSelect');
+  populateWlPoiTypeSelect('wlEditPoiTypeSelect');
+  populateWlModelSelect('wlEditModelSelect');
+  const htfSel = document.getElementById('wlEditHtfSelect');
+  if (htfSel && item.htf) htfSel.value = item.htf;
+  const ltfSel = document.getElementById('wlEditLtfSelect');
+  if (ltfSel && item.ltf) ltfSel.value = item.ltf;
+  const poiSel = document.getElementById('wlEditPoiTypeSelect');
+  if (poiSel && item.poiType) poiSel.value = item.poiType;
+  const modelSel = document.getElementById('wlEditModelSelect');
+  if (modelSel && item.model) modelSel.value = item.model;
+  document.getElementById('sidePanelOverlay').classList.add('show');
+  refreshIcons();
+}
+
+async function saveWatchlistItemEdit(id) {
+  const statusEl = document.getElementById('wlEditStatus');
+  const pair = (document.getElementById('wlEditPairInput').value || '').trim();
+  if (!pair) {
+    if (statusEl) statusEl.textContent = 'Enter a pair first.';
+    return;
+  }
+  if (statusEl) statusEl.textContent = 'Saving…';
+  const ok = await updateWatchlistItem(id, {
+    pair: pair,
+    direction: wlEditCurrentDirection,
+    model: document.getElementById('wlEditModelSelect').value,
+    htf: document.getElementById('wlEditHtfSelect').value,
+    poiType: document.getElementById('wlEditPoiTypeSelect').value,
+    ltf: document.getElementById('wlEditLtfSelect').value,
+  });
+  if (!ok) {
+    if (statusEl) statusEl.textContent = 'Could not save — try again.';
+    return;
+  }
+  closeSidePanel();
+  renderWatchlistList();
+}
+
 async function deleteWatchlistItemFromList(id) {
   const item = allWatchlistItems.find((it) => it.id === id);
   const label = item && item.pair ? '"' + item.pair + '"' : 'this idea';
   if (!(await confirmDialog('Delete ' + label + '? This also removes its follow-up trail and any attached media.', { danger: true }))) return;
   const ok = await deleteWatchlistItem(id);
   if (ok) renderWatchlistList();
+}
+
+// Invalidated Status Roadmap, Phase A1: closes out an idea that never got
+// taken — the only ending in the idea → entry → won/lost lifecycle that
+// previously had no way to actually happen. Only ever called on a card
+// that's still open (status empty/'idea'; gated by the button's own
+// visibility), so no freeze-state checks needed here.
+async function markWatchlistInvalidated(id) {
+  const item = allWatchlistItems.find((it) => it.id === id);
+  const label = item && item.pair ? '"' + item.pair + '"' : 'this idea';
+  if (!(await confirmDialog('Mark ' + label + ' as Invalidated? No more updates can be posted after this.', { danger: true }))) return;
+  const ok = await updateWatchlistItem(id, { status: 'invalidated' });
+  if (ok) renderWatchlistList();
+  else setWlTrailStatus(id, 'Failed to mark invalidated — check your connection and try again.', 'error');
+}
+
+// Watchlist Closed-Folder Roadmap, Phase 1: shared status predicate so the
+// render path and the reorder logic both agree on exactly which items count
+// as "open" (still manually reorderable, shown in the main list) vs
+// "closed" (won/lost/invalidated — Phase 2 gives these their own folder;
+// this phase just excludes them from the open list and its indices).
+function isWatchlistItemOpen(item) {
+  return !item.status || item.status === 'idea' || item.status === 'pending';
 }
 
 // Watchlist → Trade handoff roadmap, Phase 5: card-level status pill shown
@@ -12552,6 +12862,29 @@ async function renderWatchlistList() {
         '<div class="journal-empty-sub">Add a pair you\'re watching to start tracking it before you take the trade.</div>' +
       '</div>';
     refreshIcons();
+    updateTabUnseenBadge('watchlist'); // Tab-Level Unseen Badges Roadmap, Phase B2
+    return;
+  }
+  // Watchlist Closed-Folder Roadmap, Phase 1: won/lost/invalidated items are
+  // excluded from the open list from this point on — everything below
+  // (manual `order` sort, drag-reorder indices, author filter) only ever
+  // sees openWlItems. Phase 2: closedItems (the excluded items) render in
+  // their own folder below the open list — see watchlistClosedFolderHtml()
+  // — sorted most-recently-closed first (updatedAt desc — see roadmap doc
+  // for the "edited later" caveat).
+  const openWlItems = allWatchlistItems.filter(isWatchlistItemOpen);
+  const closedItems = allWatchlistItems
+    .filter((it) => !isWatchlistItemOpen(it))
+    .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+  const closedFolderHtml = watchlistClosedFolderHtml(closedItems);
+  if (!openWlItems.length) {
+    // Every item on the watchlist happens to be closed right now — open
+    // list shows its empty state, Closed folder below it still renders
+    // populated (Phase 2: this used to be a dead end before the folder
+    // existed to catch these items).
+    wrap.innerHTML = '<div class="empty-state">No open ideas — everything on your watchlist is closed.</div>' + closedFolderHtml;
+    refreshIcons();
+    updateTabUnseenBadge('watchlist'); // Tab-Level Unseen Badges Roadmap, Phase B2
     return;
   }
   // Phase 3: card layout matches Trade rows exactly (.trade-row /
@@ -12560,7 +12893,7 @@ async function renderWatchlistList() {
   // stage (Phase 5's follow-up trail is what images live in). LTF gets its
   // own badge here even though Trade rows don't show one, since it was
   // asked for explicitly for Watchlist cards.
-  const sorted = allWatchlistItems.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  const sorted = openWlItems.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
   // Phase D: filter applies on top of the full sorted order, but each card
   // keeps its ORIGINAL absolute index (i below) for drag-reorder/the "tap
   // to move…" prompt — those operate on manual `order` across the whole
@@ -12570,54 +12903,170 @@ async function renderWatchlistList() {
     .map((it, i) => ({ it, i }))
     .filter(({ it }) => matchesAuthorFilter(it, watchlistAuthorFilter));
   if (!visible.length) {
-    wrap.innerHTML = '<div class="empty-state">No ideas match this filter yet.</div>';
+    // Same idea as above: the open-list author filter matched nothing, but
+    // the Closed folder is independent of that filter (roadmap: "this
+    // filter only affects... the open list above is untouched"), so it
+    // still renders below.
+    wrap.innerHTML = '<div class="empty-state">No ideas match this filter yet.</div>' + closedFolderHtml;
     refreshIcons();
+    updateTabUnseenBadge('watchlist'); // Tab-Level Unseen Badges Roadmap, Phase B2
     return;
   }
-  wrap.innerHTML = visible.map(({ it, i }) => {
-    const idArg = escapeHtml(JSON.stringify(it.id));
-    const cardExpanded = watchlistCardExpanded.has(it.id);
-    // Phase 4: draggable="true" + data-reorder-index drive the drag handlers
-    // below; the "⋮⋮" grip is the touch-friendly fallback (prompts for a
-    // target position) since HTML5 drag-and-drop doesn't work well on touch.
-    // Phase 5: the row itself toggles the follow-up trail below it; the
-    // drag handle and delete button both stopPropagation so they don't
-    // also trigger the expand/collapse.
-    // Swipe-to-delete was removed (redundant — every card already has its
-    // own delete icon in the row, and the row-level delete button below
-    // covers it) — the row renders directly now, no .wl-swipe wrapper.
-    const accent = watchlistAccent(it.pair);
-    const isSell = it.direction === 'sell';
-    return '<div class="wl-card' + (cardExpanded ? ' expanded' : '') + '" style="--accent:' + accent.hex + '; --accent-bg:' + accent.bg + ';" data-item-id="' + escapeHtml(it.id) + '">' +
-        '<div class="trade-row" draggable="true" data-reorder-index="' + i + '" onclick="toggleWatchlistCard(' + idArg + ')" ' +
-            'ondragstart="onWatchlistDragStart(event)" ondragover="onWatchlistDragOver(event)" ' +
-            'ondragleave="onWatchlistDragLeave(event)" ondrop="onWatchlistDrop(event)" ondragend="onWatchlistDragEnd(event)">' +
-          '<div class="wl-reorder-handle" title="Drag to reorder, or tap to move…" onclick="event.stopPropagation(); promptWatchlistReorder(' + i + ', ' + sorted.length + ');"><i data-lucide="grip-vertical" style="width:16px;height:16px;"></i></div>' +
-          '<span class="wl-pair-icon-chip"><i data-lucide="' + (isSell ? 'trending-down' : 'trending-up') + '" style="width:20px;height:20px;"></i></span>' +
-          '<div class="trade-row-info">' +
-            '<div class="trade-row-top">' +
-              '<span style="font-weight:600; font-size:14.5px; display:inline-flex; align-items:center; gap:7px;"><span class="wl-card-chevron">▶</span>' + escapeHtml(it.pair || 'Unknown') + ' <span class="wl-direction-pill ' + (isSell ? 'sell' : 'buy') + '">' + escapeHtml((it.direction || '').toUpperCase()) + '</span>' + wlStatusPillHtml(it.status) + '</span>' +
-              '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
-            '</div>' +
-            '<div class="trade-row-tags">' +
-              authorBadgeHtml(it.createdBy) +
-              (it.model ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.model) + '</span>' : '') +
-              (it.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.htf) + ' POI</span>' : '') +
-              (it.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.poiType) + '</span>' : '') +
-              (it.ltf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.ltf) + '</span>' : '') +
-              (it.linkedTradeId ? '<span class="wl-view-trade-link" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(it.linkedTradeId) + '\')">View trade →</span>' : '') +
-            '</div>' +
-          '</div>' +
-        '</div>' +
-      watchlistCardDetailHtml(it) +
-    '</div>';
-  }).join('');
+  const openListHtml = visible.map(({ it, i }) =>
+    watchlistCardRowHtml(it, { draggable: true, reorderIndex: i, sortedLength: sorted.length })
+  ).join('');
+  wrap.innerHTML = openListHtml + closedFolderHtml;
   // Same row stagger fade-in pattern as renderTradeList()'s .trade-row-enter.
   wrap.querySelectorAll('.trade-row').forEach((row, i) => {
     row.classList.add('trade-row-enter');
     row.style.animationDelay = (Math.min(i, 20) * 15) + 'ms';
   });
   refreshIcons();
+  updateTabUnseenBadge('watchlist'); // Tab-Level Unseen Badges Roadmap, Phase B2
+}
+
+// Watchlist Closed-Folder Roadmap, Phase 2: card markup factored out of the
+// open-list render loop so the Closed folder below can render the exact same
+// .wl-card structure (title, pills, tags, follow-up trail) without
+// duplicating it. `opts.draggable` gates everything reorder-related — when
+// false, the row skips draggable/data-reorder-index/the drag event handlers
+// and the grip handle entirely, since closed items don't participate in
+// manual ordering.
+function watchlistCardRowHtml(it, opts) {
+  const idArg = escapeHtml(JSON.stringify(it.id));
+  const cardExpanded = watchlistCardExpanded.has(it.id);
+  // Phase 4: draggable="true" + data-reorder-index drive the drag handlers
+  // below; the "⋮⋮" grip is the touch-friendly fallback (prompts for a
+  // target position) since HTML5 drag-and-drop doesn't work well on touch.
+  // Phase 5: the row itself toggles the follow-up trail below it; the
+  // drag handle and delete button both stopPropagation so they don't
+  // also trigger the expand/collapse.
+  // Swipe-to-delete was removed (redundant — every card already has its
+  // own delete icon in the row, and the row-level delete button below
+  // covers it) — the row renders directly now, no .wl-swipe wrapper.
+  const accent = watchlistAccent(it.pair);
+  const isSell = it.direction === 'sell';
+  const rowAttrs = opts.draggable
+    ? 'draggable="true" data-reorder-index="' + opts.reorderIndex + '" ' +
+      'ondragstart="onWatchlistDragStart(event)" ondragover="onWatchlistDragOver(event)" ' +
+      'ondragleave="onWatchlistDragLeave(event)" ondrop="onWatchlistDrop(event)" ondragend="onWatchlistDragEnd(event)"'
+    : '';
+  const reorderHandleHtml = opts.draggable
+    ? '<div class="wl-reorder-handle" title="Drag to reorder, or tap to move…" onclick="event.stopPropagation(); promptWatchlistReorder(' + opts.reorderIndex + ', ' + opts.sortedLength + ');"><i data-lucide="grip-vertical" style="width:16px;height:16px;"></i></div>'
+    : '';
+  return '<div class="wl-card' + (cardExpanded ? ' expanded' : '') + '" style="--accent:' + accent.hex + '; --accent-bg:' + accent.bg + ';" data-item-id="' + escapeHtml(it.id) + '">' +
+      unseenDotHtml('watchlist', it) +
+      '<div class="trade-row" ' + rowAttrs + ' onclick="toggleWatchlistCard(' + idArg + ')">' +
+        reorderHandleHtml +
+        '<span class="wl-pair-icon-chip"><i data-lucide="' + (isSell ? 'trending-down' : 'trending-up') + '" style="width:20px;height:20px;"></i></span>' +
+        '<div class="trade-row-info">' +
+          '<div class="trade-row-top">' +
+            '<span class="wl-card-title"><span class="wl-card-chevron">▶</span><span class="wl-card-title-pair">' + escapeHtml(it.pair || 'Unknown') + '</span><span class="wl-direction-pill ' + (isSell ? 'sell' : 'buy') + '">' + escapeHtml((it.direction || '').toUpperCase()) + '</span>' + wlStatusPillHtml(it.status) + '</span>' +
+            // Invalidated Status Roadmap, Phase A1: only offered while the
+            // card is still open — once it's gone live/resolved (any other
+            // status), this is meaningless (frozen composer already covers it).
+            // Mobile icon-seating fix 2026-08-31: ban+delete now sit in their
+            // own flex-shrink:0 cluster (.wl-row-actions) instead of being
+            // loose siblings of the title span in a nowrap flex row — on a
+            // narrow screen the old layout let a long pair name/pill combo
+            // push these icons past the viewport edge instead of yielding to
+            // them, since the title span had no min-width:0 to shrink below
+            // its own content. The pair name now truncates with an ellipsis
+            // (.wl-card-title-pair) instead, so the icons always stay fully
+            // on-screen.
+            '<div class="wl-row-actions">' +
+            '<div class="icon-btn" onclick="event.stopPropagation(); openWatchlistEditPanel(' + idArg + ')" title="Edit"><i data-lucide="pencil"></i></div>' +
+            (!it.status || it.status === 'idea'
+              ? '<div class="icon-btn" onclick="event.stopPropagation(); markWatchlistInvalidated(' + idArg + ')" title="Mark Invalidated"><i data-lucide="ban"></i></div>'
+              : '') +
+            '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="trade-row-tags">' +
+            authorBadgeHtml(it.createdBy) +
+            (it.model ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.model) + '</span>' : '') +
+            (it.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.htf) + ' POI</span>' : '') +
+            (it.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.poiType) + '</span>' : '') +
+            (it.ltf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.ltf) + '</span>' : '') +
+            (it.linkedTradeId ? '<span class="wl-view-trade-link" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(it.linkedTradeId) + '\')">View trade →</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    watchlistCardDetailHtml(it) +
+  '</div>';
+}
+
+// Watchlist Closed-Folder Roadmap, Phase 2: session-only expand/collapse
+// state for the folder itself (not per-item) — mirrors watchlistAuthorFilter
+// (persists across re-renders within the session, resets on reload) rather
+// than watchlistCardExpanded's per-id Set, since there's only ever one
+// folder. Starts collapsed each session, same default the roadmap calls for.
+// Applied at render time (via watchlistClosedFolderHtml() reading this
+// below) rather than left purely DOM-side, so the toggle survives the
+// frequent full re-renders renderWatchlistList() goes through (edit,
+// delete, filter change, etc.) instead of silently re-collapsing on the
+// next unrelated action.
+let wlClosedFolderExpanded = false;
+function toggleWlClosedFolder(headerEl) {
+  wlClosedFolderExpanded = !wlClosedFolderExpanded;
+  // Direct DOM toggle (same immediacy as toggleCard()) rather than waiting
+  // on a full renderWatchlistList() — the header and body are adjacent
+  // siblings just like every other .mini-card-header/.mini-card-body pair.
+  headerEl.classList.toggle('open', wlClosedFolderExpanded);
+  const body = headerEl.nextElementSibling;
+  if (body) body.classList.toggle('open', wlClosedFolderExpanded);
+}
+
+// Renders the "Closed (N)" collapsible section. Reuses the existing
+// .mini-card-header/.mini-card-body "open" accordion (same technique as
+// Settings' collapsible sections — no new animation added). Lives directly
+// inside the watchlist's existing .nested-card, same one the open list
+// renders in (see #watchlistList's markup) — no extra wrapper card. If
+// there are no closed items yet, the folder still renders (header shows
+// "Closed (0)") so the section doesn't pop in/out of existence as items
+// resolve — consistent with it being a permanent fixture of the list once
+// Phase 1 started diverting items out of the open list.
+// Watchlist Closed-Folder Roadmap, Phase 3: scoped status filter, session-
+// only like wlClosedFolderExpanded/watchlistAuthorFilter — resets on
+// reload, persists across re-renders. Only affects which closedItems this
+// folder renders; the open list above is untouched (it has no status
+// filter of its own).
+let wlClosedStatusFilter = '';
+function setWlClosedStatusFilter(value) {
+  wlClosedStatusFilter = value;
+  renderWatchlistList();
+}
+function watchlistClosedFolderHtml(closedItems) {
+  // "(N)" in the header reflects the filtered count, per the roadmap — the
+  // full closedItems array (unfiltered) is still what the chip row's own
+  // active state and the "no items at all yet" vs "no items match this
+  // filter" distinction are based on.
+  const filteredClosed = wlClosedStatusFilter
+    ? closedItems.filter((it) => it.status === wlClosedStatusFilter)
+    : closedItems;
+  const cardsHtml = !closedItems.length
+    ? '<div class="empty-state" style="padding: var(--space-3) 0;">No closed ideas yet.</div>'
+    : !filteredClosed.length
+      ? '<div class="empty-state" style="padding: var(--space-3) 0;">No closed ideas match this filter.</div>'
+      : filteredClosed.map((it) => watchlistCardRowHtml(it, { draggable: false })).join('');
+  const chipDef = [['', 'All'], ['won', 'Won'], ['lost', 'Lost'], ['invalidated', 'Invalidated']];
+  const chipsHtml = '<div style="margin-bottom: var(--space-3);">' +
+    chipDef.map(([value, label]) =>
+      '<span class="chip-pill' + (wlClosedStatusFilter === value ? ' active' : '') + '" onclick="event.stopPropagation(); setWlClosedStatusFilter(\'' + value + '\');">' + label + '</span>'
+    ).join('') +
+    '</div>';
+  // No extra .nested-card wrapper here — this lives directly inside the
+  // watchlist's existing .nested-card (same one the open list is in), same
+  // as Settings' collapsible mini-card sections do. A top border stands in
+  // for the visual separation a wrapper card would otherwise give it.
+  const openClass = wlClosedFolderExpanded ? ' open' : '';
+  return '<div style="margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border);">' +
+      '<div class="mini-card-header' + openClass + '" style="cursor:pointer;" onclick="toggleWlClosedFolder(this)">' +
+        '<h2 style="font-size:14px;">Closed (' + filteredClosed.length + ')</h2>' +
+        '<span class="chevron">▾</span>' +
+      '</div>' +
+      '<div class="mini-card-body' + openClass + '">' + chipsHtml + cardsHtml + '</div>' +
+    '</div>';
 }
 
 // ================= WATCHLIST TRAIL (Phase 5, redesigned) =================
@@ -12639,10 +13088,19 @@ let wlTrailEntryExpanded = new Set();
 
 function toggleWatchlistCard(id) {
   const willExpand = !watchlistCardExpanded.has(id);
-  if (willExpand) watchlistCardExpanded.add(id); else watchlistCardExpanded.delete(id);
+  if (willExpand) {
+    watchlistCardExpanded.add(id);
+    markItemSeen('watchlist', id); // unseen-activity indicators: clears this card's dot immediately on expand
+  } else {
+    watchlistCardExpanded.delete(id);
+  }
   const el = document.querySelector('.wl-card[data-item-id="' + CSS.escape(id) + '"]');
-  if (el) el.classList.toggle('expanded', willExpand);
-  else renderWatchlistList();
+  if (el) {
+    el.classList.toggle('expanded', willExpand);
+    // fast path skips a full re-render, so remove the dot from the DOM
+    // directly here rather than waiting on the next renderWatchlistList()
+    if (willExpand) { const dot = el.querySelector('.unseen-dot'); if (dot) dot.remove(); }
+  } else renderWatchlistList();
 }
 
 function toggleWatchlistTrailEntry(entryId) {
@@ -12930,13 +13388,17 @@ function watchlistTrailComposerHtml(itemId) {
       : 'Live';
     return '<div class="wl-update-composer">' +
       '<div class="wl-update-composer-head"><span class="wl-trail-icon-chip"><i data-lucide="lock" style="width:12px;height:12px;"></i></span><span>' + escapeHtml(statusLabel) + '</span></div>' +
-      '<div class="mono muted" style="font-size:11.5px;">This idea went live — no more updates here. Further notes and screenshots continue on the linked trade.</div>' +
+      '<div class="mono muted" style="font-size:11.5px;">' + (wlItem.status === 'invalidated'
+        ? 'This idea was invalidated — no trade was taken.'
+        : 'This idea went live — no more updates here. Further notes and screenshots continue on the linked trade.') + '</div>' +
       (wlItem.linkedTradeId
         ? '<button class="wl-post-update-btn" style="margin-top:8px;" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(wlItem.linkedTradeId) + '\')">View linked trade →</button>'
-        : (wlItem.status === 'pending'
+        : (wlItem.status === 'invalidated'
+            ? '' // Invalidated Status Roadmap, Phase A2: no trade to reference or clean up, unlike Pending's unsaved-draft case below
+            : (wlItem.status === 'pending'
             ? '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen, or cancel below if the draft was lost (e.g. the app was closed or refreshed before saving).</div>' +
               '<button class="wl-post-update-btn" style="margin-top:8px; background:var(--surface2); color:var(--light); box-shadow:none;" onclick="event.stopPropagation(); cancelUnlinkedWatchlistHandoff(\'' + itemId + '\')">Cancel — trade was never saved</button>'
-            : '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen.</div>')) +
+            : '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen.</div>'))) +
     '</div>';
   }
   const draftText = wlTrailDraftText[itemId] || '';
@@ -13595,7 +14057,12 @@ async function promptWatchlistReorder(index, total) {
 // applyMediaReorder) since a pure reorder only ever touches the `order`
 // field and can't clobber a concurrent edit to anything else.
 async function applyWatchlistReorder(fromIndex, toIndex) {
-  const sorted = allWatchlistItems.slice().sort((a, b) => (a.order || 0) - (b.order || 0));
+  // Watchlist Closed-Folder Roadmap, Phase 1: must match renderWatchlistList()'s
+  // openWlItems exactly — fromIndex/toIndex come from data-reorder-index,
+  // which is now an index into the open-only list, not all of
+  // allWatchlistItems. Closed items keep whatever `order` they already had;
+  // it's no longer meaningful once they're excluded from this list.
+  const sorted = allWatchlistItems.filter(isWatchlistItemOpen).sort((a, b) => (a.order || 0) - (b.order || 0));
   if (!moveMediaItem(sorted, fromIndex, toIndex)) return;
   const changed = [];
   const previousOrders = []; // so a failed save can be rolled back, not just re-rendered
@@ -14101,6 +14568,7 @@ function viewerGoToTrade() {
 async function openSidePanel(id) {
   const trade = allTrades.find(t => t.id === id);
   if (!trade) return;
+  markItemSeen('trade', id); // unseen-activity indicators: clears this row's dot immediately on open
   const panel = document.getElementById('sidePanel');
   const tradeImgs = trade.images || [];
   const beforeIdx = tradeImgs.findIndex(i => i.slot === 'before' && i.url);
@@ -15289,6 +15757,7 @@ function updateOnboardingBanner() {
 
 async function refreshDashboardTradeSummary() {
   await loadAllTrades();
+  updateTabUnseenBadge('trade'); // Tab-Badge Login Preload Roadmap, Phase 1: data was already being fetched here on every login — this just adds the missing dot-check on it
   updateOnboardingBanner();
   renderDashboardStrategySelectOptions();
   renderTPModelRankingLive();
@@ -15914,6 +16383,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const poiTypesReady = loadPoiTypeList().then(() => { renderPoiTypeManagerList(); renderPoiTypeSelect(); });
   const modelsReady = loadModelList().then(() => { renderModelManagerList(); renderModelSelect(); renderAdvancedFilterOptions(); populateWlModelSelect(); });
   const strategiesReady = loadStrategyList().then(() => { renderStrategyManagerList(); renderStrategySelectOptions(); renderConfluencePicker(); renderDashboardStrategySelectOptions(); renderInsightsStrategySelectOptions(); renderCompareTable(); updateOnboardingBanner(); renderJournalStrategySection(); });
+  // Tab-Badge Login Preload Roadmap, Phase 2: fetch Journal data in the
+  // background at login so its tab dot can be correct immediately, without
+  // making the user wait on it. Deliberately NOT included in the
+  // Promise.all below — the loader overlay hides as soon as the trades/
+  // confluences/timeframes/POI-types/models/strategies loaders above
+  // resolve, same as before this phase; the Journal dot just pops on a
+  // moment later once this resolves on its own.
+  loadAllJournalEntries().then(() => updateTabUnseenBadge('journal'));
+  // Tab-Badge Login Preload Roadmap, Phase 3: same pattern for Watchlist —
+  // background fetch at login, badge check once it resolves, deliberately
+  // left out of the Promise.all below so it never delays hiding the loader.
+  loadAllWatchlistItems().then(() => updateTabUnseenBadge('watchlist'));
   // Loader overlay stays up until every one of these has genuinely resolved —
   // not a fixed delay, so it never hides too early on a slow connection or
   // lingers too long on a fast one. minDisplay just avoids an instant flash
