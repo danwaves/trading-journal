@@ -1,0 +1,15 @@
+name: Fetch Forex News
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call forex news cron endpoint
+        run: |
+          curl -f -s -o /dev/null -w "%{http_code}" \
+            "https://danfxt.vercel.app/api/cron/fetch-forex-news?secret=${{ secrets.NOTIFY_SECRET }}"
