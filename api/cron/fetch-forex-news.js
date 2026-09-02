@@ -8,15 +8,14 @@ const supabase = createClient(
 
 function stableId(event) {
   // Forex Factory feed has no unique ID, so derive one from stable fields
-  const raw = `${event.date}-${event.time}-${event.country}-${event.title}`;
+  const raw = `${event.date}-${event.country}-${event.title}`;
   return crypto.createHash('md5').update(raw).digest('hex');
 }
 
-function parseEventTime(dateStr, timeStr) {
-  // Feed format: date "MM-DD-YYYY", time "h:mma" or "All Day"/"Tentative"
-  if (!timeStr || /all day|tentative/i.test(timeStr)) return null;
-  const combined = `${dateStr} ${timeStr}`;
-  const parsed = new Date(combined);
+function parseEventTime(dateStr) {
+  // Feed format: single ISO 8601 string with offset, e.g. "2026-09-01T10:00:00-04:00"
+  if (!dateStr) return null;
+  const parsed = new Date(dateStr);
   return isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
@@ -36,8 +35,8 @@ export default async function handler(req, res) {
 
     const rows = events
       .map((e) => {
-        const eventTime = parseEventTime(e.date, e.time);
-        if (!eventTime) return null; // skip All Day / Tentative entries with no fixed time
+        const eventTime = parseEventTime(e.date);
+        if (!eventTime) return null; // skip anything with an unparseable date
         return {
           id: stableId(e),
           event_time: eventTime,
@@ -67,4 +66,4 @@ export default async function handler(req, res) {
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
-    }
+          }
