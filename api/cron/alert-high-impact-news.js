@@ -50,7 +50,7 @@ export default async function handler(req, res) {
     // 1. Pull candidate rows: high-impact, not yet alerted.
     const selectUrl =
       `${SUPABASE_URL}/rest/v1/forex_news` +
-      `?impact=ilike.*high*&alerted_at=is.null&select=id,event_time,currency,title,forex,impact`;
+      `?impact=ilike.*high*&alerted_at=is.null&select=id,event_time,currency,title,impact`;
     const selectRes = await fetch(selectUrl, {
       headers: {
         apikey: SERVICE_KEY,
@@ -80,8 +80,7 @@ export default async function handler(req, res) {
       const message =
         `📰 High-impact news in ~30 min\n` +
         `${event.currency || ''} — ${event.title || ''}\n` +
-        `Time: ${timeLabel}` +
-        (event.forex !== null && event.forex !== undefined ? `\nForecast: ${event.forex}` : '');
+        `Time: ${timeLabel}`;
 
       // 3. Send via the existing notify-telegram endpoint, both chats.
       const notifyRes = await fetch(
@@ -126,4 +125,4 @@ export default async function handler(req, res) {
     console.error('alert-high-impact-news error:', err);
     return res.status(500).json({ ok: false, error: String(err) });
   }
-}
+  }
