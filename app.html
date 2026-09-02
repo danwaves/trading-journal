@@ -1949,6 +1949,31 @@
   .app-dialog-list-item { display: block; width: 100%; text-align: left; padding: 11px 12px; border-radius: 9px; font-size: 13.5px; font-weight: 600; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--light); transition: filter var(--duration-fast) var(--ease), transform var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease); }
   .app-dialog-list-item:hover { border-color: var(--brand); }
   .app-dialog-list-item:active { transform: scale(0.98); }
+
+  /* Forex News Roadmap, Phase B2: News tab UI. Day strip + collapsible
+     per-day event list, reusing existing tokens (--win/--loss/--lead/--muted)
+     rather than inventing new impact colors, and the .mini-card-header/body
+     collapse idiom already used for the Watchlist Closed folder. */
+  .news-day-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: var(--space-3); }
+  .news-day-chip { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 4px; text-align: center; cursor: pointer; transition: transform var(--duration-fast) var(--ease); }
+  .news-day-chip:active { transform: scale(0.94); }
+  .news-day-chip.today { border-color: var(--brand); }
+  .news-day-chip.expanded { background: var(--surface2); }
+  .news-day-chip-dow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+  .news-day-chip-date { font-family: 'Space Grotesk'; font-size: 14px; font-weight: 600; margin: 3px 0 6px; }
+  .news-day-chip-dot { width: 8px; height: 8px; border-radius: 50%; margin: 0 auto; background: var(--border); }
+  .news-day-chip-dot.impact-high { background: var(--loss); }
+  .news-day-chip-dot.impact-medium { background: var(--lead); }
+  .news-day-chip-dot.impact-low { background: var(--muted); }
+  .news-event-row { display: flex; gap: var(--space-3); align-items: flex-start; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 8px; }
+  .news-event-time { flex: none; width: 54px; font-family: 'Space Grotesk'; font-size: 12px; color: var(--muted); padding-top: 1px; }
+  .news-event-info { flex: 1; min-width: 0; }
+  .news-event-title-row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+  .news-event-title { font-size: 13px; font-weight: 600; }
+  .news-event-stats { display: flex; gap: var(--space-3); margin-top: 4px; font-size: 11.5px; color: var(--muted); }
+  .badge-impact-high { background: rgba(255,92,92,0.15); color: var(--loss); }
+  .badge-impact-medium { background: rgba(245,166,35,0.15); color: var(--lead); }
+  .badge-impact-low { background: rgba(148,163,184,0.15); color: var(--muted); }
 </style>
 </head>
 <body>
@@ -2020,6 +2045,7 @@
   <button onclick="closeMoreMenu(); showScreen('compare', this); renderCompareTable();">Compare</button>
   <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
   <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal<span class="tab-unseen-dot" id="tabDot_journal"></span></button>
+  <button id="tabNews" onclick="closeMoreMenu(); showScreen('news', this); renderNewsTab();">News</button>
   <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
 </div>
 
@@ -3242,6 +3268,33 @@
   </div>
 </div>
 
+<!-- Forex News Roadmap, Phase B2: News tab — own tab (not folded into
+     Dashboard) since this is external market data, not the user's own
+     performance data. Reads the forex_news table Phase B1's cron job keeps
+     populated; no write path from this screen. -->
+<div id="news" class="screen">
+  <h1>News</h1>
+  <p class="sub" style="margin-bottom:20px;">This week's Forex Factory calendar — tap a day to see its events.</p>
+  <div class="card">
+    <div style="padding-top:0;">
+      <div class="nested-card">
+        <div id="newsDayStrip" class="news-day-strip"></div>
+        <div id="newsImpactChips" style="margin-bottom: var(--space-2);">
+          <span class="chip-pill" onclick="setNewsImpactFilter('')">All</span>
+          <span class="chip-pill" onclick="setNewsImpactFilter('high')">High</span>
+          <span class="chip-pill" onclick="setNewsImpactFilter('medium')">Medium</span>
+          <span class="chip-pill" onclick="setNewsImpactFilter('low')">Low</span>
+        </div>
+        <div id="newsCurrencyChips"></div>
+      </div>
+      <div class="nested-card">
+        <h2 id="newsDayHeading" style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom: var(--space-3);">Today</h2>
+        <div id="newsEventList" class="mono muted" style="font-size:12.5px;">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- TRADE SIDE PANEL -->
 <div id="sidePanelOverlay" class="modal-overlay" style="justify-content:flex-end; padding:0;" onclick="if(event.target===this) closeSidePanel();">
   <div id="sidePanel" style="background:var(--surface); border-left:1px solid var(--border); width:100%; max-width:420px; height:100%; overflow-y:auto; padding:20px;"></div>
@@ -4445,7 +4498,7 @@ function showScreen(id, btn) {
   // them is the active screen — otherwise nothing in the visible tab bar
   // would show where you are.
   const moreBtn = document.getElementById('tabMore');
-  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'journal', 'settings'].includes(id));
+  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'journal', 'news', 'settings'].includes(id));
 }
 
 // Opens/closes the "More" dropdown (Compare/Strategies/Settings). A
@@ -12319,6 +12372,9 @@ async function renderTradeList() {
     if (wrap) wrap.innerHTML = buildTradeListSkeleton();
   }
   if (isFirstLoad) await loadAllTrades();
+  // Phase B3: don't block the trade list on the news fetch — render now,
+  // badges appear on the next pass once forex_news actually lands.
+  ensureForexNewsForBadges(renderTradeList);
   populateFilterOptions();
   const filtered = getFilteredTrades();
   document.getElementById('tradeCountNote').textContent =
@@ -12374,6 +12430,7 @@ async function renderTradeList() {
             (t.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.htf) + ' POI</span>' : '') +
             (t.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.poiType) + '</span>' : '') +
             outcomeBadge(t) +
+            nearbyNewsBadgeHtml(t.openedAt || t.date) +
             (computeTradeDuration(t) != null ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">⏱ ' + formatDuration(computeTradeDuration(t)) + '</span>' : '') +
             (t.notes ? '<span class="badge" style="background:var(--surface2); color:var(--muted);" title="Has notes"><i data-lucide="file-text" style="width:11px;height:11px;"></i></span>' : '') +
           '</div>' +
@@ -12515,6 +12572,220 @@ async function persistWatchlistItem(item) {
   if (error) { console.error('Failed to save watchlist item ' + item.id + ':', error); setSyncState('error'); return false; }
   setSyncState('synced');
   return true;
+}
+
+// ================= FOREX NEWS (Phase B2 — News tab UI) =================
+// Read-only screen: Phase B1's GitHub Actions cron job is the only writer
+// to `forex_news` (via /api/cron/fetch-forex-news.js). This tab just
+// queries and displays it.
+let allForexNews = [];
+let forexNewsLoaded = false;
+// Session-only UI state, same convention as wlClosedFolderExpanded /
+// watchlistAuthorFilter — resets on reload, not persisted.
+let newsExpandedDayKey = null; // set to today's key the first time renderNewsTab() runs
+let newsImpactFilter = ''; // '', 'high', 'medium', 'low'
+let newsCurrencyFilter = ''; // '', or a currency code like 'USD'
+
+// Confirmed forex_news schema (id, event_time, currency, title, impact,
+// forex, previous, actual, fetched_at). NOTE the forecast value lives in
+// a column literally named `forex` (not `forecast`) — confirm that's not
+// a typo on the write side (api/cron/fetch-forex-news.js) if this ever
+// looks wrong; the read side here just mirrors what's actually there.
+function rowToNewsEvent(row) {
+  const rawImpact = (row.impact || '').toString().toLowerCase();
+  let impact = 'low';
+  if (rawImpact.indexOf('high') !== -1) impact = 'high';
+  else if (rawImpact.indexOf('med') !== -1) impact = 'medium';
+  else if (rawImpact.indexOf('low') !== -1) impact = 'low';
+  else impact = 'other'; // e.g. "Holiday" / "Non-Economic" — shown, but excluded from day-strip worst-impact color
+  return {
+    id: row.id,
+    time: row.event_time ? new Date(row.event_time) : null,
+    currency: (row.currency || '').toString().toUpperCase(),
+    title: row.title || '',
+    impact: impact,
+    forecast: row.forex,
+    previous: row.previous,
+    actual: row.actual,
+  };
+}
+async function loadAllForexNews() {
+  try {
+    const { data, error } = await supabaseClient
+      .from('forex_news')
+      .select('*');
+    if (error) throw error;
+    allForexNews = (data || []).map(rowToNewsEvent).filter((e) => e.time);
+    allForexNews.sort((a, b) => a.time - b.time);
+    forexNewsLoaded = true;
+  } catch (e) {
+    console.error('Failed to load forex news — not clearing existing data:', e);
+  }
+  return allForexNews;
+}
+
+function dayKey(d) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+
+// Sun–Sat week containing today, matching the "thisweek" feed Phase B1 pulls.
+function newsWeekDays() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+  const days = [];
+  for (let i = 0; i < 7; i++) days.push(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i));
+  return days;
+}
+
+const IMPACT_RANK = { high: 3, medium: 2, low: 1, other: 0 };
+
+function setNewsImpactFilter(value) {
+  newsImpactFilter = value;
+  renderNewsTab();
+}
+function setNewsCurrencyFilter(value) {
+  newsCurrencyFilter = value;
+  renderNewsTab();
+}
+function toggleNewsDay(key) {
+  newsExpandedDayKey = (newsExpandedDayKey === key) ? null : key;
+  renderNewsTab();
+}
+
+function newsEventRowHtml(e) {
+  const timeLabel = e.time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const stats = [];
+  if (e.forecast !== null) stats.push('Forecast ' + escapeHtml(String(e.forecast)));
+  if (e.previous !== null) stats.push('Previous ' + escapeHtml(String(e.previous)));
+  if (e.actual !== null) stats.push('Actual ' + escapeHtml(String(e.actual)));
+  const impactBadge = e.impact === 'other'
+    ? ''
+    : '<span class="badge badge-impact-' + e.impact + '">' + e.impact.charAt(0).toUpperCase() + e.impact.slice(1) + '</span>';
+  return (
+    '<div class="news-event-row">' +
+      '<div class="news-event-time">' + escapeHtml(timeLabel) + '</div>' +
+      '<div class="news-event-info">' +
+        '<div class="news-event-title-row">' +
+          '<span class="news-event-title">' + escapeHtml(e.currency) + ' — ' + escapeHtml(e.title) + '</span>' +
+          impactBadge +
+        '</div>' +
+        (stats.length ? '<div class="news-event-stats">' + stats.join(' · ') + '</div>' : '') +
+      '</div>' +
+    '</div>'
+  );
+}
+
+async function renderNewsTab() {
+  const stripWrap = document.getElementById('newsDayStrip');
+  const listWrap = document.getElementById('newsEventList');
+  const headingWrap = document.getElementById('newsDayHeading');
+  const currencyWrap = document.getElementById('newsCurrencyChips');
+  if (!stripWrap || !listWrap) return;
+  if (!forexNewsLoaded) await loadAllForexNews();
+
+  const days = newsWeekDays();
+  const todayKey = dayKey(new Date());
+  if (!newsExpandedDayKey) newsExpandedDayKey = todayKey; // auto-expand today on first render
+
+  // Impact + currency filters apply to which events count toward each day's
+  // worst-impact dot AND to which events actually list under the expanded
+  // day — kept as one filtered set so the two stay consistent.
+  const filtered = allForexNews.filter((e) => {
+    if (newsImpactFilter && e.impact !== newsImpactFilter) return false;
+    if (newsCurrencyFilter && e.currency !== newsCurrencyFilter) return false;
+    return true;
+  });
+
+  // Dynamic currency chips — built from whatever currencies are actually in
+  // this week's data, same "All" + generated options idiom as the author
+  // filter chips elsewhere.
+  const currencies = Array.from(new Set(allForexNews.map((e) => e.currency).filter(Boolean))).sort();
+  currencyWrap.innerHTML =
+    '<span class="chip-pill' + (newsCurrencyFilter === '' ? ' active' : '') + '" onclick="setNewsCurrencyFilter(\'\')">All currencies</span>' +
+    currencies.map((c) =>
+      '<span class="chip-pill' + (newsCurrencyFilter === c ? ' active' : '') + '" onclick="setNewsCurrencyFilter(' + JSON.stringify(c) + ')">' + escapeHtml(c) + '</span>'
+    ).join('');
+  document.querySelectorAll('#newsImpactChips .chip-pill').forEach((chip, idx) => {
+    const values = ['', 'high', 'medium', 'low'];
+    chip.classList.toggle('active', newsImpactFilter === values[idx]);
+  });
+
+  stripWrap.innerHTML = days.map((d) => {
+    const key = dayKey(d);
+    const dayEvents = filtered.filter((e) => dayKey(e.time) === key);
+    const worst = dayEvents.reduce((acc, e) => (IMPACT_RANK[e.impact] > IMPACT_RANK[acc] ? e.impact : acc), 'other');
+    const dotClass = worst === 'other' ? '' : ' impact-' + worst;
+    const classes = ['news-day-chip'];
+    if (key === todayKey) classes.push('today');
+    if (key === newsExpandedDayKey) classes.push('expanded');
+    return (
+      '<div class="' + classes.join(' ') + '" onclick="toggleNewsDay(' + JSON.stringify(key) + ')">' +
+        '<div class="news-day-chip-dow">' + d.toLocaleDateString('en-US', { weekday: 'short' }) + '</div>' +
+        '<div class="news-day-chip-date">' + d.getDate() + '</div>' +
+        '<div class="news-day-chip-dot' + dotClass + '"></div>' +
+      '</div>'
+    );
+  }).join('');
+
+  const expandedDate = days.find((d) => dayKey(d) === newsExpandedDayKey);
+  if (!expandedDate) { listWrap.innerHTML = ''; headingWrap.textContent = ''; return; }
+  headingWrap.textContent = expandedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  const dayEvents = filtered.filter((e) => dayKey(e.time) === newsExpandedDayKey).sort((a, b) => a.time - b.time);
+  listWrap.innerHTML = dayEvents.length
+    ? dayEvents.map(newsEventRowHtml).join('')
+    : '<div class="empty-state">No events' + (newsImpactFilter || newsCurrencyFilter ? ' match these filters' : '') + ' for this day.</div>';
+}
+
+// ============ FOREX NEWS (Phase B3 — per-trade/watchlist attachment) =====
+// Decisions — settled: ±1 hour window around a trade/idea's logged
+// timestamp; badge on the card itself is HIGH-IMPACT ONLY (medium/low stay
+// visible on the News tab itself, just not surfaced as a badge here).
+const NEWS_MATCH_WINDOW_MS = 60 * 60 * 1000; // ±1 hour
+
+// Shared by both Trade cards (keyed off trade.openedAt) and Watchlist cards
+// (keyed off item.createdAt) — anything with a matchable timestamp can use
+// this. Returns [] (not an error) for a missing/unparseable timestamp so
+// callers never need their own null-guard before calling it.
+function newsEventsNear(timestamp) {
+  if (!timestamp) return [];
+  const t = new Date(timestamp).getTime();
+  if (isNaN(t)) return [];
+  return allForexNews
+    .filter((e) => e.time && Math.abs(e.time.getTime() - t) <= NEWS_MATCH_WINDOW_MS)
+    .sort((a, b) => a.time - b.time);
+}
+
+function highImpactNewsNear(timestamp) {
+  return newsEventsNear(timestamp).filter((e) => e.impact === 'high');
+}
+
+// Card-level badge — high-impact only, per the settled decision. Title
+// attribute gives a quick hover/long-press hint of what matched without
+// needing to open the card.
+function nearbyNewsBadgeHtml(timestamp) {
+  const matches = highImpactNewsNear(timestamp);
+  if (!matches.length) return '';
+  const hint = matches.map((e) => e.currency + ' ' + e.title).join(', ');
+  return '<span class="badge badge-impact-high" title="' + escapeHtml(hint) + '">📰 News</span>';
+}
+
+// Expanded-detail section — ALL impact levels near the timestamp (not just
+// high), reusing Phase B2's newsEventRowHtml() so a matched event looks
+// identical here and on the News tab itself (forecast/previous/actual and
+// all). Loading/empty states mirror the rest of the app's lazy-load style
+// (e.g. journalOriginSectionHtml in openSidePanel).
+function nearbyNewsSectionHtml(timestamp) {
+  if (!forexNewsLoaded) return '<span class="muted" style="font-size:11px;">Loading news…</span>';
+  const matches = newsEventsNear(timestamp);
+  if (!matches.length) return '<span class="muted" style="font-size:11px;">No news events within ±1 hour.</span>';
+  return matches.map(newsEventRowHtml).join('');
+}
+
+// Trade/Watchlist screens need forex_news data for badges/detail but
+// shouldn't block their own render on it (same reasoning as the
+// journalEntriesLoaded lazy-load in openSidePanel) — kick off the load in
+// the background and only re-render once it actually lands data.
+function ensureForexNewsForBadges(rerenderFn) {
+  if (forexNewsLoaded) return;
+  loadAllForexNews().then(() => { if (forexNewsLoaded) rerenderFn(); });
 }
 
 async function loadAllWatchlistItems() {
@@ -12854,6 +13125,8 @@ async function renderWatchlistList() {
   populateWlModelSelect();
   updateWatchlistAuthorChips();
   if (!watchlistItemsLoaded) await loadAllWatchlistItems();
+  // Phase B3: same non-blocking background load as renderTradeList().
+  ensureForexNewsForBadges(renderWatchlistList);
   if (!allWatchlistItems.length) {
     wrap.innerHTML =
       '<div class="journal-empty">' +
@@ -12988,6 +13261,7 @@ function watchlistCardRowHtml(it, opts) {
             (it.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.htf) + ' POI</span>' : '') +
             (it.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.poiType) + '</span>' : '') +
             (it.ltf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.ltf) + '</span>' : '') +
+            nearbyNewsBadgeHtml(it.createdAt) +
             (it.linkedTradeId ? '<span class="wl-view-trade-link" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(it.linkedTradeId) + '\')">View trade →</span>' : '') +
           '</div>' +
         '</div>' +
@@ -13250,7 +13524,15 @@ function watchlistCardDetailHtml(item) {
       : '';
     timelineHtml = showMoreHtml + '<div class="wl-trail-timeline">' + visibleTrail.map((entry) => watchlistTrailEntryHtml(item.id, entry)).join('') + '</div>';
   }
-  return '<div class="wl-card-detail" onclick="event.stopPropagation();"><div>' + timelineHtml + watchlistTrailComposerHtml(item.id) + '</div></div>';
+  // Phase B3: nearby news, keyed off when the idea was logged (createdAt) —
+  // watchlist items don't have a separate "opened" timestamp the way trades
+  // do, so createdAt is the closest equivalent of "this entry's logged time."
+  const newsHtml =
+    '<div style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">' +
+      '<div style="font-size:10.5px; color:var(--muted); font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.3px;">Nearby News (±1hr)</div>' +
+      nearbyNewsSectionHtml(item.createdAt) +
+    '</div>';
+  return '<div class="wl-card-detail" onclick="event.stopPropagation();"><div>' + timelineHtml + newsHtml + watchlistTrailComposerHtml(item.id) + '</div></div>';
 }
 
 // One trail entry's ("post's") viewer group — labeled with its post date,
@@ -14637,6 +14919,10 @@ async function openSidePanel(id) {
       '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Journal Origin</label>' +
       journalOriginSectionHtml(trade.id) +
     '</div>' +
+    '<div style="margin-top:14px;">' +
+      '<label style="display:block; font-size:11px; color:var(--muted); margin-bottom:6px; font-weight:600;">Nearby News (±1hr)</label>' +
+      nearbyNewsSectionHtml(trade.openedAt || trade.date) +
+    '</div>' +
     '<div style="display:flex; gap: var(--space-2); margin-top:20px;">' +
       '<button class="btn-primary" style="flex:1;" onclick="loadTradeIntoForm(\'' + trade.id + '\')"><i data-lucide="pencil" style="width:13px;height:13px;"></i> Edit</button>' +
       '<button style="flex:1; padding: var(--space-3); background:rgba(255,92,92,0.1); border:1px solid var(--loss); border-radius:8px; color:var(--loss); font-weight:600; cursor:pointer;" onclick="deleteTradeFromList(\'' + trade.id + '\')"><i data-lucide="trash-2" style="width:13px;height:13px;"></i> Delete</button>' +
@@ -14649,6 +14935,15 @@ async function openSidePanel(id) {
   // once it lands rather than blocking the panel from opening on it.
   if (!journalEntriesLoaded) {
     await loadAllJournalEntries();
+    const stillOpen = document.getElementById('sidePanelOverlay').classList.contains('show');
+    if (stillOpen && allTrades.find(t => t.id === id) === trade) openSidePanel(id);
+  }
+  // Phase B3: same lazy-load-then-rerender as the Journal Origin section
+  // just above — the Nearby News section renders a "Loading…" placeholder
+  // above if forex_news hasn't landed yet, then this reopens the panel
+  // once it has (only if the person is still looking at this same trade).
+  if (!forexNewsLoaded) {
+    await loadAllForexNews();
     const stillOpen = document.getElementById('sidePanelOverlay').classList.contains('show');
     if (stillOpen && allTrades.find(t => t.id === id) === trade) openSidePanel(id);
   }
