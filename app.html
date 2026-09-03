@@ -7086,12 +7086,18 @@ async function createJournalEntry(fields) {
   const ok = await persistJournalEntry(entry);
   if (!ok) return null;
   allJournalEntries.unshift(entry);
+  // Real short link (matches the pattern used for comments/watchlist —
+  // previously this sent the raw 'journal:<id>' tag straight to Telegram,
+  // which isn't a URL and so never rendered as a clickable link).
+  let journalDeepLink = '';
+  const journalShortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`journal:${id}`));
+  if (journalShortId) journalDeepLink = 'https://danfxt.vercel.app/api/go/' + journalShortId;
   notifyOtherAccount({
     type: 'journal_entry',
     sourceTable: 'journal_entries',
     sourceId: id,
     message: `${currentAccountName()} added a new journal entry${entry.title ? ': ' + entry.title : ''}`,
-    deepLink: `journal:${id}`,
+    deepLink: journalDeepLink,
   });
   return entry;
 }
@@ -8178,12 +8184,15 @@ async function onJournalVoiceNoteRecorded(voiceNote) {
     renderJournalVoiceNotes();
     return;
   }
+  let voiceDeepLink = '';
+  const voiceShortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`journal:${journalEditingId}`));
+  if (voiceShortId) voiceDeepLink = 'https://danfxt.vercel.app/api/go/' + voiceShortId;
   notifyOtherAccount({
     type: 'voice_note',
     sourceTable: 'journal_entries',
     sourceId: journalEditingId,
     message: `${currentAccountName()} added a voice note on "${entry.title || 'a journal entry'}"`,
-    deepLink: `journal:${journalEditingId}`,
+    deepLink: voiceDeepLink,
   });
   // Transcript, if any, drops straight into the Notes field — same as if it
   // had been typed — and goes through the normal autosave flow.
@@ -8559,12 +8568,15 @@ async function addJournalSubNote() {
   if (!ok) { setJournalSubNoteStatus('Failed to save — check your connection and try again.', 'error'); return; }
   setJournalSubNoteStatus('', '');
   renderJournalSubNotesSection();
+  let subNoteDeepLink = '';
+  const subNoteShortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`journal:${journalEditingId}:sub:${subNote.id}`));
+  if (subNoteShortId) subNoteDeepLink = 'https://danfxt.vercel.app/api/go/' + subNoteShortId;
   notifyOtherAccount({
     type: 'journal_subnote',
     sourceTable: 'journal_entries',
     sourceId: journalEditingId,
     message: `${currentAccountName()} posted an update on "${entry.title || 'a journal entry'}"`,
-    deepLink: `journal:${journalEditingId}:sub:${subNote.id}`,
+    deepLink: subNoteDeepLink,
   });
 }
 
@@ -9189,12 +9201,15 @@ async function persistSubfolderBlocks(sf, entry, subfolderId, errMsg) {
   // Single hook for every subfolder block change (text/link/image/audio —
   // add, edit, or delete all funnel through here), rather than repeating
   // this in each call site.
+  let subfolderDeepLink = '';
+  const subfolderShortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`journal:${entry.id}:subfolder:${subfolderId}`));
+  if (subfolderShortId) subfolderDeepLink = 'https://danfxt.vercel.app/api/go/' + subfolderShortId;
   notifyOtherAccount({
     type: 'journal_subfolder',
     sourceTable: 'journal_entries',
     sourceId: entry.id,
     message: `${currentAccountName()} updated a subfolder in "${entry.title || 'a journal entry'}"`,
-    deepLink: `journal:${entry.id}:subfolder:${subfolderId}`,
+    deepLink: subfolderDeepLink,
   });
   return ok;
 }
@@ -11674,12 +11689,15 @@ async function saveTrade() {
     if (document.getElementById('statTotalTrades')) {
       await refreshDashboardTradeSummary();
     }
+    let tradeDeepLink = '';
+    const tradeShortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`trade:${id}`));
+    if (tradeShortId) tradeDeepLink = 'https://danfxt.vercel.app/api/go/' + tradeShortId;
     notifyOtherAccount({
       type: 'trade',
       sourceTable: 'trades',
       sourceId: id,
       message: `${currentAccountName()} ${isNewTradeForNotify ? 'added a new trade' : 'updated a trade'}: ${pair}`,
-      deepLink: `trade:${id}`,
+      deepLink: tradeDeepLink,
     });
     // Brief pause so the success banner is actually visible before the
     // redirect — navigating away instantly would mean the confirmation the
