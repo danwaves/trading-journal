@@ -637,6 +637,35 @@
   }
   #viewerDropupVoiceList .voice-note-row:last-child { margin-bottom: 0; }
   #viewerDropupVoiceList .voice-note-row { background: rgba(255,255,255,0.035); border-color: rgba(255,255,255,0.08); }
+  /* Media Comments & Notify Roadmap, Phase 2: chat-thread bubbles, mine
+     right-aligned/brand-tinted, partner's left-aligned/neutral — same visual
+     language (var(--brand), var(--surface2)) as .chip-pill.active elsewhere. */
+  #viewerDropupCommentsList { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; max-height: 260px; overflow-y: auto; }
+  #viewerDropupCommentsList:empty::before {
+    content: 'No comments yet.'; display: block; font-size: 11.5px; font-style: italic;
+    color: #6B7182; padding: 2px;
+  }
+  .comment-bubble-row { display: flex; flex-direction: column; max-width: 82%; }
+  .comment-bubble-row.mine { align-self: flex-end; align-items: flex-end; }
+  .comment-bubble-row.theirs { align-self: flex-start; align-items: flex-start; }
+  .comment-bubble-meta { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 10.5px; color: var(--muted, #8B90A3); }
+  .comment-bubble-row.mine .comment-bubble-meta { flex-direction: row-reverse; }
+  .comment-bubble { padding: 8px 11px; border-radius: 14px; font-size: 13px; line-height: 1.4; word-break: break-word; position: relative; }
+  .comment-bubble-row.mine .comment-bubble { background: rgba(238,130,179,0.16); border: 1px solid var(--brand); color: #F4E4EC; border-bottom-right-radius: 4px; }
+  .comment-bubble-row.theirs .comment-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--light, #E7E9F3); border-bottom-left-radius: 4px; }
+  .comment-bubble-delete { cursor: pointer; opacity: 0.55; }
+  .comment-bubble-delete:hover { opacity: 1; }
+  .viewer-comment-composer { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  #viewerCommentInput {
+    flex: 1; background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 20px; padding: 9px 14px; font-size: 13px; color: var(--light, #E7E9F3); outline: none;
+  }
+  #viewerCommentInput:focus { border-color: var(--brand); }
+  .viewer-comment-send-btn {
+    flex: none; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--brand); color: #1a0f14; cursor: pointer; border: none;
+  }
+  .viewer-comment-send-btn:disabled { opacity: 0.4; cursor: default; }
   .viewer-rt-toolbar.rt-toolbar {
     background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     border-radius: 10px; padding: 5px 6px; margin-bottom: 8px;
@@ -3381,6 +3410,23 @@
         </div>
         <div id="viewerDropupVoiceLive" class="mono" style="display:none;"></div>
         <div id="viewerDropupVoiceList"></div>
+      </div>
+
+      <!-- Comments card (Media Comments & Notify Roadmap, Phase 2) — chat
+           thread, no cap on back-and-forth. -->
+      <div class="viewer-dropup-card viewer-dropup-card--compact" style="margin-top:10px;">
+        <div class="viewer-dropup-section-head">
+          <span class="viewer-dropup-section-label"><i data-lucide="message-circle"></i>Comments</span>
+        </div>
+        <div id="viewerDropupCommentsList"></div>
+        <div class="viewer-comment-composer">
+          <input type="text" id="viewerCommentInput" placeholder="Write a comment…"
+            oninput="updateViewerCommentSendBtn()"
+            onkeydown="if (event.key === 'Enter') { event.preventDefault(); addViewerComment(); }" />
+          <button type="button" id="viewerCommentSendBtn" class="viewer-comment-send-btn" disabled onclick="addViewerComment()" title="Send">
+            <i data-lucide="send" style="width:15px; height:15px;"></i>
+          </button>
+        </div>
       </div>
 
     </div>
@@ -8300,6 +8346,16 @@ function openViewerForJournal(index) {
       if (!ok) console.error('Failed to autosave caption for journal entry', entry.id);
       return ok;
     },
+    onCommentsSave: async (imgIndex, comments, imgId) => {
+      const img = entry.media.find((i) => i.id === imgId) || entry.media[imgIndex];
+      if (!img) return false;
+      img.comments = comments;
+      entry.updatedAt = Date.now();
+      const ok = await persistJournalEntry(entry);
+      if (!ok) console.error('Failed to autosave comments for journal entry', entry.id);
+      return ok;
+    },
+    deepLinkFor: (imgId) => 'journal:' + entry.id + ':' + imgId,
   });
 }
 
@@ -8596,6 +8652,16 @@ function openViewerForSubNote(subNoteId, index) {
       if (!ok) console.error('Failed to autosave caption for sub-note', sn.id);
       return ok;
     },
+    onCommentsSave: async (imgIndex, comments, imgId) => {
+      const img = sn.media.find((i) => i.id === imgId) || sn.media[imgIndex];
+      if (!img) return false;
+      img.comments = comments;
+      entry.updatedAt = Date.now();
+      const ok = await persistJournalEntry(entry);
+      if (!ok) console.error('Failed to autosave comments for sub-note', sn.id);
+      return ok;
+    },
+    deepLinkFor: (imgId) => 'journal-sub:' + entry.id + ':' + sn.id + ':' + imgId,
   });
 }
 
@@ -9299,6 +9365,19 @@ function buildSubfolderViewerGroup(sf, entry) {
       if (!targetBlock) return false;
       targetBlock.media.caption = caption;
       return await persistSubfolderBlocks(sf, entry, sf.id);
+    },
+    onCommentsSave: async (imgIndex, comments, imgId) => {
+      const targetBlock = mediaBlocks.find((b) => b.media && b.media.id === imgId) || mediaBlocks[imgIndex];
+      if (!targetBlock) return false;
+      targetBlock.media.comments = comments;
+      return await persistSubfolderBlocks(sf, entry, sf.id);
+    },
+    // openViewerForSubfolderBlock() takes the block's own id, not the
+    // media's id, so this looks the block back up rather than using imgId
+    // directly.
+    deepLinkFor: (imgId) => {
+      const b = mediaBlocks.find((bl) => bl.media && bl.media.id === imgId);
+      return b ? 'journal-sf:' + entry.id + ':' + sf.id + ':' + b.id : '';
     },
   };
 }
@@ -12023,6 +12102,37 @@ function mediaCaption(item) {
 function mediaVoiceNotes(item) {
   return (item && Array.isArray(item.voiceNotes)) ? item.voiceNotes : [];
 }
+// Comments attached to a single image/video (Media Comments & Notify
+// Roadmap, Phase 1) — { id, text, createdBy, createdAt }, unbounded, either
+// partner can keep appending. Legacy media items have no .comments field at
+// all, so default to an empty list rather than requiring a migration —
+// same approach as mediaVoiceNotes() above.
+function mediaComments(item) {
+  return (item && Array.isArray(item.comments)) ? item.comments : [];
+}
+function buildMediaComment(text) {
+  return {
+    id: 'cmt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+    text: text,
+    createdBy: currentAccount ? currentAccount.email : '',
+    createdAt: Date.now(),
+  };
+}
+// Media Comments & Notify Roadmap, Phase 4: turns an in-app target URL into
+// a short /api/go/<id> link suitable for a Telegram message. Writes
+// directly via the client (anon key), same as every other write in this
+// app — needs the short_links insert+select RLS policies from the Phase 4
+// migration. Returns null (non-fatal) on failure so a broken short link
+// never blocks sending the comment/notification itself.
+function randomShortId() {
+  return Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+}
+async function createShortLink(targetUrl) {
+  const shortId = randomShortId();
+  const { error } = await supabaseClient.from('short_links').insert([{ short_id: shortId, target_url: targetUrl }]);
+  if (error) { console.error('createShortLink failed (non-fatal):', error); return null; }
+  return shortId;
+}
 // Plain-text form of a caption — captions are now rich HTML (bold/italic/
 // underline/font/size/color via the viewer's rt-editor), so anywhere a
 // caption is used as plain text (search snippets, title tooltips) needs
@@ -13569,6 +13679,20 @@ function buildWlTrailViewerGroup(itemId, entry) {
       if (!ok) console.error('Failed to autosave caption for watchlist trail entry', entry.id);
       return !!ok;
     },
+    onCommentsSave: async (imgIndex, comments, imgId) => {
+      const item = allWatchlistItems.find((it) => it.id === itemId);
+      const liveEntry = item && Array.isArray(item.trail) ? item.trail.find((e) => e.id === entry.id) : null;
+      if (!liveEntry) return false;
+      const pool = Array.isArray(liveEntry.images) ? liveEntry.images.slice() : [];
+      if (liveEntry.video) pool.push(liveEntry.video);
+      const img = pool.find((im) => im.id === imgId);
+      if (!img) return false;
+      img.comments = comments;
+      const ok = await updateWatchlistItem(itemId, { trail: item.trail });
+      if (!ok) console.error('Failed to autosave comments for watchlist trail entry', entry.id);
+      return !!ok;
+    },
+    deepLinkFor: (imgId) => 'wl:' + itemId + ':' + entry.id + ':' + imgId,
   };
 }
 
@@ -15011,6 +15135,15 @@ function openViewerForTrade(tradeId, index) {
       if (!ok) console.error('Failed to autosave caption for trade', trade.id);
       return ok;
     },
+    onCommentsSave: async (imgIndex, comments, imgId) => {
+      const img = trade.images.find((i) => i.id === imgId) || trade.images[imgIndex];
+      if (!img) return false;
+      img.comments = comments;
+      const ok = await persistTrade(trade);
+      if (!ok) console.error('Failed to autosave comments for trade', trade.id);
+      return ok;
+    },
+    deepLinkFor: (imgId) => 'trade:' + trade.id + ':' + imgId,
   });
 }
 
@@ -15321,6 +15454,13 @@ function viewerActiveGroup() {
 function viewerOnDelete() { const g = viewerActiveGroup(); return g ? g.onDelete : (viewerOpts && viewerOpts.onDelete); }
 function viewerOnReplace() { const g = viewerActiveGroup(); return g ? g.onReplace : (viewerOpts && viewerOpts.onReplace); }
 function viewerOnCaptionSaveFn() { const g = viewerActiveGroup(); return g ? g.onCaptionSave : (viewerOpts && viewerOpts.onCaptionSave); }
+// Media Comments & Notify Roadmap, Phase 1: same per-group/flat resolution
+// as viewerOnCaptionSaveFn above — Phase 2's comment-thread UI will call
+// through this instead of touching viewerOpts/viewerGroups directly.
+function viewerOnCommentsSaveFn() { const g = viewerActiveGroup(); return g ? g.onCommentsSave : (viewerOpts && viewerOpts.onCommentsSave); }
+// Media Comments & Notify Roadmap, Phase 4: same resolution pattern again —
+// finds whichever deepLinkFor(imgId) the current context supplied.
+function viewerDeepLinkForFn() { const g = viewerActiveGroup(); return g ? g.deepLinkFor : (viewerOpts && viewerOpts.deepLinkFor); }
 
 function closeViewer() {
   flushViewerCaption(); // Roadmap Step 6: don't lose an unsaved edit if the viewer closes before blur fires
@@ -15373,6 +15513,7 @@ function renderViewerMediaCommon() {
   document.getElementById('viewerDropupEditor').innerHTML = rtDisplayHtml(mediaCaption(img));
   document.getElementById('viewerDropupSaveState').textContent = ''; // Roadmap Step 6: clear any stale "Saved"/"Saving…" left over from the previous item
   renderViewerVoiceNotes(); // per-item voice notes list, same "keyed off the item" pattern as the caption above
+  renderViewerComments(); // per-item comment thread, same pattern (Media Comments & Notify Roadmap, Phase 2)
   const dropupEditor = document.getElementById('viewerDropupEditor');
   if (dropupEditor) dropupEditor.contentEditable = 'false'; // back to read-only until Edit is tapped again for this item
   const dropupBody = document.getElementById('viewerDropupBody');
@@ -15562,6 +15703,97 @@ async function deleteViewerVoiceNote(id) {
   viewerCaptionDirty = true;
   await flushViewerCaption();
   deleteFromCloudinary(vn.publicId, 'video'); // fine to delete right away — same as deleteTradeVoiceNote
+}
+
+// ===== Media Comments & Notify Roadmap, Phase 2: chat-thread UI =====
+// One bubble — right-aligned/brand-tinted for whoever is currently signed
+// in, left-aligned/neutral for the other partner, same "mine vs other"
+// resolution AUTHOR_BADGES/otherAccountEmail already use everywhere else.
+function commentBubbleHtml(c) {
+  const mine = currentAccount && c.createdBy === currentAccount.email;
+  const info = AUTHOR_BADGES[c.createdBy];
+  const name = info ? info.name : 'Someone';
+  const ts = c.createdAt ? new Date(c.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  return '<div class="comment-bubble-row ' + (mine ? 'mine' : 'theirs') + '">' +
+    '<div class="comment-bubble-meta">' +
+      '<span>' + escapeHtml(name) + '</span><span>·</span><span>' + escapeHtml(ts) + '</span>' +
+      (mine ? '<span class="comment-bubble-delete" onclick="deleteViewerComment(\'' + c.id + '\')" title="Delete"><i data-lucide="trash-2" style="width:11px;height:11px;"></i></span>' : '') +
+    '</div>' +
+    '<div class="comment-bubble">' + escapeHtml(c.text) + '</div>' +
+  '</div>';
+}
+function renderViewerComments() {
+  const container = document.getElementById('viewerDropupCommentsList');
+  if (!container) return;
+  const img = viewerImages[viewerIndex];
+  container.innerHTML = mediaComments(img).map(commentBubbleHtml).join('');
+  refreshIcons();
+  container.scrollTop = container.scrollHeight; // chat-style: always land on the latest message
+  const input = document.getElementById('viewerCommentInput');
+  if (input) input.value = '';
+  updateViewerCommentSendBtn();
+}
+function updateViewerCommentSendBtn() {
+  const input = document.getElementById('viewerCommentInput');
+  const btn = document.getElementById('viewerCommentSendBtn');
+  if (input && btn) btn.disabled = !input.value.trim();
+}
+// Persists through whichever onCommentsSave the current entry point supplied
+// (Phase 1 wiring) — no dirty/debounce dance needed here since Send is an
+// explicit action, unlike the caption's autosave-on-blur.
+async function addViewerComment() {
+  const input = document.getElementById('viewerCommentInput');
+  const img = viewerImages[viewerIndex];
+  if (!input || !img) return;
+  const text = input.value.trim();
+  if (!text) return;
+  if (!Array.isArray(img.comments)) img.comments = [];
+  img.comments.push(buildMediaComment(text));
+  const idx = viewerIndex;
+  const imgId = img.id;
+  renderViewerComments();
+  const onCommentsSave = viewerOnCommentsSaveFn();
+  if (!onCommentsSave) return;
+  const ok = await onCommentsSave(idx, img.comments, imgId);
+  if (ok === false) {
+    showToast('Failed to send — check your connection and try again.');
+    return;
+  }
+  // Media Comments & Notify Roadmap, Phase 3: reuses the same
+  // notifyOtherAccount()/Part A relay flushViewerCaption() already uses for
+  // note edits — notifyOtherAccount() always targets otherAccountEmail(),
+  // so this can never notify the sender about their own comment.
+  // Media Comments & Notify Roadmap, Phase 4: builds the short redirect
+  // link (falls back to no link at all if either step fails — a comment
+  // notification without a working deep link is still better than none).
+  let deepLink = '';
+  const deepLinkForFn = viewerDeepLinkForFn();
+  const tag = deepLinkForFn ? deepLinkForFn(imgId) : '';
+  if (tag) {
+    const targetUrl = 'https://danfxt.vercel.app/?media=' + encodeURIComponent(tag);
+    const shortId = await createShortLink(targetUrl);
+    if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
+  }
+  notifyOtherAccount({
+    type: 'comment',
+    sourceTable: 'media_comments',
+    sourceId: imgId,
+    message: `${currentAccountName()} commented: "${text.length > 80 ? text.slice(0, 80) + '…' : text}"`,
+    deepLink,
+  });
+}
+async function deleteViewerComment(id) {
+  const img = viewerImages[viewerIndex];
+  if (!img) return;
+  if (!(await confirmDialog('Delete this comment? This can\'t be undone.', { confirmLabel: 'Delete', danger: true }))) return;
+  img.comments = mediaComments(img).filter((c) => c.id !== id);
+  const idx = viewerIndex;
+  const imgId = img.id;
+  renderViewerComments();
+  const onCommentsSave = viewerOnCommentsSaveFn();
+  if (!onCommentsSave) return;
+  const ok = await onCommentsSave(idx, img.comments, imgId);
+  if (ok === false) showToast('Failed to delete — check your connection and try again.');
 }
 
 // Roadmap Step 4: current-item type check used to gate pan/zoom gestures and
@@ -16438,8 +16670,80 @@ function applyAuthGate() {
     renderSettingsTeamList(); // Accountability roadmap Phase E
     const dashboardBtn = document.querySelector('.preview-tabs button.app-tab');
     if (dashboardBtn) { showScreen('dashboard', dashboardBtn); refreshDashboardTradeSummary(); }
+    handleMediaDeepLink(); // Media Comments & Notify Roadmap, Phase 4 — jumps straight to a commented-on media item if ?media=... is in the URL
   } else {
     showScreen('login', document.getElementById('tabLogin'));
+  }
+}
+
+// Media Comments & Notify Roadmap, Phase 4. Parses the ?media=<tag> param
+// (tag format: "type:id:id:...", built by deepLinkFor() in each viewer
+// context) and opens the exact trade/journal entry/watchlist item + jumps
+// the shared viewer straight to that media item. Runs once right after
+// login/session-restore. The relevant data array (allTrades etc.) may still
+// be mid-load at that exact moment, so this waits briefly rather than
+// failing outright on a race. The param is stripped from the URL
+// immediately either way, so a refresh or back-navigation never re-triggers
+// it.
+function waitFor(predicate, { attempts = 10, delayMs = 300 } = {}) {
+  return new Promise((resolve) => {
+    let n = 0;
+    (function tick() {
+      if (predicate()) return resolve(true);
+      if (++n >= attempts) return resolve(false);
+      setTimeout(tick, delayMs);
+    })();
+  });
+}
+async function handleMediaDeepLink() {
+  const tag = new URLSearchParams(window.location.search).get('media');
+  if (!tag) return;
+  history.replaceState(null, '', window.location.pathname);
+  const parts = tag.split(':');
+  const type = parts[0];
+  const found = await waitFor(() => {
+    if (type === 'trade') return allTrades.some((t) => t.id === parts[1]);
+    if (type === 'journal' || type === 'journal-sub' || type === 'journal-sf') return allJournalEntries.some((e) => e.id === parts[1]);
+    if (type === 'wl') return allWatchlistItems.some((it) => it.id === parts[1]);
+    return false;
+  });
+  if (!found) { showToast('That link has expired or the item was removed.'); return; }
+
+  if (type === 'trade') {
+    const [, tradeId, imgId] = parts;
+    jumpToTradeFromSearch(tradeId);
+    const trade = allTrades.find((t) => t.id === tradeId);
+    const idx = trade && Array.isArray(trade.images) ? trade.images.findIndex((i) => i.id === imgId) : -1;
+    if (idx > -1) openViewerForTrade(tradeId, idx);
+  } else if (type === 'journal') {
+    const [, entryId, imgId] = parts;
+    openJournalEntry(entryId);
+    const entry = allJournalEntries.find((e) => e.id === entryId);
+    const idx = entry && Array.isArray(entry.media) ? entry.media.findIndex((i) => i.id === imgId) : -1;
+    if (idx > -1) openViewerForJournal(entry, idx);
+  } else if (type === 'journal-sub') {
+    const [, entryId, subNoteId, imgId] = parts;
+    openJournalEntry(entryId);
+    const entry = allJournalEntries.find((e) => e.id === entryId);
+    const sn = entry && (entry.subNotes || []).find((s) => s.id === subNoteId);
+    const idx = sn && Array.isArray(sn.media) ? sn.media.findIndex((i) => i.id === imgId) : -1;
+    if (idx > -1) openViewerForSubNote(subNoteId, idx);
+  } else if (type === 'journal-sf') {
+    const [, entryId, sfId, blockId] = parts; // blockId here, not an image id — see deepLinkFor() on the subfolder viewer group
+    openJournalEntry(entryId);
+    openViewerForSubfolderBlock(sfId, blockId);
+  } else if (type === 'wl') {
+    const [, itemId, entryId, imgId] = parts;
+    showScreen('watchlist', document.getElementById('tabWatchlist'));
+    const item = allWatchlistItems.find((it) => it.id === itemId);
+    const trailEntry = item && (item.trail || []).find((e) => e.id === entryId);
+    let idx = -1;
+    if (trailEntry) {
+      const pool = Array.isArray(trailEntry.images) ? trailEntry.images.slice() : [];
+      if (trailEntry.video) pool.push(trailEntry.video);
+      idx = pool.findIndex((i) => i.id === imgId);
+    }
+    if (idx > -1) openViewerForWlTrailEntry(itemId, entryId, idx);
   }
 }
 
