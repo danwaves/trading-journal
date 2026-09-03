@@ -12704,7 +12704,7 @@ async function renderNewsTab() {
   currencyWrap.innerHTML =
     '<span class="chip-pill' + (newsCurrencyFilter === '' ? ' active' : '') + '" onclick="setNewsCurrencyFilter(\'\')">All currencies</span>' +
     currencies.map((c) =>
-      '<span class="chip-pill' + (newsCurrencyFilter === c ? ' active' : '') + '" onclick="setNewsCurrencyFilter(' + JSON.stringify(c) + ')">' + escapeHtml(c) + '</span>'
+      '<span class="chip-pill' + (newsCurrencyFilter === c ? ' active' : '') + '" onclick=\'setNewsCurrencyFilter(' + JSON.stringify(c) + ')\'>' + escapeHtml(c) + '</span>'
     ).join('');
   document.querySelectorAll('#newsImpactChips .chip-pill').forEach((chip, idx) => {
     const values = ['', 'high', 'medium', 'low'];
@@ -12720,7 +12720,7 @@ async function renderNewsTab() {
     if (key === todayKey) classes.push('today');
     if (key === newsExpandedDayKey) classes.push('expanded');
     return (
-      '<div class="' + classes.join(' ') + '" onclick="toggleNewsDay(' + JSON.stringify(key) + ')">' +
+      '<div class="' + classes.join(' ') + '" onclick=\'toggleNewsDay(' + JSON.stringify(key) + ')\'>' +
         '<div class="news-day-chip-dow">' + d.toLocaleDateString('en-US', { weekday: 'short' }) + '</div>' +
         '<div class="news-day-chip-date">' + d.getDate() + '</div>' +
         '<div class="news-day-chip-dot' + dotClass + '"></div>' +
