@@ -12586,11 +12586,14 @@ let newsExpandedDayKey = null; // set to today's key the first time renderNewsTa
 let newsImpactFilter = ''; // '', 'high', 'medium', 'low'
 let newsCurrencyFilter = ''; // '', or a currency code like 'USD'
 
-// Confirmed forex_news schema (id, event_time, currency, title, impact,
-// forex, previous, actual, fetched_at). NOTE the forecast value lives in
-// a column literally named `forex` (not `forecast`) — confirm that's not
-// a typo on the write side (api/cron/fetch-forex-news.js) if this ever
-// looks wrong; the read side here just mirrors what's actually there.
+// Confirmed forex_news schema (verified directly against
+// information_schema.columns 2026-09-03): id, event_time, currency, title,
+// impact, forecast, previous, actual, fetched_at, alerted_at. The column is
+// genuinely named `forecast` — the earlier `forex` reference here (and the
+// identical mistake in api/cron/alert-high-impact-news.js, which threw a
+// hard 42703 "column forex_news.forex does not exist" error) was a typo on
+// both the read and cron sides; this select('*') version failed silently
+// instead of throwing, so forecast just always rendered blank.
 function rowToNewsEvent(row) {
   const rawImpact = (row.impact || '').toString().toLowerCase();
   let impact = 'low';
@@ -12604,7 +12607,7 @@ function rowToNewsEvent(row) {
     currency: (row.currency || '').toString().toUpperCase(),
     title: row.title || '',
     impact: impact,
-    forecast: row.forex,
+    forecast: row.forecast,
     previous: row.previous,
     actual: row.actual,
   };
