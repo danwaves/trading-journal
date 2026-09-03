@@ -19,14 +19,16 @@ export default async function handler(req, res) {
   const isSupabaseWebhook = !isGet && req.body?.table === 'notifications' && req.body?.record;
 
   if (isSupabaseWebhook) {
-    const { recipient_email, message: recordMessage } = req.body.record;
+    const { recipient_email, message: recordMessage, deep_link } = req.body.record;
     const chatId = EMAIL_TO_CHAT[recipient_email];
     if (!chatId) {
       // Unknown email — don't error the webhook, just skip quietly.
       return res.status(200).json({ ok: true, skipped: 'unknown recipient_email', recipient_email });
     }
     chatIds.push(chatId);
-    message = recordMessage;
+    // Append the deep link on its own line when one was captured. Telegram
+    // auto-links bare URLs in plain text, so no markdown/entities needed.
+    message = deep_link ? `${recordMessage}\n\n${deep_link}` : recordMessage;
   } else {
     // Manual/test path: ?secret=...&target=you|partner|both&message=...
     const target = isGet ? req.query.target : req.body?.target;
@@ -52,4 +54,4 @@ export default async function handler(req, res) {
   ));
 
   return res.status(200).json({ ok: true, results });
-}
+    }
