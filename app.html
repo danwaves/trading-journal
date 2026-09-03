@@ -1282,8 +1282,14 @@
      a hard opacity blink, so it reads as "alive" without being jarring in
      a list of several. */
   .unseen-dot {
-    position: absolute; top: 8px; right: 8px; width: 9px; height: 9px;
+    position: absolute; top: -4px; right: -4px; width: 9px; height: 9px;
     border-radius: 50%; background: var(--info);
+    /* Corner-badge treatment (moved out from top:8px/right:8px, which sat
+       directly on top of the row's date text) — sits half outside the
+       card's edge instead, like a notification badge, with a background-
+       colored ring so it reads as a separate element rather than a smudge
+       on the border. */
+    border: 2px solid var(--bg);
     box-shadow: 0 0 0 0 rgba(78, 161, 247, 0.55);
     animation: unseenPulse 1.8s ease-out infinite;
     z-index: 2; pointer-events: none;
@@ -1310,6 +1316,31 @@
   .trade-row-info { flex: 1; min-width: 0; }
   .trade-row-top { display: flex; justify-content: space-between; gap: var(--space-2); align-items: center; }
   .trade-row-tags { display: flex; flex-wrap: wrap; row-gap: var(--space-2); column-gap: var(--space-1); margin-top: var(--space-1); }
+  /* Trade card polish pass: a colored left edge keyed to the outcome, so a
+     card reads win/loss/pending at a glance while scrolling on mobile —
+     before this every row looked identical except for a small text badge
+     buried in the tag row. Transparent by default (pending has no strong
+     signal either way) and set per-row via a modifier class in JS. */
+  .trade-row { border-left: 3px solid transparent; }
+  .trade-row-outcome-win { border-left-color: var(--win); }
+  .trade-row-outcome-loss { border-left-color: var(--loss); }
+  /* Semantic tag colors: Strategy (the top-level system a trade belongs to)
+     gets a gold accent so it anchors the tag row as the first thing your
+     eye lands on; POI/HTF (the zone + timeframe it was traded from) share a
+     blue info tint so the two POI-related badges read as one group instead
+     of blending into the plain-gray Model/duration/news badges around them. */
+  .badge-strategy { background: rgba(245,166,35,0.13); color: var(--lead); border: 1px solid rgba(245,166,35,0.28); font-weight: 600; }
+  .badge-poi { background: rgba(78,161,247,0.12); color: var(--info); border: 1px solid rgba(78,161,247,0.24); }
+  /* Under ~400px the tag row (author + strategy + model + 2 POI badges +
+     outcome + duration + notes icon) can run to 3-4 wrap lines, which reads
+     as clutter rather than data. Tighten badge padding/font and the row's
+     own gaps just on narrow phones — desktop/tablet keep the roomier
+     default since they rarely wrap at all. */
+  @media (max-width: 400px) {
+    .trade-row { padding: 8px; gap: var(--space-2); }
+    .trade-row-tags { column-gap: 5px; row-gap: 5px; }
+    .trade-row-tags .badge { padding: 1px 5px; font-size: 9.5px; }
+  }
   /* Phase 4: watchlist card drag-reorder — same dragging/drag-over states
      and "grip → prompt for position" touch fallback as the existing
      .trade-thumb media-reorder pattern (see mediaReorderHandleHtml). */
@@ -12539,7 +12570,7 @@ async function renderTradeList() {
       const slotThumb = (img, label) => '<div class="trade-row-thumb">' +
         (img ? '<img src="' + gridThumbSrc(img).replace(/"/g,'&quot;') + '" />' : '<span class="trade-row-thumb-missing">' + label + '</span>') +
         '</div>';
-      return '<div class="trade-row" onclick="openSidePanel(\'' + t.id + '\')">' +
+      return '<div class="trade-row ' + (t.result === 'win' ? 'trade-row-outcome-win' : t.result === 'loss' ? 'trade-row-outcome-loss' : '') + '" onclick="openSidePanel(\'' + t.id + '\')">' +
         unseenDotHtml('trade', t) +
         '<div class="trade-row-thumb-pair">' + slotThumb(beforeImg, 'B') + slotThumb(afterImg, 'A') + '</div>' +
         '<div class="trade-row-info">' +
@@ -12549,9 +12580,10 @@ async function renderTradeList() {
           '</div>' +
           '<div class="trade-row-tags">' +
             authorBadgeHtml(t.createdBy) +
+            (t.strategy ? '<span class="badge badge-strategy">' + escapeHtml(t.strategy) + '</span>' : '') +
             (t.model ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.model) + '</span>' : '') +
-            (t.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.htf) + ' POI</span>' : '') +
-            (t.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(t.poiType) + '</span>' : '') +
+            (t.htf ? '<span class="badge badge-poi">' + escapeHtml(t.htf) + ' POI</span>' : '') +
+            (t.poiType ? '<span class="badge badge-poi">' + escapeHtml(t.poiType) + '</span>' : '') +
             outcomeBadge(t) +
             nearbyNewsBadgeHtml(t.openedAt || t.date) +
             (computeTradeDuration(t) != null ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">⏱ ' + formatDuration(computeTradeDuration(t)) + '</span>' : '') +
