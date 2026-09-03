@@ -4242,19 +4242,32 @@ function latestOtherActivityTs(item, otherEmail) {
   if (!item || !otherEmail) return 0;
   let latest = 0;
   const consider = (createdBy, ts) => { if (createdBy === otherEmail && ts && ts > latest) latest = ts; };
+  // Media Comments & Notify Roadmap, Phase 6: a comment on any image/video
+  // now counts as activity too, same as the media item itself — previously
+  // only the upload was considered, so a comment-only reply from the other
+  // account never lit the dot.
+  const considerComments = (media) => {
+    (media || []).forEach((m) => { (m && m.comments || []).forEach((c) => consider(c.createdBy, c.createdAt)); });
+  };
   consider(item.createdBy, item.updatedAt || item.createdAt);
-  (item.trail || []).forEach((e) => consider(e.createdBy, e.timestamp));
+  (item.trail || []).forEach((e) => {
+    consider(e.createdBy, e.timestamp);
+    considerComments(e.images);
+    if (e.video) considerComments([e.video]);
+  });
   (item.subfolders || []).forEach((sf) => {
     consider(sf.createdBy, sf.updatedAt || sf.createdAt);
-    (sf.blocks || []).forEach((b) => consider(b.createdBy, sf.updatedAt || sf.createdAt));
+    (sf.blocks || []).forEach((b) => { consider(b.createdBy, sf.updatedAt || sf.createdAt); considerComments(b.media); });
   });
   (item.voiceNotes || []).forEach((vn) => consider(vn.createdBy, vn.createdAt));
   // Media Attribution Roadmap Phase 1: trade Before/During/After images now
   // carry createdBy/createdAt too — Phase 2 will add the same for journal's
   // top-level `media` array.
   (item.images || []).forEach((img) => consider(img.createdBy, img.createdAt));
+  considerComments(item.images);
   // Media Attribution Roadmap Phase 2: journal's top-level media grid.
   (item.media || []).forEach((img) => consider(img.createdBy, img.createdAt));
+  considerComments(item.media);
   return latest;
 }
 function itemHasUnseenActivity(kind, item) {
@@ -12954,12 +12967,18 @@ async function createWatchlistItem(fields) {
   const ok = await persistWatchlistItem(item);
   if (!ok) return null;
   allWatchlistItems.push(item);
+  // Real short link (same createShortLink()/api/go pattern the media-comment
+  // flow uses) so the Telegram message carries a working link, not just the
+  // inert 'watchlist:<id>' tag — falls back to no link if either step fails.
+  let deepLink = '';
+  const shortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`wl:${id}`));
+  if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
   notifyOtherAccount({
     type: 'watchlist_item',
     sourceTable: 'watchlist_items',
     sourceId: id,
-    message: `${currentAccountName()} added a new watchlist idea: ${item.pair}`,
-    deepLink: `watchlist:${id}`,
+    message: `${currentAccountName()} added a new watchlist idea: ${item.pair} (${(item.direction || '').toUpperCase()})\nPOI: ${item.poiType || '—'} (${item.htf || '—'})`,
+    deepLink,
   });
   return item;
 }
@@ -14085,12 +14104,15 @@ async function addWatchlistTrailEntry(itemId) {
   delete wlTrailDraftVoices[itemId];
   delete wlTrailDraftEntryTag[itemId];
   renderWatchlistList();
+  let trailDeepLink = '';
+  const trailShortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`wl:${itemId}:${entry.id}`));
+  if (trailShortId) trailDeepLink = 'https://danfxt.vercel.app/api/go/' + trailShortId;
   notifyOtherAccount({
     type: 'watchlist_trail',
     sourceTable: 'watchlist_items',
     sourceId: itemId,
-    message: `${currentAccountName()} posted an update on ${item.pair}`,
-    deepLink: `watchlist:${itemId}:trail:${entry.id}`,
+    message: `${currentAccountName()} posted an update on ${item.pair} (${(item.direction || '').toUpperCase()})\nPOI: ${item.poiType || '—'} (${item.htf || '—'})`,
+    deepLink: trailDeepLink,
   });
 
   // Watchlist → Trade handoff roadmap, Phase 2: the Entry tag itself is now
@@ -14255,12 +14277,15 @@ async function saveWatchlistTrailEditEntry(itemId, entryId) {
   delete wlTrailEditDraftVideo[entryId];
   delete wlTrailEditDraftVoices[entryId];
   renderWatchlistList();
+  let editDeepLink = '';
+  const editShortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`wl:${itemId}:${entryId}`));
+  if (editShortId) editDeepLink = 'https://danfxt.vercel.app/api/go/' + editShortId;
   notifyOtherAccount({
     type: 'watchlist_trail_edit',
     sourceTable: 'watchlist_items',
     sourceId: itemId,
-    message: `${currentAccountName()} edited an update on ${item.pair}`,
-    deepLink: `watchlist:${itemId}:trail:${entryId}`,
+    message: `${currentAccountName()} edited an update on ${item.pair} (${(item.direction || '').toUpperCase()})\nPOI: ${item.poiType || '—'} (${item.htf || '—'})`,
+    deepLink: editDeepLink,
   });
 }
 
@@ -15461,6 +15486,24 @@ function viewerOnCommentsSaveFn() { const g = viewerActiveGroup(); return g ? g.
 // Media Comments & Notify Roadmap, Phase 4: same resolution pattern again —
 // finds whichever deepLinkFor(imgId) the current context supplied.
 function viewerDeepLinkForFn() { const g = viewerActiveGroup(); return g ? g.deepLinkFor : (viewerOpts && viewerOpts.deepLinkFor); }
+// Media Comments & Notify Roadmap, Phase 5: a comment can be posted on a
+// trade image, a journal image, or a watchlist item's trail image — only
+// the first and third carry pair/direction/POI fields (journal entries
+// only have `pair`, no direction/htf/poiType), so this resolves them from
+// the tag's type prefix and returns null when there's nothing to show.
+function resolveMediaCommentContext(tag) {
+  if (!tag) return null;
+  const [type, id] = tag.split(':');
+  if (type === 'trade') {
+    const t = allTrades.find((x) => x.id === id);
+    return t ? { pair: t.pair, direction: t.direction, poiType: t.poiType, htf: t.htf } : null;
+  }
+  if (type === 'wl') {
+    const it = allWatchlistItems.find((x) => x.id === id);
+    return it ? { pair: it.pair, direction: it.direction, poiType: it.poiType, htf: it.htf } : null;
+  }
+  return null;
+}
 
 function closeViewer() {
   flushViewerCaption(); // Roadmap Step 6: don't lose an unsaved edit if the viewer closes before blur fires
@@ -15774,11 +15817,13 @@ async function addViewerComment() {
     const shortId = await createShortLink(targetUrl);
     if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
   }
+  const ctx = resolveMediaCommentContext(tag);
+  const contextLine = ctx ? `\n${ctx.pair} (${(ctx.direction || '').toUpperCase()}) · POI: ${ctx.poiType || '—'} (${ctx.htf || '—'})` : '';
   notifyOtherAccount({
     type: 'comment',
     sourceTable: 'media_comments',
     sourceId: imgId,
-    message: `${currentAccountName()} commented: "${text.length > 80 ? text.slice(0, 80) + '…' : text}"`,
+    message: `${currentAccountName()} commented: "${text.length > 80 ? text.slice(0, 80) + '…' : text}"${contextLine}`,
     deepLink,
   });
 }
