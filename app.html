@@ -783,6 +783,67 @@
   .modal-overlay.show { display: flex; }
   .modal-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px; max-width: 360px; width: 100%; box-shadow: var(--shadow-3); }
 
+  /* Daily Loss-Limit Tracker (Loss Limit & Quotes Roadmap, Phase 1) — read-only
+     warning banner, never a blocker. Three states: "normal" (some loss logged,
+     under the near-limit threshold — muted/neutral), "near" (>=80% of the
+     limit — amber, reuses --lead the same way the "in progress" semantic
+     does elsewhere), "breached" (limit met or exceeded — red, reuses --loss).
+     Empty/hidden entirely when today's net isn't a loss yet — see
+     dailyLossLimitBannerHtml()'s early return. */
+  .loss-limit-banner { display: flex; align-items: center; gap: 8px; padding: var(--space-2) var(--space-3); border-radius: 8px; font-size: 12.5px; font-weight: 600; margin-bottom: var(--space-3); }
+  .loss-limit-banner.loss-limit-normal { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .loss-limit-banner.loss-limit-near { background: rgba(245,166,35,0.12); color: var(--lead); border: 1px solid rgba(245,166,35,0.35); }
+  .loss-limit-banner.loss-limit-breached { background: rgba(255,92,92,0.12); color: var(--loss); border: 1px solid rgba(255,92,92,0.35); }
+  /* Lets the same banner markup drop into confirmDialog()'s message card
+     (Phase 1f — the Watchlist "Tag as Entry" confirmation) with sane spacing,
+     since that card has no ambient var(--space-3) gap of its own. */
+  .app-dialog-card .loss-limit-banner { margin: 0 0 var(--space-3); text-align: left; }
+
+  /* Motivational Quote Widget (Loss Limit & Quotes Roadmap, Phase 2c) —
+     deliberately uses --brand (pink) rather than the amber/red the loss-limit
+     banner uses, so risk-warning and motivation read as two different kinds
+     of message at a glance rather than blurring into one "alert" visual
+     language. Sits above the loss-limit banner on Dashboard (see markup),
+     so the calm/motivational note is the first thing seen and the risk
+     warning — when present — follows right after it.
+     Redesigned as a quiet editorial "pull quote": soft diagonal tint instead
+     of a flat fill, a solid brand-colored left rule instead of a full border
+     (the classic pull-quote cue), and a large low-opacity serif quotation
+     mark watermarked in the corner — a deliberately old-fashioned touch that
+     reads as considered rather than templated next to the app's otherwise
+     sans-serif, data-dense screens. */
+  .quote-card { position: relative; overflow: hidden; display: flex; align-items: flex-start; gap: 10px; padding: var(--space-3) var(--space-4); padding-left: 16px; border-radius: 8px; margin-bottom: var(--space-3); background: linear-gradient(135deg, rgba(238,130,179,0.10), rgba(238,130,179,0.03)); border: 1px solid rgba(238,130,179,0.16); border-left: 3px solid var(--brand); animation: quoteCardIn 0.6s cubic-bezier(0.16,1,0.3,1) both, quoteGlow 4s ease-in-out 0.7s infinite; }
+  .quote-card::before { content: '\201C'; position: absolute; top: -22px; right: 8px; font-family: Georgia, 'Times New Roman', serif; font-size: 68px; line-height: 1; color: rgba(238,130,179,0.10); pointer-events: none; user-select: none; }
+  .quote-card i[data-lucide] { flex: none; width: 15px; height: 15px; margin-top: 2px; color: var(--brand); animation: quoteIconIn 0.65s cubic-bezier(0.34,1.56,0.64,1) 0.08s both, quoteIconBreathe 3.2s ease-in-out 0.75s infinite; }
+  .quote-card-text { position: relative; font-size: 13px; font-style: italic; font-weight: 500; letter-spacing: 0.005em; line-height: 1.5; color: var(--light); display: inline-block; animation: quoteTextIn 0.5s ease-out 0.18s both; }
+  /* Continuous, professional-grade text treatment: a slow soft highlight
+     travels once across the words every few seconds — the same "sheen"
+     technique used for premium headings elsewhere — rather than any bounce,
+     flicker, or typing effect that would read as a gimmick on a finance app.
+     Gated behind @supports so browsers without background-clip:text just
+     keep the plain, fully-legible --light color from .quote-card-text above;
+     the shimmer is a bonus, never a requirement for reading the quote. */
+  @supports ((background-clip: text) or (-webkit-background-clip: text)) {
+    .quote-card-text { background: linear-gradient(100deg, var(--light) 0%, var(--light) 40%, var(--brand) 50%, var(--light) 60%, var(--light) 100%); background-size: 240% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: quoteTextIn 0.5s ease-out 0.18s both, quoteTextShimmer 6.5s ease-in-out 1.3s infinite; }
+  }
+  /* Phase 2d+: entrance animation, staggered card -> icon -> text so the card
+     reads as one considered motion rather than everything popping at once.
+     Re-plays on every renderTradingQuoteCard() call since it's a fresh
+     innerHTML each time (new DOM nodes retrigger CSS animations naturally).
+     quoteGlow/quoteIconBreathe/quoteTextShimmer are the follow-on loops
+     (each delayed to start right as the entrance finishes) — slow,
+     low-amplitude motion kept subtle so it reads as ambient/alive rather
+     than competing with the quote for attention. */
+  @keyframes quoteCardIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+  @keyframes quoteIconIn { from { opacity: 0; transform: scale(0.4) rotate(-20deg); } to { opacity: 1; transform: scale(1) rotate(0deg); } }
+  @keyframes quoteTextIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes quoteGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(238,130,179,0); border-color: rgba(238,130,179,0.16); } 50% { box-shadow: 0 0 12px 0 rgba(238,130,179,0.18); border-color: rgba(238,130,179,0.32); } }
+  @keyframes quoteIconBreathe { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.65; transform: scale(1.12); } }
+  @keyframes quoteTextShimmer { 0% { background-position: 220% 0; } 55%, 100% { background-position: -220% 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .quote-card, .quote-card i[data-lucide], .quote-card-text { animation: none; }
+  }
+
   .nav-note { text-align: center; color: var(--muted); font-size: 11px; padding: var(--space-4); }
   .new-tag { background: rgba(238,130,179,0.18); color: var(--brand); border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 600; margin-left: 6px; vertical-align: middle; }
 
@@ -1559,6 +1620,17 @@
     .wl-row-actions .icon-btn i { width: 15px; height: 15px; }
   }
 
+  /* Watchlist Card Timestamp Roadmap: date/time the idea was logged, plus
+     how long it's been sitting on the watchlist. Sits between the title row
+     and the model/POI tag row — its own line rather than another tag chip,
+     since it's metadata about the card (when/how-long) rather than a
+     descriptor of the setup itself (pair/model/POI), and mixing the two
+     into one wrapped row made the tag row read cluttered. Muted/small so it
+     stays secondary to the pair name and BUY/SELL pill above it. */
+  .wl-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; font-size: 11px; color: var(--muted); margin: 3px 0 7px; }
+  .wl-card-meta i[data-lucide] { flex: none; width: 11px; height: 11px; opacity: 0.75; }
+  .wl-card-meta-sep { opacity: 0.5; }
+
   /* ===== Watchlist follow-up trail — the "post an update" timeline.
      Native classes (kept separate from .journal-subnote so Journal styling
      is untouched) but built on the same idea as the Subfolder redesign:
@@ -2263,6 +2335,13 @@
   <div class="screen" style="display:block; padding:0;">
     <h1 style="margin-bottom: var(--space-4);">Dashboard</h1>
 
+    <!-- MOTIVATIONAL QUOTE CARD (Loss Limit & Quotes Roadmap, Phase 2c) — the
+         first thing seen on the Dashboard, above even the onboarding banner,
+         so it's the very first thing seen on open. Filled by
+         renderTradingQuoteCard() (see JS) — empty until that call runs
+         (Phase 2d wires it into app init). -->
+    <div id="dashboardQuoteCard"></div>
+
     <!-- ONBOARDING BANNER: shown only while the account has no strategies yet,
          or has a strategy but no trades yet — the two things needed before any
          other card on this page has anything to show. Hidden automatically
@@ -2403,6 +2482,14 @@
       <span>Filtered to <b id="pairFilterName" class="mono"></b> — Race, Race Bars &amp; Pip Distance Edge below (plus Growth History, Recovery Analytics &amp; Seasonal Analytics on the History tab) only include trades on this pair.</span>
       <a onclick="clearPairFilter()">Clear</a>
     </div>
+
+    <!-- DAILY LOSS-LIMIT BANNER (Loss Limit & Quotes Roadmap, Phase 1d) —
+         scoped to the Dashboard's active trader chip (falls back to whoever's
+         logged in when the chip is "All", since the underlying limit is
+         always per-trader — see getDailyLossLimitDashboardTrader()). Kept
+         empty/hidden by dailyLossLimitBannerHtml() until that trader has an
+         actual loss logged today. -->
+    <div id="dailyLossLimitBannerDashboard"></div>
 
     <p class="sub" style="margin:0 0 8px; font-size:11px;">Best Win Rate and 🏆 Leading Target respect the Currency Pair filter above — select a pair to see which target leads on that pair specifically.</p>
     <div class="stat-grid">
@@ -3287,6 +3374,12 @@
 
     <!-- FIELDS — main column -->
     <div class="entry-main">
+      <!-- DAILY LOSS-LIMIT BANNER (Loss Limit & Quotes Roadmap, Phase 1e) —
+           same read-only component as the Dashboard, scoped to whoever's
+           logged in and about to log this trade (not a chip selection here).
+           No blocking — purely informational before Save Trade. Rendered on
+           entering this screen (see showScreen()'s 'entry' branch). -->
+      <div id="dailyLossLimitBannerEntry"></div>
       <div class="card">
         <h2>Trade Details</h2>
         <p class="sub" style="margin-bottom: var(--space-4);">Fill in the setup, risk, and outcome for this trade.</p>
@@ -3513,6 +3606,7 @@
 <div id="watchlist" class="screen">
   <h1>Watchlist</h1>
   <p class="sub" style="margin-bottom:20px;">Pair ideas you're watching, before any trade is taken.</p>
+  <div id="watchlistQuoteCard"></div>
   <div class="card">
     <div style="padding-top:0;">
       <!-- Phase 2: basic add form, same "nested-card create form above a
@@ -3743,6 +3837,23 @@
         <div class="field"><label>Confirm new password</label><input id="changePasswordConfirmInput" type="password" placeholder="••••••••" autocomplete="new-password" onkeydown="if(event.key==='Enter'){event.preventDefault(); changePassword();}" /></div>
         <div id="changePasswordMsg" class="auth-error"></div>
         <button class="btn-primary" style="width:auto; padding: var(--space-2) 14px;" onclick="changePassword()">Update password</button>
+      </div>
+    </div>
+
+    <!-- RISK MANAGEMENT (Loss Limit & Quotes Roadmap, Phase 1a) — one global
+         daily loss limit, tracked per trader against their own today's net
+         (see getDailyLossLimitStatus()). Purely informational everywhere it's
+         shown (Dashboard/New Trade/Watchlist Tag as Entry) — this input is
+         the only place the number itself is edited. -->
+    <div class="card">
+      <div class="mini-card-header" onclick="toggleCard(this)">
+        <h2 style="margin:0;">Risk Management</h2>
+        <span class="chevron">▾</span>
+      </div>
+      <div class="mini-card-body">
+        <p class="sub" style="margin-bottom: var(--space-3);">A daily loss-limit warning shows up on the Dashboard, New Trade, and when tagging a Watchlist idea as Entry — informational only, it never blocks Save Trade.</p>
+        <div class="field"><label>Daily Loss Limit (% of $10,000 reference balance)</label><input id="dailyLossLimitInput" type="number" min="0.1" step="0.1" placeholder="3" onchange="onDailyLossLimitInputChange(this)" /></div>
+        <p class="sub" id="dailyLossLimitDollarNote" style="margin-top:-8px;"></p>
       </div>
     </div>
 
@@ -4828,6 +4939,11 @@ function showScreen(id, btn) {
   document.querySelectorAll('.preview-tabs button').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   if (btn) btn.classList.add('active');
+  // Loss Limit & Quotes Roadmap, Phase 1e: refresh the New Trade screen's
+  // own banner on every entry — covers the tab click, the Watchlist Tag as
+  // Entry handoff, and "Edit" on an existing trade alike, all of which route
+  // through here.
+  if (id === 'entry') renderDailyLossLimitBanner(document.getElementById('dailyLossLimitBannerEntry'), currentAccount ? currentAccount.email : null);
   // "More" tab (item #5): Compare/Strategies/Settings live inside the
   // dropdown now, so highlight the "More" trigger itself whenever one of
   // them is the active screen — otherwise nothing in the visible tab bar
@@ -5002,6 +5118,12 @@ function confirmDialog(message, opts) {
     overlay.className = 'app-dialog-overlay';
     overlay.innerHTML =
       '<div class="app-dialog-card" role="alertdialog" aria-modal="true">' +
+        // Loss Limit & Quotes Roadmap, Phase 1f: optional pre-rendered HTML
+        // (the daily loss-limit banner, on the Watchlist Tag as Entry
+        // confirmation) ahead of the plain-text message. Trusted call-site
+        // content only — same contract as every other innerHTML build in
+        // this file, never raw user input.
+        (opts.extraHtml || '') +
         '<div class="app-dialog-message"></div>' +
         '<div class="app-dialog-actions">' +
           '<button type="button" class="app-dialog-cancel"></button>' +
@@ -5012,6 +5134,7 @@ function confirmDialog(message, opts) {
     overlay.querySelector('.app-dialog-cancel').textContent = opts.cancelLabel || 'Cancel';
     overlay.querySelector('.app-dialog-btn-danger, .app-dialog-btn-primary').textContent = opts.confirmLabel || (opts.danger ? 'Delete' : 'OK');
     document.body.appendChild(overlay);
+    refreshIcons(); // picks up the loss-limit banner's <i data-lucide> when extraHtml is set
     requestAnimationFrame(() => overlay.classList.add('show'));
     const close = (result) => {
       overlay.classList.remove('show');
@@ -14644,6 +14767,7 @@ function watchlistCardRowHtml(it, opts) {
             '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
             '</div>' +
           '</div>' +
+          watchlistCardMetaHtml(it) +
           '<div class="trade-row-tags">' +
             authorBadgeHtml(it.createdBy) +
             (it.model ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.model) + '</span>' : '') +
@@ -14778,6 +14902,48 @@ function watchlistTrailDateLabel(ts) {
   if (!ts) return '';
   return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) +
     ' · ' + new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+// Watchlist Card Timestamp Roadmap: "X days on watchlist" — counts from
+// createdAt to now while the idea is still open, or to whenever it closed
+// (updatedAt) once it's won/lost/invalidated/missed, so a closed card's
+// count freezes at how long it was actually open rather than continuing to
+// climb after the fact. Uses isWatchlistItemOpen() (already the source of
+// truth for open/closed elsewhere on this screen) rather than re-deriving it.
+function daysOnWatchlistLabel(it) {
+  if (!it || !it.createdAt) return '';
+  const endTs = isWatchlistItemOpen(it) ? Date.now() : (it.updatedAt || it.createdAt);
+  const days = Math.floor(Math.max(0, endTs - it.createdAt) / 86400000);
+  if (days <= 0) return 'Added today';
+  if (days === 1) return '1 day on watchlist';
+  return days + ' days on watchlist';
+}
+
+// Watchlist Card Timestamp Roadmap: same date/time as watchlistTrailDateLabel()
+// but drops the year for anything logged in the current calendar year — the
+// card already carries a "days on watchlist" figure right next to it, so a
+// present-year date repeating the year on every single card was redundant.
+// Kept as its own function rather than changing watchlistTrailDateLabel()
+// itself, since that one's also used by the follow-up trail entries (Phase
+// 5), which should keep showing the year unconditionally.
+function watchlistCardDateLabel(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-US', sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+}
+
+// Watchlist Card Timestamp Roadmap: the meta line itself.
+function watchlistCardMetaHtml(it) {
+  if (!it || !it.createdAt) return '';
+  return '<div class="wl-card-meta">' +
+    '<i data-lucide="calendar" ></i>' +
+    '<span>' + escapeHtml(watchlistCardDateLabel(it.createdAt)) + '</span>' +
+    '<span class="wl-card-meta-sep">•</span>' +
+    '<i data-lucide="clock-3"></i>' +
+    '<span>' + escapeHtml(daysOnWatchlistLabel(it)) + '</span>' +
+  '</div>';
 }
 
 // Watchlist → Trade handoff roadmap, Phase 5: small tag chip on a trail
@@ -15325,9 +15491,12 @@ async function addWatchlistTrailEntry(itemId) {
     return;
   }
   if (tagAsEntry) {
+    // Loss Limit & Quotes Roadmap, Phase 1f: same read-only banner as
+    // Dashboard/New Trade, scoped to whoever's about to take this trade live
+    // — shown in the confirmation step itself, no separate gate on submission.
     const confirmed = await confirmDialog(
       'Tag this update as Entry and take "' + (item.pair || 'this idea') + '" live? This card stops accepting new updates — further notes and screenshots happen on the Trade page instead.',
-      { confirmLabel: 'Take Trade' }
+      { confirmLabel: 'Take Trade', extraHtml: dailyLossLimitBannerHtml(currentAccount ? currentAccount.email : null) }
     );
     if (!confirmed) return;
   }
@@ -17360,6 +17529,316 @@ function tradeDollarResult(trade) {
   return trade.rrOutcome.realizedR * tradeRiskDollars(trade);
 }
 
+// ================= DAILY LOSS-LIMIT TRACKER (Loss Limit & Quotes Roadmap,
+// Phase 1) =================
+// One global limit (% of the $10,000 reference balance — same reference
+// used by tradeRiskDollars() above), tracked per trader against their own
+// today's net. Read-only warning everywhere it's shown — never blocks Save
+// Trade. "Today" is the local calendar day (midnight-midnight), matching
+// dateToYMD()'s local-time reads rather than UTC.
+
+const DAILY_LOSS_LIMIT_PERCENT_KEY = 'danwavesDailyLossLimitPercent';
+const DAILY_LOSS_LIMIT_DEFAULT_PERCENT = 3;
+
+// Phase 1a: persisted via the same bare-localStorage pattern as
+// danwavesTheme/JOURNAL_REVIEW_CADENCE_KEY above — a single primitive value,
+// no JSON wrapper needed. Falls back to the 3% default for anything missing,
+// non-numeric, or <= 0 (the Settings input's own validation keeps a bad
+// value from ever being written, but this guards stale/edited localStorage
+// too).
+function getDailyLossLimitPercent() {
+  let raw = null;
+  try { raw = localStorage.getItem(DAILY_LOSS_LIMIT_PERCENT_KEY); } catch (e) { /* storage unavailable */ }
+  const n = raw === null ? NaN : Number(raw);
+  return (Number.isFinite(n) && n > 0) ? n : DAILY_LOSS_LIMIT_DEFAULT_PERCENT;
+}
+
+function setDailyLossLimitPercent(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return false;
+  try { localStorage.setItem(DAILY_LOSS_LIMIT_PERCENT_KEY, String(n)); } catch (e) { /* storage unavailable */ }
+  return true;
+}
+
+// Phase 1b: same $10,000 reference balance tradeRiskDollars() above uses for
+// the Strategy default.
+function getDailyLossLimitDollar() {
+  return (getDailyLossLimitPercent() / 100) * 10000;
+}
+
+// Phase 1b: allTrades filtered to today's local date + this trader's own
+// createdBy, summed via tradeDollarResult() — same figure/pattern as
+// buildPnlCalendarDayAggregates()'s per-day net, just scoped to
+// today/one trader instead of a whole month. Returns 0 (not a loss) for no
+// trader / no trades today, so callers never have to null-check the result.
+function getTodayNetForTrader(traderName) {
+  if (!traderName) return 0;
+  const todayKey = dateToYMD(new Date());
+  return allTrades
+    .filter((t) => (t.date || '').slice(0, 10) === todayKey && t.createdBy === traderName)
+    .reduce((sum, t) => sum + (tradeDollarResult(t) || 0), 0);
+}
+
+// Phase 1b: net/limit/pctUsed/breached for one trader's today. pctUsed is
+// against the *loss* portion only (a positive net today is 0% used, not a
+// negative percentage) and is capped at 100 so an even-worse-than-breached
+// day doesn't blow past the banner's own scale.
+function getDailyLossLimitStatus(traderName) {
+  const net = getTodayNetForTrader(traderName);
+  const limit = getDailyLossLimitDollar();
+  const lossAmount = net < 0 ? Math.abs(net) : 0;
+  const pctUsed = limit > 0 ? Math.min(100, (lossAmount / limit) * 100) : 0;
+  const breached = limit > 0 && lossAmount >= limit;
+  return { net, limit, pctUsed, breached };
+}
+
+// Phase 1c: builds the banner's inner markup as a plain string, reused both
+// by renderDailyLossLimitBanner() (Dashboard/New Trade containers) and by
+// the Watchlist Tag as Entry confirmation (Phase 1f), which drops this same
+// string into confirmDialog()'s opts.extraHtml rather than a live DOM
+// container. Returns '' (nothing rendered) once today's net isn't actually
+// a loss yet — the "hidden" half of the normal state; once there's a real
+// loss logged, "normal" becomes a neutral/muted line rather than disappearing
+// again, so the trader keeps seeing where they stand for the rest of the day.
+function dailyLossLimitBannerHtml(traderName) {
+  if (!traderName) return '';
+  const status = getDailyLossLimitStatus(traderName);
+  if (status.net >= 0) return '';
+  const state = status.breached ? 'breached' : (status.pctUsed >= 80 ? 'near' : 'normal');
+  const lossStr = '$' + Math.round(Math.abs(status.net)).toLocaleString('en-US');
+  const limitStr = '$' + Math.round(status.limit).toLocaleString('en-US');
+  const icon = state === 'breached' ? 'octagon-alert' : 'shield-alert';
+  const label = state === 'breached'
+    ? 'Daily loss limit reached — ' + lossStr + ' of ' + limitStr + ' used'
+    : lossStr + ' of ' + limitStr + ' daily limit used';
+  return '<div class="loss-limit-banner loss-limit-' + state + '">' +
+    '<i data-lucide="' + icon + '" style="width:14px;height:14px;flex:none;"></i>' +
+    '<span>' + escapeHtml(label) + '</span>' +
+    '</div>';
+}
+
+// Phase 1c: fills a container element in place (Dashboard/New Trade both use
+// this — see their render call sites below) and re-runs the icon system
+// since the banner's own <i data-lucide> is injected via innerHTML.
+function renderDailyLossLimitBanner(containerEl, traderName) {
+  if (!containerEl) return;
+  containerEl.innerHTML = dailyLossLimitBannerHtml(traderName);
+  refreshIcons();
+}
+
+// Phase 1d: Dashboard's own trader resolution — the banner is always
+// per-trader (never a combined figure), so when the Dashboard's Trader chip
+// is "All" (getDashboardTraderFilter() -> null) this falls back to whoever's
+// currently logged in rather than showing nothing.
+function getDailyLossLimitDashboardTrader() {
+  const chipTrader = getDashboardTraderFilter();
+  if (chipTrader) return chipTrader;
+  return currentAccount ? currentAccount.email : null;
+}
+
+// Phase 1a: syncs the Settings input + its dollar-equivalent note to the
+// persisted value. Called on login (alongside renderSettingsTeamList()) and
+// after a successful edit.
+function renderDailyLossLimitSettingsInput() {
+  const input = document.getElementById('dailyLossLimitInput');
+  if (input) input.value = getDailyLossLimitPercent();
+  updateDailyLossLimitDollarNote();
+}
+
+function updateDailyLossLimitDollarNote() {
+  const note = document.getElementById('dailyLossLimitDollarNote');
+  if (!note) return;
+  const pct = getDailyLossLimitPercent();
+  const dollar = '$' + Math.round(getDailyLossLimitDollar()).toLocaleString('en-US');
+  note.textContent = dollar + ' per day at the current ' + pct + '% limit.';
+}
+
+// Phase 1a: validated > 0 — an invalid edit just reverts the input to the
+// last persisted value rather than silently accepting garbage. Re-renders
+// every banner currently on screen so a changed limit is reflected
+// immediately, without needing a fresh trade load.
+function onDailyLossLimitInputChange(input) {
+  const n = parseOptionalNumber(input.value);
+  if (n === null || n <= 0) {
+    input.value = getDailyLossLimitPercent();
+    return;
+  }
+  setDailyLossLimitPercent(n);
+  updateDailyLossLimitDollarNote();
+  renderDailyLossLimitBanner(document.getElementById('dailyLossLimitBannerDashboard'), getDailyLossLimitDashboardTrader());
+  renderDailyLossLimitBanner(document.getElementById('dailyLossLimitBannerEntry'), currentAccount ? currentAccount.email : null);
+}
+
+// ================= MOTIVATIONAL QUOTE WIDGET (Loss Limit & Quotes Roadmap,
+// Phase 2a) — plain array of original, unattributed short quotes. Grouped
+// by concept below for maintainability; consumed as one flat list by the
+// Phase 2b selection logic (random pick per app load, no immediate repeat).
+const TRADING_QUOTES = [
+  // Patience before entry
+  "The best trade is often the one you didn't take.",
+  "Patience is a position too.",
+  "Entries come to those who wait for confirmation, not those who chase.",
+  "Boredom is not a reason to enter.",
+  "A level you didn't wait for isn't your level.",
+  "Sitting on your hands is a skill, not a weakness.",
+
+  // Discipline after entry
+  "Manage the trade you took, not the trade you wish you'd taken.",
+  "Discipline is what holds the plan together after entry.",
+  "The stop loss is not a suggestion.",
+  "Moving your stop to avoid being wrong is how small losses become big ones.",
+  "Once you're in, the plan does the thinking.",
+  "Discipline after entry is where most edges are actually lost.",
+
+  // Risk before reward
+  "Define your risk before you dream about your reward.",
+  "Reward is what's left after risk is respected.",
+  "No position size is worth losing sleep over.",
+  "Risk management is the only guaranteed edge in trading.",
+  "Size the trade to the stop, not the stop to the trade.",
+  "A good reward on a bad risk is still a bad trade.",
+
+  // Confirmation before execution
+  "No confirmation, no click.",
+  "Confluence isn't optional \u2014 it's the trade.",
+  "A hunch is not a confirmation.",
+  "Wait for the market to confirm your bias, not the other way around.",
+  "Half a setup is not a setup.",
+  "Execution without confirmation is gambling with extra steps.",
+
+  // Process before profit
+  "Grade the process, not just the P&L.",
+  "Profit is a byproduct of process, not a goal you can force.",
+  "A losing trade taken correctly beats a winning trade taken carelessly.",
+  "Chase the process and the profit will follow eventually.",
+  "The account balance lags the process by design.",
+  "Judge today's trade by the decision, not the outcome.",
+
+  // Capital before ego
+  "Being right feels good. Staying funded feels better.",
+  "Ego wants to be right. The account wants to survive.",
+  "Protect your capital like it's the only capital you'll ever have.",
+  "Pride has never once recovered a drawdown.",
+  "The market doesn't know your win rate and doesn't care.",
+  "Capital preserved today is capital that can compound tomorrow.",
+
+  // Probability before prediction
+  "You're not predicting the future. You're managing probabilities.",
+  "Trade the odds, not the outcome.",
+  "Being wrong is part of a probability game, not a personal failure.",
+  "A 60% edge still loses 40% of the time \u2014 plan for that.",
+  "Certainty is not required. A defined edge is.",
+  "Stop trying to be right. Start trying to be consistent.",
+
+  // Structure before bias
+  "Let market structure set your bias, not the other way around.",
+  "A bias without structure behind it is just an opinion.",
+  "Read the chart, not your feelings about the chart.",
+  "Structure tells you where you are. Bias tells you where you hope to be.",
+  "When structure and bias disagree, structure wins.",
+  "Your opinion on the market is worth exactly what the structure confirms.",
+
+  // Liquidity before entry
+  "Know where the liquidity is before you know where you're entering.",
+  "Price moves toward liquidity, not toward your entry.",
+  "Liquidity swept is information. Liquidity ignored is a guess.",
+  "Ask where the stops are before you ask where the entry is.",
+  "The move often starts after the liquidity, not before it.",
+  "Map the liquidity first. The entry will follow.",
+
+  // Setup before opportunity
+  "Not every candle is an opportunity. Wait for the setup.",
+  "An opportunity without a setup is a trap wearing a disguise.",
+  "The setup defines the opportunity, not your need for one.",
+  "If it doesn't match your setup, it isn't your trade.",
+  "Opportunity cost is cheaper than a setup you forced.",
+  "Let the setup come to you; don't go looking for one to fit your mood.",
+
+  // Acceptance before revenge
+  "Accept the loss before you try to fix it.",
+  "Revenge trading turns one loss into a losing streak.",
+  "The market doesn't remember your last loss \u2014 you shouldn't trade like it owes you one.",
+  "A loss accepted is a loss closed. A loss chased is a loss compounded.",
+  "Walk away before you try to win it back in one trade.",
+  "The fastest way to lose twice is to trade angry after losing once.",
+
+  // Consistency before scale
+  "Master the size you have before you ask for a bigger one.",
+  "Consistency at small size earns the right to size up.",
+  "Scaling up a broken process just breaks it faster.",
+  "Prove the edge small before you trust it big.",
+  "Consistency is boring. Consistency is also what pays.",
+  "You don't need a bigger account. You need a repeatable process.",
+
+  // General risk management / no overtrading / tenacity (seed quotes)
+  "A missed trade is cheaper than a forced trade.",
+  "Your job is not to predict the market. Your job is to execute your edge.",
+  "One setup. One risk. One decision.",
+  "If the setup isn't there, doing nothing is the trade.",
+  "Protect the account today so the account can pay you tomorrow.",
+  "The market doesn't owe you an entry.",
+  "Losses are tuition; repeated losses from the same mistake are negligence.",
+  "Don't increase risk because you're trying to recover.",
+  "Your edge means nothing without discipline.",
+  "Wait for price to reach your level. Don't chase price to its level.",
+];
+
+// Loss Limit & Quotes Roadmap, Phase 2b: selection logic. One random quote
+// per app load, never an immediate repeat of the last one shown. The last
+// shown index lives in sessionStorage (not localStorage) so the no-repeat
+// rule only spans the current tab session — closing and reopening the app
+// starts fresh, same as a new "session" of trading.
+const TRADING_QUOTE_LAST_INDEX_KEY = 'danwavesLastTradingQuoteIndex';
+
+function pickTradingQuote() {
+  if (!Array.isArray(TRADING_QUOTES) || TRADING_QUOTES.length === 0) return null;
+  if (TRADING_QUOTES.length === 1) return { index: 0, text: TRADING_QUOTES[0] };
+
+  let lastIndex = null;
+  try {
+    const stored = sessionStorage.getItem(TRADING_QUOTE_LAST_INDEX_KEY);
+    if (stored !== null) lastIndex = parseInt(stored, 10);
+  } catch (e) { /* sessionStorage unavailable — proceed without no-repeat guard */ }
+
+  let index = Math.floor(Math.random() * TRADING_QUOTES.length);
+  if (index === lastIndex) {
+    index = (index + 1 + Math.floor(Math.random() * (TRADING_QUOTES.length - 1))) % TRADING_QUOTES.length;
+  }
+
+  try { sessionStorage.setItem(TRADING_QUOTE_LAST_INDEX_KEY, String(index)); } catch (e) { /* non-fatal */ }
+
+  return { index, text: TRADING_QUOTES[index] };
+}
+
+// Loss Limit & Quotes Roadmap, Phase 2c: UI card. No author byline (quotes
+// aren't attributed to real people) — just the icon + italic quote text,
+// same fill-a-container pattern as renderDailyLossLimitBanner() so Phase 2d
+// can call this once during Dashboard's initial render path.
+function quoteCardHtml(quote) {
+  if (!quote || !quote.text) return '';
+  return '<div class="quote-card">' +
+    '<i data-lucide="quote"></i>' +
+    '<span class="quote-card-text">' + escapeHtml(quote.text) + '</span>' +
+    '</div>';
+}
+
+function renderTradingQuoteCard(containerEl) {
+  if (!containerEl) return;
+  containerEl.innerHTML = quoteCardHtml(getSessionTradingQuote());
+  refreshIcons();
+}
+
+// Phase 2d+: caches the one quote picked for this app load so every card
+// showing it (Dashboard, Watchlist) displays the SAME quote rather than each
+// container triggering its own pickTradingQuote() call — that would defeat
+// the "new quote every time the app is opened" spec by rolling a different
+// quote per screen instead of per session.
+let sessionTradingQuote = null;
+function getSessionTradingQuote() {
+  if (!sessionTradingQuote) sessionTradingQuote = pickTradingQuote();
+  return sessionTradingQuote;
+}
+
 // ================= INSIGHTS R:R TARGET SELECTOR (Phase 2.5, item 1) =================
 // Evaluates one trade against a hypothetical R:R target via the same capped
 // evaluateTradeAgainstTPModels() engine that already drives Equity Curve /
@@ -17596,6 +18075,7 @@ async function refreshDashboardTradeSummary() {
   updateOnboardingBanner();
   renderDashboardStrategySelectOptions();
   renderDashboardTraderChips(); // P&L Calendar / Trader Filter Roadmap, Phase 1
+  renderDailyLossLimitBanner(document.getElementById('dailyLossLimitBannerDashboard'), getDailyLossLimitDashboardTrader()); // Loss Limit & Quotes Roadmap, Phase 1d
   renderTPModelRankingLive();
   refreshPipEdgeCard();
   // Strategy filter (Phase 2): every Insights card below is scoped to the
@@ -17993,6 +18473,7 @@ function applyAuthGate() {
     const emailEl = document.getElementById('settingsAccountEmail');
     if (emailEl) emailEl.textContent = email;
         renderSettingsTeamList(); // Accountability roadmap Phase E
+        renderDailyLossLimitSettingsInput(); // Loss Limit & Quotes Roadmap, Phase 1a
     const dashboardBtn = document.querySelector('.preview-tabs button.app-tab');
     if (dashboardBtn) { showScreen('dashboard', dashboardBtn); refreshDashboardTradeSummary(); }
     handleMediaDeepLink(); // Media Comments & Notify Roadmap, Phase 4 — jumps straight to a commented-on media item if ?media=... is in the URL
@@ -18295,6 +18776,16 @@ function syncStickyToolbarOffset() {
 document.addEventListener('DOMContentLoaded', async () => {
   refreshIcons(); // paints any data-lucide icons present in the initial static markup
   renderHighestRR('1:1');
+  // Loss Limit & Quotes Roadmap, Phase 2d: one quote per app load, picked here
+  // (not inside refreshDashboardTradeSummary()/renderWatchlistList()) since
+  // those re-fire constantly — on every trade save/edit/screen-switch — and
+  // rolling the quote on each of those would break the "new quote each time
+  // the app is opened" spec. No trade data dependency, so this can run
+  // immediately alongside the other static-markup paint above rather than
+  // waiting on loadAllTrades(). Both cards pull from getSessionTradingQuote()
+  // so Dashboard and Watchlist show the same quote for the session.
+  renderTradingQuoteCard(document.getElementById('dashboardQuoteCard'));
+  renderTradingQuoteCard(document.getElementById('watchlistQuoteCard'));
   // Must finish BEFORE the loaders below fire — otherwise on a fresh page load
   // the session may not be attached to supabaseClient yet, and every query below
   // silently runs as an unauthenticated request. RLS then just returns zero rows
