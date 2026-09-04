@@ -1053,6 +1053,14 @@
      here too even though Phase 4b doesn't use them yet (Phases 4d-4f do)
      — cheaper to land the whole visual vocabulary once than to keep
      re-opening this block per phase. */
+  /* Phase 4c: Net P&L / Trades / Win rate strip above the month grid.
+     Ported from the reference mockup's .summary/.cell, plc- prefixed to
+     match the rest of this block. */
+  .plc-summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border); margin: 14px 0 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .plc-summary .plc-cell { background: var(--surface); padding: 10px 12px; }
+  .plc-summary .plc-cell-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+  .plc-summary .plc-cell-value { font-size: 14.5px; font-weight: 650; }
+
   .plc-card { margin: 14px 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 12px 12px; }
   .plc-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 12px; }
   .plc-nav .plc-month { font-size: 14.5px; font-weight: 650; min-width: 118px; text-align: center; }
@@ -2760,11 +2768,18 @@
 
     <p class="sub" id="pnlCalendarInheritNote" style="margin:0 0 10px; font-size:11px; display:flex; align-items:center; gap:6px;"><i data-lucide="refresh-cw" style="width:11px;height:11px; flex:none;"></i>Pair, Strategy &amp; Trader sync from your Dashboard filter each time you open this page — edit here anytime, it won't change the Dashboard.</p>
 
-    <!-- Phase 4c onward: summary strip, heatmap, news dot, day detail card
-         render into this same container, above/around the grid below.
-         Phase 4b only adds the month nav + grid skeleton — see
-         renderPnlCalendarGrid() / buildPnlCalendarWeekdayCells(). -->
+    <!-- Phase 4e onward: news dot + day detail card render into this same
+         container, around the grid below. Phase 4c added the summary
+         strip (#pnlCalendarSummary); Phase 4d added each day cell's own
+         trade count / net $ plus the heatmap tint and legend — see
+         renderPnlCalendarGrid() / buildPnlCalendarDayAggregates() /
+         pnlCalendarHeatmapClass(). -->
     <div id="pnlCalendarBody">
+      <div class="plc-summary" id="pnlCalendarSummary">
+        <div class="plc-cell"><div class="plc-cell-label">Net P&amp;L</div><div class="plc-cell-value mono" id="pnlCalendarSummaryNet">—</div></div>
+        <div class="plc-cell"><div class="plc-cell-label">Trades</div><div class="plc-cell-value mono" id="pnlCalendarSummaryTrades">—</div></div>
+        <div class="plc-cell"><div class="plc-cell-label">Win rate</div><div class="plc-cell-value mono" id="pnlCalendarSummaryWinRate">—</div></div>
+      </div>
       <div class="plc-card">
         <div class="plc-nav">
           <div class="plc-arrow" onclick="pnlCalendarPrevMonth()" role="button" aria-label="Previous month">‹</div>
@@ -2775,6 +2790,28 @@
           <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span>
         </div>
         <div class="plc-grid" id="pnlCalendarGrid"></div>
+
+        <!-- Phase 4d: legend explaining the heatmap scale. Ported field-
+             for-field from the approved reference mockup's .legend
+             (colors match the .plc-day.winN/.lossN backgrounds above
+             exactly). The news-key half of the reference legend is Phase
+             4e's addition, not this one — .plc-spacer here is what that
+             step hangs its dot+label off of. -->
+        <div class="plc-legend">
+          <span>Loss</span>
+          <div class="plc-scale">
+            <span style="background:rgba(255,92,92,0.26);"></span>
+            <span style="background:rgba(255,92,92,0.12);"></span>
+          </div>
+          <div class="plc-scale">
+            <span style="background:rgba(0,200,150,0.09);"></span>
+            <span style="background:rgba(0,200,150,0.19);"></span>
+            <span style="background:rgba(0,200,150,0.33);"></span>
+            <span style="background:rgba(0,200,150,0.50);"></span>
+          </div>
+          <span>Profit</span>
+          <div class="plc-spacer"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -5384,6 +5421,7 @@ function setPnlCalendarTraderFilter(value) {
   pnlCalendarTraderFilter = value;
   renderPnlCalendarTraderChips();
   savePnlCalendarFilterState();
+  renderPnlCalendarGrid(); // Phase 4c: filters now actually scope trade data
 }
 function renderPnlCalendarTraderChips() {
   renderAuthorFilterChips('pnlCalendarTraderChips', pnlCalendarTraderFilter, 'setPnlCalendarTraderFilter');
@@ -5394,10 +5432,12 @@ function getPnlCalendarTraderFilter() {
 
 function onPnlCalendarPairChange(sel) {
   savePnlCalendarFilterState();
+  renderPnlCalendarGrid(); // Phase 4c: filters now actually scope trade data
 }
 
 function onPnlCalendarStrategyChange(sel) {
   savePnlCalendarFilterState();
+  renderPnlCalendarGrid(); // Phase 4c: filters now actually scope trade data
 }
 
 // Keeps the Calendar's Pair/Strategy select options in sync with real
@@ -5544,11 +5584,72 @@ function buildPnlCalendarWeekdayCells(year, monthIndex) {
   return cells;
 }
 
-// Renders the month label + grid for pnlCalendarViewYear/Month. No trade
-// data touched here — Phase 4c adds the per-day P&L lookup this will read
-// from; for now every in-month cell is a bare date number (".plc-day"
-// with no "has-data"/win/loss class), out-of-month cells are ".plc-day
-// empty" padding.
+// ---- P&L Calendar page (Phase 4c): trade data + summary strip ----
+// Scopes allTrades to the calendar's own visible month plus its Pair/
+// Strategy/Trader filters (Phase 4a) — the same three getPnlCalendar*
+// Filter() readers the toolbar has held since 4a, now actually read for
+// the first time. Month match is a plain 'YYYY-MM' prefix on trade.date,
+// the same shape History's own month filter already uses.
+function getPnlCalendarMonthTrades() {
+  if (pnlCalendarViewYear === null || pnlCalendarViewMonth === null) resetPnlCalendarViewToToday();
+  const monthKey = pnlCalendarViewYear + '-' + String(pnlCalendarViewMonth + 1).padStart(2, '0');
+  const pair = getPnlCalendarPairFilter();
+  const strategy = getPnlCalendarStrategyFilter();
+  const trader = getPnlCalendarTraderFilter();
+  return allTrades.filter((t) =>
+    (t.date || '').startsWith(monthKey) &&
+    (!pair || t.pair === pair) &&
+    (!strategy || t.strategy === strategy) &&
+    (!trader || t.createdBy === trader)
+  );
+}
+
+// Per-day rollup of the month's filtered trades — trade count and net $
+// (tradeDollarResult(), the same figure Live Performance/History already
+// key off) keyed by the trade's own 'YYYY-MM-DD' date string. Computed on
+// every grid render even though the day cells don't display it yet
+// (Phase 4d adds that rendering) — this is the data layer that step reads
+// from via pnlCalendarDayAggregates rather than recomputing it twice.
+function buildPnlCalendarDayAggregates(monthTrades) {
+  const byDay = {};
+  monthTrades.forEach((t) => {
+    if (!t.date) return;
+    const key = t.date.slice(0, 10);
+    if (!byDay[key]) byDay[key] = { count: 0, net: 0 };
+    byDay[key].count++;
+    byDay[key].net += tradeDollarResult(t) || 0;
+  });
+  return byDay;
+}
+
+// Filled by renderPnlCalendarGrid() on every render; Phase 4d's day cells
+// and Phase 4f's day detail card read this instead of re-deriving it.
+let pnlCalendarDayAggregates = {};
+
+// Net P&L / Trades / Win rate strip above the month grid — reuses
+// computeLiveStats() (the same wins/losses/winRate/netPnl the Dashboard's
+// Live Performance card is built from) instead of a second stats
+// definition, scoped here to the month's filtered trades rather than
+// all-time. Trades count is every trade in the month regardless of
+// resolution (matches the reference layout); Net P&L/Win rate need at
+// least one resolved trade or they show an em dash rather than a
+// misleading 0%/$0.
+function renderPnlCalendarSummary(monthTrades) {
+  const stats = computeLiveStats(monthTrades);
+  const netEl = document.getElementById('pnlCalendarSummaryNet');
+  const tradesEl = document.getElementById('pnlCalendarSummaryTrades');
+  const wrEl = document.getElementById('pnlCalendarSummaryWinRate');
+  if (netEl) {
+    netEl.textContent = stats.totalResolved ? fmtCompareDollar(stats.netPnl, true) : '—';
+    netEl.className = 'plc-cell-value mono' + (stats.totalResolved ? (stats.netPnl >= 0 ? ' win' : ' loss') : '');
+  }
+  if (tradesEl) tradesEl.textContent = String(stats.totalTrades);
+  if (wrEl) wrEl.textContent = stats.totalResolved ? stats.winRate.toFixed(0) + '%' : '—';
+}
+
+// Renders the month label + grid for pnlCalendarViewYear/Month, plus the
+// summary strip (Phase 4c) and now (Phase 4d) each day cell's own trade
+// count / net $ with heatmap-tinted backgrounds.
 function renderPnlCalendarGrid() {
   if (pnlCalendarViewYear === null || pnlCalendarViewMonth === null) resetPnlCalendarViewToToday();
 
@@ -5557,13 +5658,67 @@ function renderPnlCalendarGrid() {
     monthLabel.innerHTML = PNL_CALENDAR_MONTH_NAMES[pnlCalendarViewMonth] + ' <span class="plc-yr">' + pnlCalendarViewYear + '</span>';
   }
 
+  const monthTrades = getPnlCalendarMonthTrades();
+  pnlCalendarDayAggregates = buildPnlCalendarDayAggregates(monthTrades);
+  renderPnlCalendarSummary(monthTrades);
+
   const gridEl = document.getElementById('pnlCalendarGrid');
   if (!gridEl) return;
   const cells = buildPnlCalendarWeekdayCells(pnlCalendarViewYear, pnlCalendarViewMonth);
+
+  // Phase 4d: heatmap scale is relative to THIS month's own biggest win/
+  // loss day, not a fixed dollar threshold — so a $50 day reads as "big"
+  // on a month of small trades the same way a $5,000 day would on a month
+  // of large ones, rather than every day looking pale on a high-balance
+  // account or maxed-out on a small one.
+  const dayNets = Object.values(pnlCalendarDayAggregates).map((d) => d.net);
+  const maxWinNet = Math.max(0, ...dayNets.filter((n) => n > 0));
+  const maxLossAbs = Math.max(0, ...dayNets.filter((n) => n < 0).map((n) => Math.abs(n)));
+
   gridEl.innerHTML = cells.map((c) => {
     if (!c.inMonth) return '<div class="plc-day empty"></div>';
-    return '<div class="plc-day"><div class="plc-top-row"><span class="plc-date">' + c.date.getDate() + '</span></div></div>';
+    const dateNum = c.date.getDate();
+    const agg = pnlCalendarDayAggregates[dateToYMD(c.date)];
+    if (!agg) {
+      return '<div class="plc-day"><div class="plc-top-row"><span class="plc-date">' + dateNum + '</span></div></div>';
+    }
+    const heatClass = pnlCalendarHeatmapClass(agg.net, maxWinNet, maxLossAbs);
+    const tradesLabel = agg.count + (agg.count === 1 ? ' trade' : ' trades');
+    return '<div class="plc-day has-data' + (heatClass ? ' ' + heatClass : '') + '">' +
+      '<div class="plc-top-row"><span class="plc-date">' + dateNum + '</span></div>' +
+      '<div class="plc-trades">' + tradesLabel + '</div>' +
+      '<div class="plc-pnl mono">' + fmtPlcDayNet(agg.net) + '</div>' +
+    '</div>';
   }).join('');
+}
+
+// Buckets one day's net $ into a heatmap step, scaled against the largest
+// win/loss day within the same pnlCalendarDayAggregates set (see call
+// site) — 4 profit steps (win1..win4) vs 2 loss steps (loss1..loss2),
+// matching the reference layout's asymmetric step count and the .plc-day
+// CSS classes Phase 4b already carried over in advance. A day that nets
+// exactly $0 (e.g. a single breakeven trade) gets "has-data" styling with
+// no color tint — there's no direction to shade toward.
+function pnlCalendarHeatmapClass(net, maxWinNet, maxLossAbs) {
+  if (net > 0) {
+    const ratio = maxWinNet > 0 ? net / maxWinNet : 1;
+    if (ratio > 0.75) return 'win4';
+    if (ratio > 0.5) return 'win3';
+    if (ratio > 0.25) return 'win2';
+    return 'win1';
+  }
+  if (net < 0) {
+    const ratio = maxLossAbs > 0 ? Math.abs(net) / maxLossAbs : 1;
+    return ratio > 0.5 ? 'loss2' : 'loss1';
+  }
+  return '';
+}
+
+// Day-cell dollar format — deliberately unsigned-positive/minus-negative
+// ("$899" / "-$304") rather than fmtCompareDollar()'s "+/−" convention,
+// matching the approved reference mockup's day-cell figures exactly.
+function fmtPlcDayNet(net) {
+  return (net < 0 ? '-' : '') + '$' + Math.round(Math.abs(net)).toLocaleString('en-US');
 }
 
 // ---- History tab: collapsible Timeline / Growth History / Recovery
@@ -16955,6 +17110,7 @@ async function refreshDashboardTradeSummary() {
   renderPnlCalendarPairSelectOptions();
   renderPnlCalendarStrategySelectOptions();
   restorePnlCalendarFilterState();
+  renderPnlCalendarGrid(); // Phase 4c: keep the summary strip/day data in sync with fresh trade loads
   renderAdvancedFilterOptions();
   renderCompareTable();
   await refreshAiInsights();
