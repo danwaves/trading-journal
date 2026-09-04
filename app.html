@@ -1403,6 +1403,7 @@
   .wl-status-pill.won { background: rgba(0,200,150,0.12); color: var(--win); }
   .wl-status-pill.lost { background: rgba(255,92,92,0.12); color: var(--loss); }
   .wl-status-pill.invalidated { background: var(--surface2); color: var(--muted); }
+  .wl-status-pill.missed { background: rgba(78,161,247,0.14); color: var(--info); }
   /* Small inline "View trade →" quick-link shown at card-row level once
      linked, so the trade is reachable without expanding the card first.
      Sits in the tag row alongside the other badges. */
@@ -7546,7 +7547,26 @@ async function flushJournalEntry() {
       renderJournalTradesSection(); // Phase 6: unlocks Trade attach now that the entry has an id
     }
   } else {
+    // Notify roadmap: every field blur runs through here (title/pair/body
+    // included), so only fire a notification when `status` itself actually
+    // changed from what it was a moment ago — otherwise a routine title edit
+    // would spam a "status changed" message that never happened.
+    const prevEntry = allJournalEntries.find((e) => e.id === journalEditingId);
+    const prevStatus = prevEntry ? prevEntry.status : null;
     ok = !!(await updateJournalEntry(journalEditingId, fields));
+    if (ok && prevStatus !== null && prevStatus !== status) {
+      const meta = JOURNAL_STATUS_META[status];
+      let deepLink = '';
+      const shortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`journal:${journalEditingId}`));
+      if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
+      notifyOtherAccount({
+        type: 'journal_entry',
+        sourceTable: 'journal_entries',
+        sourceId: journalEditingId,
+        message: `${currentAccountName()} marked "${title || 'a journal entry'}" as ${meta ? meta.label : status}`,
+        deepLink,
+      });
+    }
   }
 
   if (!statusEl) return;
@@ -11692,11 +11712,12 @@ async function saveTrade() {
     let tradeDeepLink = '';
     const tradeShortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`trade:${id}`));
     if (tradeShortId) tradeDeepLink = 'https://danfxt.vercel.app/api/go/' + tradeShortId;
+    const resultTag = result === 'win' ? ' — Win' : result === 'loss' ? ' — Loss' : result === 'pending' ? ' — Pending' : '';
     notifyOtherAccount({
       type: 'trade',
       sourceTable: 'trades',
       sourceId: id,
-      message: `${currentAccountName()} ${isNewTradeForNotify ? 'added a new trade' : 'updated a trade'}: ${pair}`,
+      message: `${currentAccountName()} ${isNewTradeForNotify ? 'added a new trade' : 'updated a trade'}: ${pair}${resultTag}`,
       deepLink: tradeDeepLink,
     });
     // Brief pause so the success banner is actually visible before the
@@ -13270,8 +13291,51 @@ async function markWatchlistInvalidated(id) {
   const label = item && item.pair ? '"' + item.pair + '"' : 'this idea';
   if (!(await confirmDialog('Mark ' + label + ' as Invalidated? No more updates can be posted after this.', { danger: true }))) return;
   const ok = await updateWatchlistItem(id, { status: 'invalidated' });
-  if (ok) renderWatchlistList();
-  else setWlTrailStatus(id, 'Failed to mark invalidated — check your connection and try again.', 'error');
+  if (ok) {
+    renderWatchlistList();
+    let deepLink = '';
+    const shortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`wl:${id}`));
+    if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
+    notifyOtherAccount({
+      type: 'watchlist_item',
+      sourceTable: 'watchlist_items',
+      sourceId: id,
+      message: `${currentAccountName()} marked ${item && item.pair ? item.pair : 'a watchlist idea'} as Invalidated`,
+      deepLink,
+    });
+  } else {
+    setWlTrailStatus(id, 'Failed to mark invalidated — check your connection and try again.', 'error');
+  }
+}
+
+// Missed Trade Status roadmap: closes out an idea that was a genuinely
+// valid setup but was never actually entered — distinct from Invalidated
+// (setup broke down) and from Won/Lost (a trade was taken). Excluded from
+// win/loss the same way Invalidated already is, since it's an ending that
+// resulted in no trade at all. Reason is optional — promptDialog's OK with
+// an empty field still confirms the status change; only Cancel aborts it.
+async function markWatchlistMissed(id) {
+  const item = allWatchlistItems.find((it) => it.id === id);
+  const label = item && item.pair ? '"' + item.pair + '"' : 'this idea';
+  const reason = await promptDialog('Mark ' + label + ' as Missed? Optionally, why did you miss it?', '');
+  if (reason === null) return; // Cancel — abort entirely, unlike an empty-but-confirmed reason
+  const trimmedReason = reason.trim();
+  const ok = await updateWatchlistItem(id, { status: 'missed', missedReason: trimmedReason });
+  if (ok) {
+    renderWatchlistList();
+    let deepLink = '';
+    const shortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`wl:${id}`));
+    if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
+    notifyOtherAccount({
+      type: 'watchlist_item',
+      sourceTable: 'watchlist_items',
+      sourceId: id,
+      message: `${currentAccountName()} marked ${item && item.pair ? item.pair : 'a watchlist idea'} as Missed${trimmedReason ? `: "${trimmedReason}"` : ''}`,
+      deepLink,
+    });
+  } else {
+    setWlTrailStatus(id, 'Failed to mark missed — check your connection and try again.', 'error');
+  }
 }
 
 // Watchlist Closed-Folder Roadmap, Phase 1: shared status predicate so the
@@ -13294,6 +13358,7 @@ function wlStatusPillHtml(status) {
     : status === 'won' ? 'WON'
     : status === 'lost' ? 'LOST'
     : status === 'invalidated' ? 'INVALIDATED'
+    : status === 'missed' ? 'MISSED'
     : '';
   if (!label) return '';
   return ' <span class="wl-status-pill ' + escapeHtml(status) + '">' + label + '</span>';
@@ -13432,7 +13497,8 @@ function watchlistCardRowHtml(it, opts) {
             '<div class="wl-row-actions">' +
             '<div class="icon-btn" onclick="event.stopPropagation(); openWatchlistEditPanel(' + idArg + ')" title="Edit"><i data-lucide="pencil"></i></div>' +
             (!it.status || it.status === 'idea'
-              ? '<div class="icon-btn" onclick="event.stopPropagation(); markWatchlistInvalidated(' + idArg + ')" title="Mark Invalidated"><i data-lucide="ban"></i></div>'
+              ? '<div class="icon-btn" onclick="event.stopPropagation(); markWatchlistInvalidated(' + idArg + ')" title="Mark Invalidated"><i data-lucide="ban"></i></div>' +
+                '<div class="icon-btn" onclick="event.stopPropagation(); markWatchlistMissed(' + idArg + ')" title="Mark Missed"><i data-lucide="skip-forward"></i></div>'
               : '') +
             '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
             '</div>' +
@@ -13505,7 +13571,7 @@ function watchlistClosedFolderHtml(closedItems) {
     : !filteredClosed.length
       ? '<div class="empty-state" style="padding: var(--space-3) 0;">No closed ideas match this filter.</div>'
       : filteredClosed.map((it) => watchlistCardRowHtml(it, { draggable: false })).join('');
-  const chipDef = [['', 'All'], ['won', 'Won'], ['lost', 'Lost'], ['invalidated', 'Invalidated']];
+  const chipDef = [['', 'All'], ['won', 'Won'], ['lost', 'Lost'], ['invalidated', 'Invalidated'], ['missed', 'Missed']];
   const chipsHtml = '<div style="margin-bottom: var(--space-3);">' +
     chipDef.map(([value, label]) =>
       '<span class="chip-pill' + (wlClosedStatusFilter === value ? ' active' : '') + '" onclick="event.stopPropagation(); setWlClosedStatusFilter(\'' + value + '\');">' + label + '</span>'
@@ -13863,16 +13929,19 @@ function watchlistTrailComposerHtml(itemId) {
       : wlItem.status === 'won' ? 'Closed — Won'
       : wlItem.status === 'lost' ? 'Closed — Lost'
       : wlItem.status === 'invalidated' ? 'Invalidated'
+      : wlItem.status === 'missed' ? 'Closed — Missed'
       : 'Live';
     return '<div class="wl-update-composer">' +
       '<div class="wl-update-composer-head"><span class="wl-trail-icon-chip"><i data-lucide="lock" style="width:12px;height:12px;"></i></span><span>' + escapeHtml(statusLabel) + '</span></div>' +
       '<div class="mono muted" style="font-size:11.5px;">' + (wlItem.status === 'invalidated'
         ? 'This idea was invalidated — no trade was taken.'
-        : 'This idea went live — no more updates here. Further notes and screenshots continue on the linked trade.') + '</div>' +
+        : wlItem.status === 'missed'
+          ? (wlItem.missedReason ? 'Missed — ' + escapeHtml(wlItem.missedReason) : 'This was a valid setup, but no trade was taken.')
+          : 'This idea went live — no more updates here. Further notes and screenshots continue on the linked trade.') + '</div>' +
       (wlItem.linkedTradeId
         ? '<button class="wl-post-update-btn" style="margin-top:8px;" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(wlItem.linkedTradeId) + '\')">View linked trade →</button>'
-        : (wlItem.status === 'invalidated'
-            ? '' // Invalidated Status Roadmap, Phase A2: no trade to reference or clean up, unlike Pending's unsaved-draft case below
+        : ((wlItem.status === 'invalidated' || wlItem.status === 'missed')
+            ? '' // no trade to reference or clean up, same as Invalidated
             : (wlItem.status === 'pending'
             ? '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen, or cancel below if the draft was lost (e.g. the app was closed or refreshed before saving).</div>' +
               '<button class="wl-post-update-btn" style="margin-top:8px; background:var(--surface2); color:var(--light); box-shadow:none;" onclick="event.stopPropagation(); cancelUnlinkedWatchlistHandoff(\'' + itemId + '\')">Cancel — trade was never saved</button>'
@@ -14161,7 +14230,7 @@ async function addWatchlistTrailEntry(itemId) {
     type: 'watchlist_trail',
     sourceTable: 'watchlist_items',
     sourceId: itemId,
-    message: `${currentAccountName()} posted an update on ${item.pair} (${(item.direction || '').toUpperCase()})\nPOI: ${item.poiType || '—'} (${item.htf || '—'})`,
+    message: `${currentAccountName()} posted an update on ${item.pair} (${(item.direction || '').toUpperCase()})${tagAsEntry ? ' — Entry taken, now Pending' : ''}\nPOI: ${item.poiType || '—'} (${item.htf || '—'})`,
     deepLink: trailDeepLink,
   });
 
@@ -16831,14 +16900,25 @@ async function handleMediaDeepLink() {
     const [, itemId, entryId, imgId] = parts;
     showScreen('watchlist', document.getElementById('tabWatchlist'));
     const item = allWatchlistItems.find((it) => it.id === itemId);
-    const trailEntry = item && (item.trail || []).find((e) => e.id === entryId);
+    const trailEntry = item && entryId ? (item.trail || []).find((e) => e.id === entryId) : null;
     let idx = -1;
     if (trailEntry) {
       const pool = Array.isArray(trailEntry.images) ? trailEntry.images.slice() : [];
       if (trailEntry.video) pool.push(trailEntry.video);
       idx = pool.findIndex((i) => i.id === imgId);
     }
-    if (idx > -1) openViewerForWlTrailEntry(itemId, entryId, idx);
+    if (idx > -1) {
+      openViewerForWlTrailEntry(itemId, entryId, idx);
+    } else {
+      // No specific trail entry/photo in the tag (e.g. the Invalidated/Missed
+      // status notifications, which reference the whole item, not one
+      // update) — same expand + scroll behavior as jumpToWatchlistFromSearch.
+      watchlistCardExpanded.add(itemId);
+      renderWatchlistList().then(() => {
+        const el = document.querySelector('.wl-card[data-item-id="' + CSS.escape(itemId) + '"]');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
   }
 }
 
