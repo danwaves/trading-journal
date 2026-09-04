@@ -1043,6 +1043,72 @@
   @keyframes inheritedFilterPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   .inherited-filter-flash { animation: inheritedFilterPulse 0.6s ease-in-out 3; }
 
+  /* P&L Calendar / Trader Filter Roadmap, Phase 4b: month nav + grid.
+     Ported field-for-field from the approved reference mockup
+     (pnl-calendar-page.html — .cal-card/.cal-nav/.weekday-row/.cal-grid/
+     .day/.legend/.detail), renamed to a plc- prefix since names like
+     .day/.month/.arrow/.date are generic enough to risk colliding with
+     something elsewhere in this file down the line. Heatmap (win1-4/
+     loss1-2), the news dot and the legend/detail card are carried over
+     here too even though Phase 4b doesn't use them yet (Phases 4d-4f do)
+     — cheaper to land the whole visual vocabulary once than to keep
+     re-opening this block per phase. */
+  .plc-card { margin: 14px 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 12px 12px; }
+  .plc-nav { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 12px; }
+  .plc-nav .plc-month { font-size: 14.5px; font-weight: 650; min-width: 118px; text-align: center; }
+  .plc-nav .plc-month .plc-yr { color: var(--muted); font-weight: 400; }
+  .plc-nav .plc-arrow { color: var(--muted); font-size: 13px; width: 22px; height: 22px; display:flex; align-items:center; justify-content:center; border-radius: 6px; cursor: pointer; user-select: none; }
+  .plc-nav .plc-arrow:hover { background: var(--surface2); color: var(--light); }
+
+  .plc-weekday-row { display: grid; grid-template-columns: repeat(5, 1fr); margin-bottom: 5px; padding: 0 1px; }
+  .plc-weekday-row span { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 0.2px; }
+
+  .plc-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .plc-day {
+    border-radius: 8px;
+    padding: 7px 7px 6px;
+    min-height: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    border: 1px solid rgba(255,255,255,0.03);
+    position: relative;
+  }
+  .plc-day .plc-top-row { display: flex; justify-content: space-between; align-items: flex-start; }
+  .plc-day .plc-date { font-size: 10.5px; font-weight: 650; color: rgba(255,255,255,0.5); }
+  .plc-day.has-data .plc-date { color: rgba(255,255,255,0.85); }
+  .plc-day .plc-trades { font-size: 9px; color: var(--muted); }
+  .plc-day .plc-pnl { font-size: 11px; font-weight: 650; }
+  .plc-day.empty { background: transparent; border: none; }
+
+  .plc-day.win1 { background: rgba(0,200,150,0.09); }
+  .plc-day.win2 { background: rgba(0,200,150,0.19); }
+  .plc-day.win3 { background: rgba(0,200,150,0.33); }
+  .plc-day.win4 { background: rgba(0,200,150,0.50); }
+  .plc-day.loss1 { background: rgba(255,92,92,0.12); }
+  .plc-day.loss2 { background: rgba(255,92,92,0.26); }
+  .plc-day.win1 .plc-pnl, .plc-day.win2 .plc-pnl { color: var(--win); }
+  .plc-day.win3 .plc-pnl, .plc-day.win4 .plc-pnl { color: #EAFFF6; }
+  .plc-day.loss1 .plc-pnl, .plc-day.loss2 .plc-pnl { color: var(--loss); }
+
+  .plc-day.selected { border: 1.5px solid var(--brand); }
+  .plc-news-dot { width: 4.5px; height: 4.5px; border-radius: 50%; background: var(--loss); margin-top: 2px; }
+
+  .plc-legend { display: flex; align-items: center; gap: 5px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 10px; color: var(--muted); }
+  .plc-legend .plc-scale { display: flex; gap: 2px; }
+  .plc-legend .plc-scale span { width: 13px; height: 9px; border-radius: 2px; }
+  .plc-legend .plc-spacer { flex: 1; }
+  .plc-legend .plc-news-key { display: flex; align-items: center; gap: 4px; }
+
+  .plc-detail { margin: 14px 0 0; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .plc-detail .plc-detail-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .plc-detail .plc-detail-head h3 { font-size: 13.5px; margin: 0; font-weight: 650; }
+  .plc-detail .plc-detail-net { font-size: 13.5px; font-weight: 650; color: var(--win); }
+  .plc-detail .plc-detail-stats { display: flex; gap: 18px; margin-bottom: 4px; }
+  .plc-detail .plc-detail-stats div { font-size: 11px; color: var(--muted); }
+  .plc-detail .plc-detail-stats b { display: block; color: var(--light); font-size: 13px; font-weight: 650; margin-top: 2px; }
+  .plc-detail .plc-view-link { display: block; text-align: center; margin-top: 12px; padding: 9px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--light); font-weight: 550; cursor: pointer; }
+
   /* Win/loss save flash — brief color pulse on the Save Trade button right
      after a trade is saved, so the outcome you just logged registers
      visually instead of only appearing in the banner text. Uses box-shadow
@@ -2124,7 +2190,7 @@
        for testing the page shell + toolbar while it's being built —
        Phase 5 covers giving this its permanent placement alongside
        Confluence Manager / Timeframe Manager instead of living here. -->
-  <button id="tabPnlCalendar" onclick="closeMoreMenu(); showScreen('pnlCalendar', this); inheritDashboardFiltersToPnlCalendar();">P&amp;L Calendar</button>
+  <button id="tabPnlCalendar" onclick="closeMoreMenu(); showScreen('pnlCalendar', this); inheritDashboardFiltersToPnlCalendar(); resetPnlCalendarViewToToday(); renderPnlCalendarGrid();">P&amp;L Calendar</button>
   <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
 </div>
 
@@ -2694,10 +2760,23 @@
 
     <p class="sub" id="pnlCalendarInheritNote" style="margin:0 0 10px; font-size:11px; display:flex; align-items:center; gap:6px;"><i data-lucide="refresh-cw" style="width:11px;height:11px; flex:none;"></i>Pair, Strategy &amp; Trader sync from your Dashboard filter each time you open this page — edit here anytime, it won't change the Dashboard.</p>
 
-    <!-- Phase 4b onward: month nav, empty grid skeleton, summary strip,
-         heatmap, news dot, day detail card all render into this container.
-         Left empty here on purpose — Phase 4a is toolbar-only. -->
-    <div id="pnlCalendarBody"></div>
+    <!-- Phase 4c onward: summary strip, heatmap, news dot, day detail card
+         render into this same container, above/around the grid below.
+         Phase 4b only adds the month nav + grid skeleton — see
+         renderPnlCalendarGrid() / buildPnlCalendarWeekdayCells(). -->
+    <div id="pnlCalendarBody">
+      <div class="plc-card">
+        <div class="plc-nav">
+          <div class="plc-arrow" onclick="pnlCalendarPrevMonth()" role="button" aria-label="Previous month">‹</div>
+          <div class="plc-month" id="pnlCalendarMonthLabel"></div>
+          <div class="plc-arrow" onclick="pnlCalendarNextMonth()" role="button" aria-label="Next month">›</div>
+        </div>
+        <div class="plc-weekday-row">
+          <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span>
+        </div>
+        <div class="plc-grid" id="pnlCalendarGrid"></div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -5398,6 +5477,93 @@ function inheritDashboardFiltersToPnlCalendar() {
   pnlCalendarTraderFilter = dashboardTraderFilter;
   renderPnlCalendarTraderChips();
   savePnlCalendarFilterState();
+}
+
+// ---- P&L Calendar page (Phase 4b): month navigation + weekday grid
+// skeleton. Deliberately isolated from trade data — every cell below is
+// either "empty" (padding outside the visible month) or a bare date
+// number — so the date math (month lengths, Mon-start week alignment,
+// Dec/Jan rollover) is verified correct before Phase 4c starts layering
+// real P&L aggregation on top of it.
+const PNL_CALENDAR_MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+// The month/year currently on screen — separate from "today," which is
+// only used to pick the initial default (see resetPnlCalendarViewToToday()).
+// Null until first set, same "unset until initialized" pattern the rest of
+// the Calendar page's state doesn't need but this does, since 0 is a valid
+// month index and can't double as an "unset" sentinel.
+let pnlCalendarViewYear = null;
+let pnlCalendarViewMonth = null; // 0 = January … 11 = December
+
+function resetPnlCalendarViewToToday() {
+  const now = new Date();
+  pnlCalendarViewYear = now.getFullYear();
+  pnlCalendarViewMonth = now.getMonth();
+}
+
+function pnlCalendarPrevMonth() {
+  pnlCalendarViewMonth--;
+  if (pnlCalendarViewMonth < 0) { pnlCalendarViewMonth = 11; pnlCalendarViewYear--; }
+  renderPnlCalendarGrid();
+}
+
+function pnlCalendarNextMonth() {
+  pnlCalendarViewMonth++;
+  if (pnlCalendarViewMonth > 11) { pnlCalendarViewMonth = 0; pnlCalendarViewYear++; }
+  renderPnlCalendarGrid();
+}
+
+// Builds the Mon-Fri cell list for one month: walks day-by-day from the
+// Monday on/before the 1st through the Friday on/after the last day,
+// skipping Saturdays/Sundays entirely (they never take a grid column, same
+// as the reference layout) rather than trimming them out after the fact.
+// A cell's inMonth flag is what tells the renderer "real date" vs "empty
+// padding" — the padding cells are what keep every row a full Mon-Fri
+// week even when the 1st or the last day doesn't land on a Monday/Friday.
+function buildPnlCalendarWeekdayCells(year, monthIndex) {
+  const firstOfMonth = new Date(year, monthIndex, 1);
+  const lastOfMonth = new Date(year, monthIndex + 1, 0);
+
+  const firstDow = firstOfMonth.getDay(); // 0=Sun … 6=Sat
+  const mondayOffset = (firstDow + 6) % 7; // days back to that week's Monday
+  const gridStart = new Date(year, monthIndex, 1 - mondayOffset);
+
+  const lastDow = lastOfMonth.getDay();
+  const fridayOffset = (5 - lastDow + 7) % 7; // days forward to that week's Friday
+  const gridEnd = new Date(year, monthIndex, lastOfMonth.getDate() + fridayOffset);
+
+  const cells = [];
+  const cursor = new Date(gridStart);
+  while (cursor <= gridEnd) {
+    const dow = cursor.getDay();
+    if (dow >= 1 && dow <= 5) { // Mon-Fri only — Sat/Sun never get a cell
+      cells.push({ date: new Date(cursor), inMonth: cursor.getMonth() === monthIndex });
+    }
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return cells;
+}
+
+// Renders the month label + grid for pnlCalendarViewYear/Month. No trade
+// data touched here — Phase 4c adds the per-day P&L lookup this will read
+// from; for now every in-month cell is a bare date number (".plc-day"
+// with no "has-data"/win/loss class), out-of-month cells are ".plc-day
+// empty" padding.
+function renderPnlCalendarGrid() {
+  if (pnlCalendarViewYear === null || pnlCalendarViewMonth === null) resetPnlCalendarViewToToday();
+
+  const monthLabel = document.getElementById('pnlCalendarMonthLabel');
+  if (monthLabel) {
+    monthLabel.innerHTML = PNL_CALENDAR_MONTH_NAMES[pnlCalendarViewMonth] + ' <span class="plc-yr">' + pnlCalendarViewYear + '</span>';
+  }
+
+  const gridEl = document.getElementById('pnlCalendarGrid');
+  if (!gridEl) return;
+  const cells = buildPnlCalendarWeekdayCells(pnlCalendarViewYear, pnlCalendarViewMonth);
+  gridEl.innerHTML = cells.map((c) => {
+    if (!c.inMonth) return '<div class="plc-day empty"></div>';
+    return '<div class="plc-day"><div class="plc-top-row"><span class="plc-date">' + c.date.getDate() + '</span></div></div>';
+  }).join('');
 }
 
 // ---- History tab: collapsible Timeline / Growth History / Recovery
