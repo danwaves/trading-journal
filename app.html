@@ -1431,8 +1431,14 @@
   .wl-card .trade-row {
     position: relative; z-index: 1; margin-bottom: 0; border: none; border-radius: 0;
     background: linear-gradient(160deg, var(--accent-bg, transparent), transparent 65%);
-    padding: 14px 14px 14px 18px;
+    padding: 10px 12px 10px 14px;
   }
+  /* Height fix 2026-09-04: the 44px icon chip was the tallest thing in the
+     row and set a floor under how short the card could get even after the
+     padding trim above — shrunk to line up with the row's own text height,
+     same as .trade-thumb's footprint on the Trades screen. */
+  .wl-card .wl-pair-icon-chip { width: 34px; height: 34px; border-radius: 9px; }
+  .wl-card .wl-pair-icon-chip i { width: 16px; height: 16px; }
   .wl-card-detail { max-height: 0; opacity: 0; overflow: hidden; background: var(--surface); border-top: 1px solid var(--border); transition: max-height var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
   .wl-card-detail > div { padding: var(--space-2) 10px 10px; }
   .wl-card.expanded .wl-card-detail { max-height: 3000px; opacity: 1; border-top-color: var(--accent, var(--border)); }
@@ -1440,17 +1446,24 @@
   .wl-card.expanded .wl-card-chevron { transform: rotate(90deg); color: var(--accent, var(--brand)); }
   /* Mobile icon-seating fix 2026-08-31, revised: the pair name should
      never be cut off (user wants the full name to always show, and is
-     fine with the card growing a row for it). Instead of truncating with
-     an ellipsis, the title now wraps internally (flex-wrap on the title
-     itself, not just min-width:0) — chevron/name/pills spill onto a
-     second line inside the title when they don't fit, while the
-     ban/delete icons (a separate flex:none sibling) stay pinned on the
-     right, vertically centered against however tall the title ends up. */
+     fine with the card growing a row for it). The title wraps internally
+     (flex-wrap on the title itself, not just min-width:0) — chevron/
+     name/pills spill onto a second line inside the title when they don't
+     fit, while the ban/delete icons (a separate flex:none sibling) stay
+     pinned on the right, vertically centered against however tall the
+     title ends up.
+     One-line-pair fix 2026-09-04: word-break:break-word was letting the
+     pair text itself fracture mid-word ("EURU" / "SD") to fill the line,
+     which is what was actually inflating the card's height, not overall
+     wrapping. The pair name is now a single unbreakable unit — if it
+     doesn't fit next to the direction/status pills, the *whole* pair span
+     moves to line two (this flex-wrap:wrap parent still allows that), it
+     never splits inside itself. */
   .wl-card-title {
     font-weight: 600; font-size: 14.5px; display: inline-flex; flex-wrap: wrap;
     align-items: center; row-gap: 4px; column-gap: 7px; min-width: 0; overflow: visible; flex: 1 1 auto;
   }
-  .wl-card-title-pair { min-width: 0; white-space: normal; overflow-wrap: break-word; word-break: break-word; }
+  .wl-card-title-pair { min-width: 0; white-space: nowrap; flex-shrink: 0; }
   /* The ban/delete icons live in their own flex:none cluster so they're
      never candidates for shrinking and always stay fully seated on-screen,
      regardless of how long the pair name/pill combo next to them gets. */
@@ -2107,6 +2120,11 @@
   <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
   <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal<span class="tab-unseen-dot" id="tabDot_journal"></span></button>
   <button id="tabNews" onclick="closeMoreMenu(); showScreen('news', this); renderNewsTab();">News</button>
+  <!-- P&L Calendar / Trader Filter Roadmap, Phase 4a: temporary entry point
+       for testing the page shell + toolbar while it's being built —
+       Phase 5 covers giving this its permanent placement alongside
+       Confluence Manager / Timeframe Manager instead of living here. -->
+  <button id="tabPnlCalendar" onclick="closeMoreMenu(); showScreen('pnlCalendar', this); inheritDashboardFiltersToPnlCalendar();">P&amp;L Calendar</button>
   <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
 </div>
 
@@ -2189,6 +2207,23 @@
         <div id="dashboardConBtn" class="risk-toggle-btn" onclick="setDashboardRiskProfile('conservative')">Conservative (0.5%)</div>
       </div>
       <div class="icon-btn" title="Share this dashboard" style="background:var(--brand); color:var(--bg); border-color:var(--brand);"><i data-lucide="share-2"></i></div>
+
+      <!-- P&L Calendar / Trader Filter Roadmap, Phase 1: Dashboard-level
+           Trader filter. Unlike the Trade/Watchlist Mine/Other/All chips
+           (Accountability roadmap Phase D), this uses real names — All/Dan/
+           Ako — rather than labels relative to whoever's logged in, since
+           this is the *parent* filter every other page inherits from (see
+           inheritDashboardFiltersToHistory/ToInsights and, going forward,
+           getDashboardTraderFilter() below). A value that means something
+           different depending on the viewer can't be safely broadcast to
+           other pages. Lives inside the same sticky toolbar, on its own
+           wrapped line (flex-basis:100%), rather than a second sticky
+           container — two independently-sticky rows at the same top offset
+           would overlap instead of stacking. Rendered from AUTHOR_BADGES so
+           it never hardcodes the two names/emails in markup. Same
+           .chip-pill segmented-control idiom used everywhere else (Outcome
+           chips, Mine/Other/All chips). -->
+      <div id="dashboardTraderChips" style="flex-basis:100%; display:flex; margin-top:2px;"></div>
     </div>
 
     <div id="filtersDrawerOverlay" class="filters-drawer-overlay" onclick="toggleFilters()"></div>
@@ -2483,6 +2518,15 @@
           <span class="risk-toggle-btn-full">Conservative (0.5%)</span><span class="risk-toggle-btn-short">Con</span>
         </div>
       </div>
+
+      <!-- P&L Calendar / Trader Filter Roadmap, Phase 3: History's own
+           Trader filter, inherited from the Dashboard's All/Dan/Ako chips
+           on every fresh entry (see inheritDashboardFiltersToHistory()),
+           same pre-filled-but-overridable contract as Pair/Strategy above.
+           Wrapped onto its own line (flex-basis:100%), same idiom as
+           dashboardTraderChips, since a segmented chip row doesn't fit
+           inline with the selects above it. -->
+      <div id="historyTraderChips" style="flex-basis:100%; display:flex; margin-top:2px;"></div>
     </div>
 
     <p class="sub" id="historyInheritNote" style="margin:0 0 10px; font-size:11px; display:flex; align-items:center; gap:6px;"><i data-lucide="refresh-cw" style="width:11px;height:11px; flex:none;"></i>Pair &amp; Strategy sync from your Dashboard filter each time you open this tab — edit here anytime, it won't change the Dashboard.</p>
@@ -2615,6 +2659,48 @@
   </div>
 </div>
 
+<!-- P&L CALENDAR — P&L Calendar / Trader Filter Roadmap, Phase 4a: page
+     shell + toolbar only. Own screen (not a Trade/Watchlist view toggle —
+     see roadmap "Decisions made this session"), reachable for now via the
+     temporary "P&L Calendar" entry in #moreMenu — the roadmap's Phase 5
+     covers giving it a permanent home in the less-frequently-used-screens
+     dropdown alongside Confluence Manager / Timeframe Manager.
+     Toolbar mirrors .history-toolbar field-for-field (Pair select, Strategy
+     select, Trader chips on their own row) and the same inherit-from-
+     Dashboard-on-fresh-entry contract as History/Insights — see
+     inheritDashboardFiltersToPnlCalendar(). #pnlCalendarBody is an empty
+     placeholder; the summary strip / month grid / day detail card that
+     fill it are Phases 4c–4f, not this one. -->
+<div id="pnlCalendar" class="screen">
+  <div class="history-container">
+    <h1 style="margin-bottom:2px;">P&amp;L Calendar</h1>
+    <p class="sub" style="margin:0 0 10px;">Daily trade count and net P&amp;L at a glance.</p>
+
+    <div class="history-toolbar">
+      <select id="pnlCalendarPairSelect" onchange="onPnlCalendarPairChange(this)">
+        <option value="">All Pairs</option>
+      </select>
+      <select id="pnlCalendarStrategySelect" style="font-size:12.5px; padding: var(--space-2) 10px;" onchange="onPnlCalendarStrategyChange(this)">
+        <option>All Strategies</option>
+      </select>
+
+      <!-- Phase 3-style Trader chips, inherited from the Dashboard's
+           All/Dan/Ako selection on every fresh entry (see
+           inheritDashboardFiltersToPnlCalendar()), same pre-filled-but-
+           overridable contract as Pair/Strategy above and as History's own
+           #historyTraderChips. -->
+      <div id="pnlCalendarTraderChips" style="flex-basis:100%; display:flex; margin-top:2px;"></div>
+    </div>
+
+    <p class="sub" id="pnlCalendarInheritNote" style="margin:0 0 10px; font-size:11px; display:flex; align-items:center; gap:6px;"><i data-lucide="refresh-cw" style="width:11px;height:11px; flex:none;"></i>Pair, Strategy &amp; Trader sync from your Dashboard filter each time you open this page — edit here anytime, it won't change the Dashboard.</p>
+
+    <!-- Phase 4b onward: month nav, empty grid skeleton, summary strip,
+         heatmap, news dot, day detail card all render into this container.
+         Left empty here on purpose — Phase 4a is toolbar-only. -->
+    <div id="pnlCalendarBody"></div>
+  </div>
+</div>
+
 <!-- INSIGHTS -->
 <div id="insights" class="screen">
   <div class="screen" style="display:block; padding:0;">
@@ -2638,6 +2724,12 @@
         <div id="riskStdBtn" class="risk-toggle-btn active" onclick="setRiskProfile('standard')">Standard (1%)</div>
         <div id="riskConBtn" class="risk-toggle-btn" onclick="setRiskProfile('conservative')">Conservative (0.5%)</div>
       </div>
+
+      <!-- P&L Calendar / Trader Filter Roadmap, Phase 3: Insights' own
+           Trader filter, inherited from the Dashboard's All/Dan/Ako chips
+           on every fresh entry (see inheritDashboardFiltersToInsights()),
+           same pre-filled-but-overridable contract as Pair/Strategy above. -->
+      <div id="insightsTraderChips" style="flex-basis:100%; display:flex; margin-top:2px;"></div>
     </div>
 
     <div id="insightsActiveFilterNote" class="filter-note">
@@ -3172,17 +3264,14 @@
         <span class="chip-pill" onclick="setOutcomeChip('pending')">Pending</span>
       </div>
 
-      <!-- Accountability roadmap Phase D: Mine/Other/All filter, reusing
-           the same .chip-pill segmented-control idiom as the Outcome chips
-           above. The third chip's label is filled in at render time by
-           updateAuthorFilterChips() (it's whichever account ISN'T
-           currently logged in — "Dan" or "Ako" depending who's signed in),
-           so it starts blank here rather than hardcoding a name. -->
-      <div id="tradeAuthorChips" style="margin-bottom:10px;">
-        <span class="chip-pill" onclick="setTradeAuthorFilter('all')">All</span>
-        <span class="chip-pill" onclick="setTradeAuthorFilter('mine')">Mine</span>
-        <span class="chip-pill" data-author-chip-other onclick="setTradeAuthorFilter('other')"></span>
-      </div>
+      <!-- Accountability roadmap Phase D, updated by the P&L Calendar /
+           Trader Filter Roadmap Phase 2: was Mine/Other/All (relative to
+           whoever's logged in); now static All/Dan/Ako, matching the
+           Dashboard's Trader filter so the same wording means the same
+           thing everywhere in the app. Rendered from AUTHOR_BADGES by
+           renderAuthorFilterChips() — see updateTradeAuthorChips() — rather
+           than hardcoded here. -->
+      <div id="tradeAuthorChips" style="margin-bottom:10px;"></div>
 
       <div id="tradeFiltersToggle" class="filters-trigger-compact" onclick="toggleTradeFilters()">
         <span><i data-lucide="search"></i> Filters</span>
@@ -3316,13 +3405,9 @@
                follow-up trail; too much to flatten into one image. -->
           <div class="icon-btn" id="shareWatchlistItemsBtn" onclick="shareWatchlistItemsPNG()" title="Share as image"><i data-lucide="share-2"></i></div>
         </div>
-        <!-- Accountability roadmap Phase D — see tradeAuthorChips comment
-             for the "third chip filled in at render time" explanation. -->
-        <div id="watchlistAuthorChips" style="margin-bottom: var(--space-3);">
-          <span class="chip-pill" onclick="setWatchlistAuthorFilter('all')">All</span>
-          <span class="chip-pill" onclick="setWatchlistAuthorFilter('mine')">Mine</span>
-          <span class="chip-pill" data-author-chip-other onclick="setWatchlistAuthorFilter('other')"></span>
-        </div>
+        <!-- Accountability roadmap Phase D, updated by the P&L Calendar /
+             Trader Filter Roadmap Phase 2 — see tradeAuthorChips comment. -->
+        <div id="watchlistAuthorChips" style="margin-bottom: var(--space-3);"></div>
         <div id="watchlistList" class="mono muted" style="font-size:12.5px;">Loading…</div>
       </div>
     </div>
@@ -3769,13 +3854,11 @@
         <span class="chip-pill" onclick="setJournalStatusFilter('invalidated')">Invalidated</span>
         <span class="chip-pill" onclick="setJournalStatusFilter('archived')">Archived</span>
       </div>
-      <!-- Accountability roadmap Phase D — see tradeAuthorChips comment
-           for the "third chip filled in at render time" explanation. -->
-      <div id="journalAuthorChips" style="margin-bottom:14px;">
-        <span class="chip-pill" onclick="setJournalAuthorFilter('all')">All</span>
-        <span class="chip-pill" onclick="setJournalAuthorFilter('mine')">Mine</span>
-        <span class="chip-pill" data-author-chip-other onclick="setJournalAuthorFilter('other')"></span>
-      </div>
+      <!-- Accountability roadmap Phase D, updated by the P&L Calendar /
+           Trader Filter Roadmap Phase 2 — see tradeAuthorChips comment.
+           Journal wasn't named in the Phase 2 plan but shares the exact
+           same chip infra, so it's included here too for consistency. -->
+      <div id="journalAuthorChips" style="margin-bottom:14px;"></div>
       <div id="journalFiltersToggle" class="filters-trigger-compact" onclick="toggleJournalFilters()">
         <span><i data-lucide="search"></i> Filters</span>
         <span class="chevron">›</span>
@@ -4195,6 +4278,26 @@ function authorBadgeHtml(createdBy) {
   return '<span class="badge ' + info.cls + '">' + info.name + '</span>';
 }
 
+// P&L Calendar / Trader Filter Roadmap, Phase 2: shared renderer for every
+// All/Dan/Ako chip row in the app (Dashboard's Trader filter from Phase 1,
+// plus Trade/Watchlist/Journal below, updated from Mine/Other/All to match).
+// Builds straight from AUTHOR_BADGES so the two names/emails are never
+// hardcoded per-screen. filterValue is 'all' or one of the AUTHOR_BADGES
+// email keys — never 'mine'/'other' anymore, since a value that means
+// different things depending who's logged in can't stay consistent with
+// Dashboard's Trader filter, which the same wording now has to match.
+function renderAuthorFilterChips(containerId, filterValue, setterName) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const chips = ['<span class="chip-pill' + (filterValue === 'all' ? ' active' : '') + '" onclick="' + setterName + '(\'all\')">All</span>']
+    .concat(Object.keys(AUTHOR_BADGES).map((email) => {
+      const info = AUTHOR_BADGES[email];
+      const active = filterValue === email ? ' active' : '';
+      return '<span class="chip-pill' + active + '" onclick="' + setterName + '(\'' + email + '\')">' + escapeHtml(info.name) + '</span>';
+    }));
+  el.innerHTML = chips.join('');
+}
+
 // Accountability roadmap Phase D: Mine/Other/All filter shared by the Trade
 // list, Journal list, and Watchlist. "Other" always means "whichever of the
 // two known accounts is NOT currently logged in" — resolved dynamically
@@ -4485,20 +4588,15 @@ async function notifyOtherAccount({ type, sourceTable, sourceId, message, deepLi
   }
 }
 
-// Fills in the third chip's label (blank in the HTML — see the
-// tradeAuthorChips/journalAuthorChips/watchlistAuthorChips comments) on
-// every screen at once. Cheap enough to call unconditionally on login and
-// on each relevant render rather than tracking which screens are visible.
-function updateAuthorFilterChipLabels() {
-  const name = otherAccountName();
-  document.querySelectorAll('[data-author-chip-other]').forEach((el) => { el.textContent = name; });
-}
 // Shared by trades/journal entries/watchlist items — all three carry the
 // same createdBy field (Phase A), so one function covers all of them.
+// P&L Calendar / Trader Filter Roadmap, Phase 2: filter is now 'all' or a
+// direct AUTHOR_BADGES email (see renderAuthorFilterChips()) instead of
+// 'mine'/'other', so this is a straight comparison — no more dependency on
+// which account happens to be logged in.
 function matchesAuthorFilter(item, filter) {
-  if (filter === 'mine') return !!currentAccount && item.createdBy === currentAccount.email;
-  if (filter === 'other') { const oe = otherAccountEmail(); return !!oe && item.createdBy === oe; }
-  return true; // 'all'
+  if (filter === 'all') return true;
+  return item.createdBy === filter;
 }
 
 // Accountability roadmap Phase E: renders the two linked accounts under
@@ -4589,7 +4687,7 @@ function showScreen(id, btn) {
   // them is the active screen — otherwise nothing in the visible tab bar
   // would show where you are.
   const moreBtn = document.getElementById('tabMore');
-  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'journal', 'news', 'settings'].includes(id));
+  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'journal', 'news', 'pnlCalendar', 'settings'].includes(id));
 }
 
 // Opens/closes the "More" dropdown (Compare/Strategies/Settings). A
@@ -4968,6 +5066,36 @@ function getDashboardStrategyFilter() {
   return sel.value;
 }
 
+// ---- Trader filter (Dashboard) — P&L Calendar / Trader Filter Roadmap,
+// Phase 1. All/Dan/Ako, built from AUTHOR_BADGES so the two real names/
+// emails are never hardcoded here — same source the Trade/Watchlist author
+// chips and Settings team list already read. Unlike those chips (Mine/
+// Other/All when this was written — since Phase 2, also All/Dan/Ako), this
+// one stores an actual email so the same selection means the same thing no
+// matter who's viewing — required for it to work as a parent filter other
+// pages inherit (Phase 3). 'all' means no filtering, same contract as the
+// Pair/Strategy getters beside it. Rendering itself is shared with
+// Trade/Watchlist/Journal via renderAuthorFilterChips() (Phase 2).
+let dashboardTraderFilter = 'all';
+
+function renderDashboardTraderChips() {
+  renderAuthorFilterChips('dashboardTraderChips', dashboardTraderFilter, 'setDashboardTraderFilter');
+}
+
+function setDashboardTraderFilter(value) {
+  dashboardTraderFilter = value;
+  renderDashboardTraderChips();
+  if (document.getElementById('statTotalTrades')) refreshDashboardTradeSummary();
+}
+
+// Reads the Dashboard's current trader-filter selection. Returns null for
+// "All" (no filtering), otherwise the selected account's email — matching
+// the shape of t.createdBy so callers can filter directly with
+// (!dashboardTraderFilter || t.createdBy === dashboardTraderFilter).
+function getDashboardTraderFilter() {
+  return dashboardTraderFilter === 'all' ? null : dashboardTraderFilter;
+}
+
 // Keeps the Dashboard's strategy select options in sync with the managed
 // strategy list. Preserves the current selection if it's still valid;
 // otherwise falls back to "All Strategies" (mirrors renderPairSelectOptions()).
@@ -5028,6 +5156,28 @@ function getHistoryDurationBucket() {
   return sel ? sel.value : '';
 }
 
+// P&L Calendar / Trader Filter Roadmap, Phase 3: History's own Trader
+// filter. Mirrors dashboardTraderFilter (Phase 1) — 'all' or one of the
+// AUTHOR_BADGES email keys, rendered via the same renderAuthorFilterChips()
+// used everywhere else. Pre-filled from the Dashboard's Trader filter on
+// every fresh entry (see inheritDashboardFiltersToHistory()), then freely
+// overridable here for the rest of the visit, same contract as Pair/
+// Strategy/Hold Time above.
+let historyTraderFilter = 'all';
+function setHistoryTraderFilter(value) {
+  historyTraderFilter = value;
+  renderHistoryTraderChips();
+  updateHistoryFilterNote();
+  saveHistoryFilterState();
+  if (document.getElementById('statTotalTrades')) refreshDashboardTradeSummary();
+}
+function renderHistoryTraderChips() {
+  renderAuthorFilterChips('historyTraderChips', historyTraderFilter, 'setHistoryTraderFilter');
+}
+function getHistoryTraderFilter() {
+  return historyTraderFilter === 'all' ? null : historyTraderFilter;
+}
+
 function onHistoryStrategyChange(sel) {
   saveHistoryFilterState();
   updateHistoryFilterNote();
@@ -5057,6 +5207,8 @@ function clearHistoryFilters() {
   const bucketSel = document.getElementById('historyDurationBucket');
   if (pairSel) pairSel.value = '';
   if (bucketSel) bucketSel.value = '';
+  historyTraderFilter = 'all';
+  renderHistoryTraderChips();
   updateHistoryFilterNote();
   saveHistoryFilterState();
   if (document.getElementById('statTotalTrades')) refreshDashboardTradeSummary();
@@ -5072,6 +5224,7 @@ function saveHistoryFilterState() {
       pair: getHistoryPairFilter(),
       strategy: getHistoryStrategyFilter(),
       bucket: getHistoryDurationBucket(),
+      trader: historyTraderFilter, // Phase 3 — 'all' or an AUTHOR_BADGES email
     }));
   } catch (e) { /* storage unavailable — filters just won't persist */ }
 }
@@ -5089,6 +5242,13 @@ function restoreHistoryFilterState() {
   if (pairSel && saved.pair && Array.from(pairSel.options).some((o) => o.value === saved.pair)) pairSel.value = saved.pair;
   if (stratSel && saved.strategy && Array.from(stratSel.options).some((o) => o.value === saved.strategy)) stratSel.value = saved.strategy;
   if (bucketSel && saved.bucket) bucketSel.value = saved.bucket;
+  // Phase 3: restore the persisted Trader chip too — valid only if it's
+  // still a real AUTHOR_BADGES key (or 'all'), same guard pattern as the
+  // selects above.
+  if (saved.trader && (saved.trader === 'all' || AUTHOR_BADGES[saved.trader])) {
+    historyTraderFilter = saved.trader;
+  }
+  renderHistoryTraderChips();
   updateHistoryFilterNote();
 }
 
@@ -5102,10 +5262,12 @@ function updateHistoryFilterNote() {
   const pair = getHistoryPairFilter();
   const strategy = getHistoryStrategyFilter();
   const bucket = getHistoryDurationBucket();
+  const trader = getHistoryTraderFilter(); // Phase 3
   const parts = [];
   if (pair) parts.push(pair);
   if (strategy) parts.push(strategy);
   if (bucket) parts.push(document.getElementById('historyDurationBucket').selectedOptions[0].textContent);
+  if (trader) parts.push(AUTHOR_BADGES[trader] ? AUTHOR_BADGES[trader].name : trader);
   const label = parts.length ? 'Filtered to ' + parts.join(' · ') : '';
 
   if (outerNote) {
@@ -5113,6 +5275,129 @@ function updateHistoryFilterNote() {
     span.textContent = label;
     outerNote.classList.toggle('show', !!label);
   }
+}
+
+// ---- P&L Calendar page (Phase 4a): toolbar filter plumbing only — Pair,
+// Strategy, Trader, inherited from the Dashboard on fresh entry, freely
+// overridable afterward and persisted across sessions. Field-for-field
+// copy of the History tab's own filter functions just above (getHistory-
+// PairFilter/getHistoryStrategyFilter/historyTraderFilter/saveHistory-
+// FilterState/restoreHistoryFilterState) — kept as separate pnlCalendar*
+// state rather than sharing History's, since the two pages' selections
+// are independent once inherited (same relationship History and Insights
+// already have to each other and to the Dashboard). No month/grid/summary
+// data reads these yet — that starts in Phase 4c; this phase only has to
+// prove the three filters hold a value and survive a reload.
+function getPnlCalendarPairFilter() {
+  const sel = document.getElementById('pnlCalendarPairSelect');
+  if (!sel || !sel.value) return null;
+  return sel.value;
+}
+
+function getPnlCalendarStrategyFilter() {
+  const sel = document.getElementById('pnlCalendarStrategySelect');
+  if (!sel || sel.value === 'All Strategies') return null;
+  return sel.value;
+}
+
+let pnlCalendarTraderFilter = 'all';
+function setPnlCalendarTraderFilter(value) {
+  pnlCalendarTraderFilter = value;
+  renderPnlCalendarTraderChips();
+  savePnlCalendarFilterState();
+}
+function renderPnlCalendarTraderChips() {
+  renderAuthorFilterChips('pnlCalendarTraderChips', pnlCalendarTraderFilter, 'setPnlCalendarTraderFilter');
+}
+function getPnlCalendarTraderFilter() {
+  return pnlCalendarTraderFilter === 'all' ? null : pnlCalendarTraderFilter;
+}
+
+function onPnlCalendarPairChange(sel) {
+  savePnlCalendarFilterState();
+}
+
+function onPnlCalendarStrategyChange(sel) {
+  savePnlCalendarFilterState();
+}
+
+// Keeps the Calendar's Pair/Strategy select options in sync with real
+// trade data / the managed strategy list — mirrors renderHistoryPair-
+// SelectOptions()/renderHistoryStrategySelectOptions().
+function renderPnlCalendarPairSelectOptions() {
+  const sel = document.getElementById('pnlCalendarPairSelect');
+  if (!sel) return;
+  const current = sel.value;
+  const pairs = getDistinctPairs();
+  sel.innerHTML = '<option value="">All Pairs</option>' + pairs.map((p) => '<option>' + escapeHtml(p) + '</option>').join('');
+  sel.value = pairs.includes(current) ? current : '';
+}
+function renderPnlCalendarStrategySelectOptions() {
+  const sel = document.getElementById('pnlCalendarStrategySelect');
+  if (!sel) return;
+  const current = sel.value;
+  const names = strategyList.map((s) => s.name);
+  sel.innerHTML = '<option>All Strategies</option>' + names.map((n) => '<option>' + escapeHtml(n) + '</option>').join('');
+  sel.value = names.includes(current) ? current : 'All Strategies';
+}
+
+// Persists Pair/Strategy/Trader across sessions — same localStorage
+// mechanism as HISTORY_FILTER_STORAGE_KEY, its own key since the two
+// pages' selections are independent.
+const PNL_CALENDAR_FILTER_STORAGE_KEY = 'danwaves_pnl_calendar_filters';
+function savePnlCalendarFilterState() {
+  try {
+    localStorage.setItem(PNL_CALENDAR_FILTER_STORAGE_KEY, JSON.stringify({
+      pair: getPnlCalendarPairFilter(),
+      strategy: getPnlCalendarStrategyFilter(),
+      trader: pnlCalendarTraderFilter,
+    }));
+  } catch (e) { /* storage unavailable — filters just won't persist */ }
+}
+
+// Called once after the Calendar page's selects have their real option
+// lists populated, so a restored value only "sticks" if it's still a
+// valid option — mirrors restoreHistoryFilterState().
+function restorePnlCalendarFilterState() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(PNL_CALENDAR_FILTER_STORAGE_KEY)); } catch (e) { saved = null; }
+  if (!saved) return;
+  const pairSel = document.getElementById('pnlCalendarPairSelect');
+  const stratSel = document.getElementById('pnlCalendarStrategySelect');
+  if (pairSel && saved.pair && Array.from(pairSel.options).some((o) => o.value === saved.pair)) pairSel.value = saved.pair;
+  if (stratSel && saved.strategy && Array.from(stratSel.options).some((o) => o.value === saved.strategy)) stratSel.value = saved.strategy;
+  if (saved.trader && (saved.trader === 'all' || AUTHOR_BADGES[saved.trader])) {
+    pnlCalendarTraderFilter = saved.trader;
+  }
+  renderPnlCalendarTraderChips();
+}
+
+// P&L Calendar / Trader Filter Roadmap, Phase 3 (extended to the Calendar
+// page itself once it existed — Phase 4a): pre-fills Pair/Strategy/Trader
+// from the Dashboard's current selection on every fresh entry into the
+// page, exactly mirroring inheritDashboardFiltersToHistory(). Still freely
+// overridable here afterward; only re-syncs on the next fresh entry.
+function inheritDashboardFiltersToPnlCalendar() {
+  const dashPairSel = document.getElementById('pairSelect');
+  const dashStratSel = document.getElementById('dashboardStrategySelect');
+  const calPairSel = document.getElementById('pnlCalendarPairSelect');
+  const calStratSel = document.getElementById('pnlCalendarStrategySelect');
+  if (!calPairSel || !calStratSel) return;
+
+  const dashPairValue = dashPairSel ? dashPairSel.value : 'All Pairs';
+  const calPairValue = dashPairValue === 'All Pairs' ? '' : dashPairValue;
+  const dashStrategyValue = dashStratSel ? dashStratSel.value : 'All Strategies';
+
+  if (Array.from(calPairSel.options).some((o) => o.value === calPairValue)) {
+    calPairSel.value = calPairValue;
+  }
+  if (Array.from(calStratSel.options).some((o) => o.value === dashStrategyValue)) {
+    calStratSel.value = dashStrategyValue;
+  }
+
+  pnlCalendarTraderFilter = dashboardTraderFilter;
+  renderPnlCalendarTraderChips();
+  savePnlCalendarFilterState();
 }
 
 // ---- History tab: collapsible Timeline / Growth History / Recovery
@@ -5181,6 +5466,14 @@ function inheritDashboardFiltersToHistory() {
     histStratSel.value = dashStrategyValue;
   }
 
+  // Phase 3: pre-fill the History Trader chip from the Dashboard's current
+  // Trader selection (dashboardTraderFilter — 'all' or an AUTHOR_BADGES
+  // email), same one-way Dashboard → page copy Pair/Strategy just got
+  // above. Still freely overridable here afterward; only re-syncs on the
+  // next fresh entry into the tab.
+  historyTraderFilter = dashboardTraderFilter;
+  renderHistoryTraderChips();
+
   // Reset the History tab's R:R Target to the leading target for this
   // freshly-inherited scope, discarding any manual override left over from
   // a prior visit — same "resets on re-entry" contract Pair/Strategy just
@@ -5202,7 +5495,7 @@ function inheritDashboardFiltersToHistory() {
 // so it replays cleanly on repeat visits (a class that's already present
 // won't re-trigger its animation).
 function flashHistoryInheritedFilters() {
-  [document.getElementById('historyPairSelect'), document.getElementById('historyStrategySelect'), document.getElementById('historyTargetSelect')].forEach((el) => {
+  [document.getElementById('historyPairSelect'), document.getElementById('historyStrategySelect'), document.getElementById('historyTargetSelect'), document.getElementById('historyTraderChips')].forEach((el) => {
     if (!el) return;
     el.classList.remove('inherited-filter-flash');
     void el.offsetWidth; // force reflow so the animation restarts
@@ -5217,13 +5510,16 @@ function flashHistoryInheritedFilters() {
 // getInsightsPairFilter()/getInsightsScopedTrades(). This banner shows
 // whichever of the two are active so the numbers below never look "off"
 // with no visible cause.
-function updateInsightsFilterNote(strategyFilter, pairFilter) {
+function updateInsightsFilterNote(strategyFilter, pairFilter, traderFilter) {
   const note = document.getElementById('insightsActiveFilterNote');
   if (!note) return;
   const span = note.querySelector('span');
   const parts = [];
   if (pairFilter) parts.push(pairFilter);
   if (strategyFilter) parts.push('Strategy: ' + strategyFilter);
+  // Phase 3: third optional param, same AUTHOR_BADGES-name display as
+  // History's updateHistoryFilterNote() uses for its own Trader filter.
+  if (traderFilter) parts.push(AUTHOR_BADGES[traderFilter] ? AUTHOR_BADGES[traderFilter].name : traderFilter);
   const label = parts.length ? 'Filtered to ' + parts.join(' · ') : '';
   span.textContent = label;
   note.classList.toggle('show', !!label);
@@ -5261,6 +5557,16 @@ async function inheritDashboardFiltersToInsights() {
   if (Array.from(insStratSel.options).some((o) => o.value === insightsStrategyValue)) {
     insStratSel.value = insightsStrategyValue;
   }
+
+  // Phase 3: pre-fill the Insights Trader chip from the Dashboard's current
+  // Trader selection, same one-way Dashboard → page copy Pair/Strategy just
+  // got above. Still freely overridable here afterward; only re-syncs on
+  // the next fresh entry into the tab. computeInsightsLeadingTarget() below
+  // already reads getInsightsScopedTrades(), which now factors this in, so
+  // the leading-target re-pick that follows is automatically Trader-scoped
+  // too — no separate recompute needed here.
+  insightsTraderFilter = dashboardTraderFilter;
+  renderInsightsTraderChips();
 
   // Reset the R:R Target to whatever's leading for this freshly-inherited
   // scope, discarding any manual override left over from a prior visit —
@@ -5331,6 +5637,7 @@ function flashInsightsInheritedFilters() {
   [
     document.getElementById('insightsPairSelect'),
     document.getElementById('insightsStrategySelect'),
+    document.getElementById('insightsTraderChips'),
     document.getElementById('targetSelect'),
     document.getElementById('bestDaysLookbackSelect'),
     (note && note.classList.contains('show')) ? note : null,
@@ -7185,16 +7492,17 @@ function updateJournalStatusChips() {
   chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === journalStatusFilter));
 }
 
-// Accountability roadmap Phase D.
+// Accountability roadmap Phase D, updated by the P&L Calendar / Trader
+// Filter Roadmap Phase 2: 'all' or an AUTHOR_BADGES email — see
+// renderAuthorFilterChips().
 let journalAuthorFilter = 'all';
 function setJournalAuthorFilter(value) {
   journalAuthorFilter = value;
+  updateJournalAuthorChips();
   renderJournalList();
 }
 function updateJournalAuthorChips() {
-  const chips = document.querySelectorAll('#journalAuthorChips .chip-pill');
-  const values = ['all', 'mine', 'other'];
-  chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === journalAuthorFilter));
+  renderAuthorFilterChips('journalAuthorChips', journalAuthorFilter, 'setJournalAuthorFilter');
 }
 
 // Same drawer mechanics as toggleTradeFilters() — scoped to the Journal
@@ -12086,16 +12394,17 @@ function parseRRValue(rr) {
 const TRADE_FILTER_IDS = ['filterPair', 'filterModel', 'filterConfluence', 'filterMonth', 'filterStrategy', 'filterOutcome',
    'filterDirection', 'filterBeforeImg', 'filterAfterImg', 'filterHighestRTime', 'filterDurationBucket'];
 
-// Accountability roadmap Phase D.
+// Accountability roadmap Phase D, updated by the P&L Calendar / Trader
+// Filter Roadmap Phase 2: 'all' or an AUTHOR_BADGES email — see
+// renderAuthorFilterChips().
 let tradeAuthorFilter = 'all';
 function setTradeAuthorFilter(value) {
   tradeAuthorFilter = value;
+  updateTradeAuthorChips();
   renderTradeList();
 }
 function updateTradeAuthorChips() {
-  const chips = document.querySelectorAll('#tradeAuthorChips .chip-pill');
-  const values = ['all', 'mine', 'other'];
-  chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === tradeAuthorFilter));
+  renderAuthorFilterChips('tradeAuthorChips', tradeAuthorFilter, 'setTradeAuthorFilter');
 }
 
 function clearTradeFilters() {
@@ -12700,16 +13009,17 @@ async function renderTradeList() {
 let allWatchlistItems = [];
 let watchlistItemsLoaded = false; // same load-guard purpose as journalEntriesLoaded
 
-// Accountability roadmap Phase D.
+// Accountability roadmap Phase D, updated by the P&L Calendar / Trader
+// Filter Roadmap Phase 2: 'all' or an AUTHOR_BADGES email — see
+// renderAuthorFilterChips().
 let watchlistAuthorFilter = 'all';
 function setWatchlistAuthorFilter(value) {
   watchlistAuthorFilter = value;
+  updateWatchlistAuthorChips();
   renderWatchlistList();
 }
 function updateWatchlistAuthorChips() {
-  const chips = document.querySelectorAll('#watchlistAuthorChips .chip-pill');
-  const values = ['all', 'mine', 'other'];
-  chips.forEach((chip, i) => chip.classList.toggle('active', values[i] === watchlistAuthorFilter));
+  renderAuthorFilterChips('watchlistAuthorChips', watchlistAuthorFilter, 'setWatchlistAuthorFilter');
 }
 
 function watchlistItemToRow(item) {
@@ -16454,6 +16764,7 @@ async function refreshDashboardTradeSummary() {
   updateTabUnseenBadge('trade'); // Tab-Badge Login Preload Roadmap, Phase 1: data was already being fetched here on every login — this just adds the missing dot-check on it
   updateOnboardingBanner();
   renderDashboardStrategySelectOptions();
+  renderDashboardTraderChips(); // P&L Calendar / Trader Filter Roadmap, Phase 1
   renderTPModelRankingLive();
   refreshPipEdgeCard();
   // Strategy filter (Phase 2): every Insights card below is scoped to the
@@ -16464,13 +16775,20 @@ async function refreshDashboardTradeSummary() {
   // pair switcher anymore, for uniformity with the rest of the Dashboard).
   renderInsightsPairSelectOptions();
   renderInsightsStrategySelectOptions();
+  renderInsightsTraderChips(); // P&L Calendar / Trader Filter Roadmap, Phase 3
   initInsightsTargetIfNeeded();
   renderInsightsCards();
   refreshConfluenceCombos();
   renderPairSelectOptions();
   renderHistoryStrategySelectOptions();
   renderHistoryPairSelectOptions();
-  restoreHistoryFilterState();
+  restoreHistoryFilterState(); // also renders historyTraderChips (Phase 3)
+  // P&L Calendar / Trader Filter Roadmap, Phase 4a: keep the Calendar
+  // toolbar's own Pair/Strategy options and persisted filter state in
+  // sync, same as History's three calls just above.
+  renderPnlCalendarPairSelectOptions();
+  renderPnlCalendarStrategySelectOptions();
+  restorePnlCalendarFilterState();
   renderAdvancedFilterOptions();
   renderCompareTable();
   await refreshAiInsights();
@@ -16507,11 +16825,17 @@ async function refreshDashboardTradeSummary() {
   // selecting both narrows Race/Growth/Recovery/Seasonal/Leading Target to
   // trades matching both. pairScopedTrades keeps its original name to
   // avoid touching every read below — it's now pair+strategy scoped.
+  // Trader filter (P&L Calendar / Trader Filter Roadmap, Phase 1): composed
+  // the same way, using each trade's existing created_by-sourced field
+  // (t.createdBy) — no schema change needed, since Accountability roadmap
+  // Phase A already stamps this on every trade.
   const dashboardPairFilter = getDashboardPairFilter();
   const dashboardStrategyFilter = getDashboardStrategyFilter();
+  const dashboardTraderFilterValue = getDashboardTraderFilter();
   const pairScopedTrades = allTrades.filter((t) =>
     (!dashboardPairFilter || t.pair === dashboardPairFilter) &&
-    (!dashboardStrategyFilter || t.strategy === dashboardStrategyFilter)
+    (!dashboardStrategyFilter || t.strategy === dashboardStrategyFilter) &&
+    (!dashboardTraderFilterValue || t.createdBy === dashboardTraderFilterValue)
   );
 
   // ---- History tab's own Pair/Strategy/Duration Bucket filter ----
@@ -16524,11 +16848,17 @@ async function refreshDashboardTradeSummary() {
   const historyPairFilter = getHistoryPairFilter();
   const historyStrategyFilter = getHistoryStrategyFilter();
   const historyDurationBucket = getHistoryDurationBucket();
-  const historyScopedTrades = (historyPairFilter || historyStrategyFilter || historyDurationBucket)
+  // Trader filter (Phase 3): composed the same way as Pair/Strategy/Hold
+  // Time above — History's own Trader chip, inherited from the Dashboard
+  // on fresh entry (inheritDashboardFiltersToHistory()) but overridable
+  // here afterward.
+  const historyTraderFilterValue = getHistoryTraderFilter();
+  const historyScopedTrades = (historyPairFilter || historyStrategyFilter || historyDurationBucket || historyTraderFilterValue)
     ? allTrades.filter((t) =>
         (!historyPairFilter || t.pair === historyPairFilter) &&
         (!historyStrategyFilter || t.strategy === historyStrategyFilter) &&
-        tradeMatchesDurationBucket(t, historyDurationBucket)
+        tradeMatchesDurationBucket(t, historyDurationBucket) &&
+        (!historyTraderFilterValue || t.createdBy === historyTraderFilterValue)
       )
     : pairScopedTrades;
 
@@ -16830,8 +17160,7 @@ function applyAuthGate() {
     const email = currentAccount ? currentAccount.email : '';
     const emailEl = document.getElementById('settingsAccountEmail');
     if (emailEl) emailEl.textContent = email;
-    updateAuthorFilterChipLabels(); // Accountability roadmap Phase D — "other" chip label depends on who just logged in
-    renderSettingsTeamList(); // Accountability roadmap Phase E
+        renderSettingsTeamList(); // Accountability roadmap Phase E
     const dashboardBtn = document.querySelector('.preview-tabs button.app-tab');
     if (dashboardBtn) { showScreen('dashboard', dashboardBtn); refreshDashboardTradeSummary(); }
     handleMediaDeepLink(); // Media Comments & Notify Roadmap, Phase 4 — jumps straight to a commented-on media item if ?media=... is in the URL
@@ -17251,12 +17580,39 @@ function getInsightsStrategyFilter() {
   return sel.value;
 }
 
+// P&L Calendar / Trader Filter Roadmap, Phase 3: Insights' own Trader
+// filter. Mirrors historyTraderFilter — 'all' or an AUTHOR_BADGES email,
+// pre-filled from the Dashboard's Trader chip on every fresh entry (see
+// inheritDashboardFiltersToInsights()), then freely overridable here for
+// the rest of the visit, same contract as Pair/Strategy above.
+let insightsTraderFilter = 'all';
+function setInsightsTraderFilter(value) {
+  insightsTraderFilter = value;
+  renderInsightsTraderChips();
+  const scoped = getInsightsScopedTrades();
+  const leadingTarget = computeInsightsLeadingTarget(scoped);
+  applyInsightsLeadingTargetBadge(leadingTarget);
+  const targetValue = getInsightsTarget();
+  const label = 'R:R ' + targetValue + (targetValue === leadingTarget ? ' 🏆' : '');
+  document.querySelectorAll('.target-tag').forEach(el => el.textContent = label);
+  renderInsightsCards();
+  refreshConfluenceCombos();
+}
+function renderInsightsTraderChips() {
+  renderAuthorFilterChips('insightsTraderChips', insightsTraderFilter, 'setInsightsTraderFilter');
+}
+function getInsightsTraderFilter() {
+  return insightsTraderFilter === 'all' ? null : insightsTraderFilter;
+}
+
 function getInsightsScopedTrades() {
   const strategyFilter = getInsightsStrategyFilter();
   const pairFilter = getInsightsPairFilter();
+  const traderFilter = getInsightsTraderFilter();
   return allTrades.filter((t) =>
     (!strategyFilter || t.strategy === strategyFilter) &&
-    (!pairFilter || t.pair === pairFilter)
+    (!pairFilter || t.pair === pairFilter) &&
+    (!traderFilter || t.createdBy === traderFilter)
   );
 }
 
@@ -17295,6 +17651,8 @@ function clearInsightsFilters() {
   if (pairSel) pairSel.value = '';
   const stratSel = document.getElementById('insightsStrategySelect');
   if (stratSel) stratSel.value = '__all__';
+  insightsTraderFilter = 'all'; // Phase 3
+  renderInsightsTraderChips();
   renderInsightsCards();
   refreshConfluenceCombos();
 }
@@ -17384,7 +17742,7 @@ function initInsightsTargetIfNeeded() {
 // Strategy scope, called alongside this one everywhere it matters).
 function renderInsightsCards() {
   const insightsScopedTrades = getInsightsScopedTrades();
-  updateInsightsFilterNote(getInsightsStrategyFilter(), getInsightsPairFilter());
+  updateInsightsFilterNote(getInsightsStrategyFilter(), getInsightsPairFilter(), getInsightsTraderFilter());
   renderSetupPerformance(document.getElementById('setupPerformanceBody'), analyzeSetupPerformance(insightsScopedTrades));
   renderConfluencePerformance(document.getElementById('confluencePerformanceBody'), analyzeConfluencePerformance(insightsScopedTrades));
   renderPoiEntryPerformance(document.getElementById('poiEntryPerformanceBody'), analyzePoiEntryPerformance(insightsScopedTrades));
