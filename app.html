@@ -1112,10 +1112,22 @@
   .plc-detail .plc-detail-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
   .plc-detail .plc-detail-head h3 { font-size: 13.5px; margin: 0; font-weight: 650; }
   .plc-detail .plc-detail-net { font-size: 13.5px; font-weight: 650; color: var(--win); }
+  .plc-detail .plc-detail-net.loss { color: var(--loss); }
+  .plc-detail .plc-detail-net.neutral { color: var(--muted); }
+  .plc-detail .plc-view-link:hover { background: var(--surface3, var(--surface2)); }
   .plc-detail .plc-detail-stats { display: flex; gap: 18px; margin-bottom: 4px; }
   .plc-detail .plc-detail-stats div { font-size: 11px; color: var(--muted); }
   .plc-detail .plc-detail-stats b { display: block; color: var(--light); font-size: 13px; font-weight: 650; margin-top: 2px; }
   .plc-detail .plc-view-link { display: block; text-align: center; margin-top: 12px; padding: 9px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; font-size: 12px; color: var(--light); font-weight: 550; cursor: pointer; }
+
+  /* Day detail card's high-impact news list — same events as the grid's red
+     dot (pnlCalendarHighImpactNewsForDay()), just with time + title spelled
+     out instead of only flagging that something happened that day. */
+  .plc-detail-news { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .plc-detail-news .plc-detail-news-label { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .plc-detail-news .plc-detail-news-row { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; font-size: 12px; }
+  .plc-detail-news .plc-detail-news-time { color: var(--muted); flex: none; min-width: 52px; }
+  .plc-detail-news .plc-detail-news-title { color: var(--light); }
 
   /* Win/loss save flash — brief color pulse on the Save Trade button right
      after a trade is saved, so the outcome you just logged registers
@@ -2194,10 +2206,11 @@
   <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
   <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal<span class="tab-unseen-dot" id="tabDot_journal"></span></button>
   <button id="tabNews" onclick="closeMoreMenu(); showScreen('news', this); renderNewsTab();">News</button>
-  <!-- P&L Calendar / Trader Filter Roadmap, Phase 4a: temporary entry point
-       for testing the page shell + toolbar while it's being built —
-       Phase 5 covers giving this its permanent placement alongside
-       Confluence Manager / Timeframe Manager instead of living here. -->
+  <!-- P&L Calendar / Trader Filter Roadmap, Phase 5: permanent entry in the
+       "More" menu, alongside the app's other less-frequently-used screens
+       (Compare/Strategies/Journal/News/Settings) rather than a top-level
+       tab — same treatment Confluence/Timeframe Manager got when those
+       moved into Settings instead of having their own tab. -->
   <button id="tabPnlCalendar" onclick="closeMoreMenu(); showScreen('pnlCalendar', this); inheritDashboardFiltersToPnlCalendar(); resetPnlCalendarViewToToday(); renderPnlCalendarGrid();">P&amp;L Calendar</button>
   <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
 </div>
@@ -2733,21 +2746,26 @@
   </div>
 </div>
 
-<!-- P&L CALENDAR — P&L Calendar / Trader Filter Roadmap, Phase 4a: page
-     shell + toolbar only. Own screen (not a Trade/Watchlist view toggle —
-     see roadmap "Decisions made this session"), reachable for now via the
-     temporary "P&L Calendar" entry in #moreMenu — the roadmap's Phase 5
-     covers giving it a permanent home in the less-frequently-used-screens
-     dropdown alongside Confluence Manager / Timeframe Manager.
+<!-- P&L CALENDAR — own screen (not a Trade/Watchlist view toggle — see
+     P&L Calendar / Trader Filter Roadmap "Decisions made this session"),
+     reachable via its permanent entry in #moreMenu (Phase 5) alongside
+     Compare/Strategies/Journal/News/Settings.
      Toolbar mirrors .history-toolbar field-for-field (Pair select, Strategy
      select, Trader chips on their own row) and the same inherit-from-
      Dashboard-on-fresh-entry contract as History/Insights — see
-     inheritDashboardFiltersToPnlCalendar(). #pnlCalendarBody is an empty
-     placeholder; the summary strip / month grid / day detail card that
-     fill it are Phases 4c–4f, not this one. -->
+     inheritDashboardFiltersToPnlCalendar(). #pnlCalendarBody holds the
+     summary strip, month grid, and day detail card (Phases 4c-4f). -->
 <div id="pnlCalendar" class="screen">
   <div class="history-container">
-    <h1 style="margin-bottom:2px;">P&amp;L Calendar</h1>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+      <h1 style="margin-bottom:0;">P&amp;L Calendar</h1>
+      <!-- Phase 6: exports the currently-viewed month (summary strip + grid
+           + active Pair/Strategy/Trader filter, all baked into the image)
+           as a single PNG via Canvas 2D — same renderXPNG()/shareXPNG()
+           pattern as Watchlist's "Share as image" button, not a DOM
+           screenshot. See renderPnlCalendarPNG()/sharePnlCalendarPNG(). -->
+      <div class="icon-btn" id="sharePnlCalendarBtn" onclick="sharePnlCalendarPNG()" title="Share as image"><i data-lucide="share-2"></i></div>
+    </div>
     <p class="sub" style="margin:0 0 10px;">Daily trade count and net P&amp;L at a glance.</p>
 
     <div class="history-toolbar">
@@ -2768,11 +2786,12 @@
 
     <p class="sub" id="pnlCalendarInheritNote" style="margin:0 0 10px; font-size:11px; display:flex; align-items:center; gap:6px;"><i data-lucide="refresh-cw" style="width:11px;height:11px; flex:none;"></i>Pair, Strategy &amp; Trader sync from your Dashboard filter each time you open this page — edit here anytime, it won't change the Dashboard.</p>
 
-    <!-- Phase 4e onward: news dot + day detail card render into this same
-         container, around the grid below. Phase 4c added the summary
-         strip (#pnlCalendarSummary); Phase 4d added each day cell's own
-         trade count / net $ plus the heatmap tint and legend — see
-         renderPnlCalendarGrid() / buildPnlCalendarDayAggregates() /
+    <!-- Phase 4e added the news dot (see pnlCalendarDayHasHighImpactNews())
+         and Phase 4f the day detail card (#pnlCalendarDetail below), both
+         rendering into/around this same container. Phase 4c added the
+         summary strip (#pnlCalendarSummary); Phase 4d added each day
+         cell's own trade count / net $ plus the heatmap tint and legend —
+         see renderPnlCalendarGrid() / buildPnlCalendarDayAggregates() /
          pnlCalendarHeatmapClass(). -->
     <div id="pnlCalendarBody">
       <div class="plc-summary" id="pnlCalendarSummary">
@@ -2811,8 +2830,19 @@
           </div>
           <span>Profit</span>
           <div class="plc-spacer"></div>
+          <!-- Phase 4e: news-dot legend key, right-aligned by the spacer
+               above — matches the small red dot renderPnlCalendarGrid()
+               now adds to any day cell with high-impact Forex Factory
+               news (see pnlCalendarDayHasHighImpactNews()). -->
+          <div class="plc-news-key"><span class="plc-news-dot"></span><span>High-impact news</span></div>
         </div>
       </div>
+
+      <!-- Phase 4f: day detail card. Empty until a day cell is tapped —
+           renderPnlCalendarDayDetail() fills/clears this on selection; see
+           pnlCalendarSelectedDay and .plc-day.selected's outline (CSS from
+           Phase 4b, unused until now). -->
+      <div id="pnlCalendarDetail"></div>
     </div>
   </div>
 </div>
@@ -5647,11 +5677,32 @@ function renderPnlCalendarSummary(monthTrades) {
   if (wrEl) wrEl.textContent = stats.totalResolved ? stats.winRate.toFixed(0) + '%' : '—';
 }
 
+// Phase 4f: which day (a 'YYYY-MM-DD' string, or null) currently has its
+// detail card open. Reset to null at the top of every renderPnlCalendarGrid()
+// call — that function runs on month nav, every filter change, and fresh
+// trade loads, all of which can change or invalidate what a previously-
+// selected day even means, so the safest contract is "a full grid rebuild
+// always closes the detail card." selectPnlCalendarDay() itself (a single
+// day tap) does NOT call renderPnlCalendarGrid() and so does not disturb an
+// existing selection.
+let pnlCalendarSelectedDay = null;
+
 // Renders the month label + grid for pnlCalendarViewYear/Month, plus the
 // summary strip (Phase 4c) and now (Phase 4d) each day cell's own trade
 // count / net $ with heatmap-tinted backgrounds.
 function renderPnlCalendarGrid() {
   if (pnlCalendarViewYear === null || pnlCalendarViewMonth === null) resetPnlCalendarViewToToday();
+
+  // Phase 4e: forex_news is lazy-loaded the same way Trades/Watchlist
+  // already do it (ensureForexNewsForBadges) — don't block the grid on it;
+  // just re-render once it lands so the news dots appear a beat later
+  // rather than the whole page waiting on a second data source.
+  ensureForexNewsForBadges(renderPnlCalendarGrid);
+
+  // Phase 4f: a full grid rebuild always closes whatever day detail card was
+  // open — see pnlCalendarSelectedDay's comment above.
+  pnlCalendarSelectedDay = null;
+  renderPnlCalendarDayDetail();
 
   const monthLabel = document.getElementById('pnlCalendarMonthLabel');
   if (monthLabel) {
@@ -5678,18 +5729,164 @@ function renderPnlCalendarGrid() {
   gridEl.innerHTML = cells.map((c) => {
     if (!c.inMonth) return '<div class="plc-day empty"></div>';
     const dateNum = c.date.getDate();
-    const agg = pnlCalendarDayAggregates[dateToYMD(c.date)];
+    const ymd = dateToYMD(c.date);
+    // Phase 4f: every in-month day is tappable (even ones with no trades —
+    // the detail card just shows a "no trades" state for those), so the
+    // click handler is added below regardless of whether `agg` exists.
+    const clickAttr = ' onclick="selectPnlCalendarDay(\'' + ymd + '\')"';
+    // Phase 4e: small red dot next to the date on any day with high-impact
+    // Forex Factory news, independent of whether that day has trade data —
+    // reuses the same forex_news pull the Trade/Watchlist card badges and
+    // News tab already read (allForexNews/highImpactNewsNear's sibling,
+    // see pnlCalendarDayHasHighImpactNews()) rather than a second fetch.
+    const newsDot = pnlCalendarDayHasHighImpactNews(c.date) ? '<span class="plc-news-dot"></span>' : '';
+    const agg = pnlCalendarDayAggregates[ymd];
     if (!agg) {
-      return '<div class="plc-day"><div class="plc-top-row"><span class="plc-date">' + dateNum + '</span></div></div>';
+      return '<div class="plc-day"' + clickAttr + '><div class="plc-top-row"><span class="plc-date">' + dateNum + '</span>' + newsDot + '</div></div>';
     }
     const heatClass = pnlCalendarHeatmapClass(agg.net, maxWinNet, maxLossAbs);
     const tradesLabel = agg.count + (agg.count === 1 ? ' trade' : ' trades');
-    return '<div class="plc-day has-data' + (heatClass ? ' ' + heatClass : '') + '">' +
-      '<div class="plc-top-row"><span class="plc-date">' + dateNum + '</span></div>' +
+    return '<div class="plc-day has-data' + (heatClass ? ' ' + heatClass : '') + '"' + clickAttr + '>' +
+      '<div class="plc-top-row"><span class="plc-date">' + dateNum + '</span>' + newsDot + '</div>' +
       '<div class="plc-trades">' + tradesLabel + '</div>' +
       '<div class="plc-pnl mono">' + fmtPlcDayNet(agg.net) + '</div>' +
     '</div>';
   }).join('');
+}
+
+// Phase 4e: does this calendar day have at least one HIGH-impact Forex
+// Factory event? Whole-calendar-day match (via the app's existing dayKey()
+// helper) rather than the ±1hr NEWS_MATCH_WINDOW_MS window trade/watchlist
+// badges use — a day cell has no single timestamp to center a window on, so
+// "any high-impact event that calendar day" is the natural equivalent.
+// Silently returns false before forex_news has loaded (ensureForexNewsForBadges
+// re-renders once it lands) rather than showing a misleading dot-free day.
+function pnlCalendarDayHasHighImpactNews(date) {
+  if (!forexNewsLoaded) return false;
+  const key = dayKey(date);
+  return allForexNews.some((e) => e.impact === 'high' && e.time && dayKey(e.time) === key);
+}
+
+// Phase 4f: toggles a day's detail card — tapping an already-selected day
+// closes it, matching how selection toggles usually behave elsewhere in the
+// app, rather than the card being impossible to dismiss without picking a
+// different day. Only touches the .selected outline class + the detail
+// card's own render — never calls renderPnlCalendarGrid() (see
+// pnlCalendarSelectedDay's comment) so a tap never re-fetches or re-scopes
+// the month's trades.
+function selectPnlCalendarDay(ymd) {
+  pnlCalendarSelectedDay = (pnlCalendarSelectedDay === ymd) ? null : ymd;
+  document.querySelectorAll('#pnlCalendarGrid .plc-day').forEach((el) => el.classList.remove('selected'));
+  if (pnlCalendarSelectedDay) {
+    const cells = Array.from(document.querySelectorAll('#pnlCalendarGrid .plc-day'));
+    const target = cells.find((el) => el.getAttribute('onclick') === "selectPnlCalendarDay('" + pnlCalendarSelectedDay + "')");
+    if (target) target.classList.add('selected');
+  }
+  renderPnlCalendarDayDetail();
+}
+
+// Day trades for the detail card — the same Pair/Strategy/Trader-filtered
+// month trades pnlCalendarDayAggregates was built from (Phase 4c), just
+// narrowed to one date instead of rolled up. Kept as a live filter rather
+// than reading off pnlCalendarDayAggregates so avg R (which the aggregate
+// doesn't carry) can be computed from the real trade objects here.
+function getPnlCalendarDayTrades(ymd) {
+  return getPnlCalendarMonthTrades().filter((t) => (t.date || '').slice(0, 10) === ymd);
+}
+
+// High-impact Forex Factory events falling on this calendar day, sorted by
+// time — the same whole-day match pnlCalendarDayHasHighImpactNews() uses
+// for the grid's red dot (via dayKey()), so a day showing a dot always has
+// at least one row here. Returns [] before forex_news has loaded, same as
+// the dot itself.
+function pnlCalendarHighImpactNewsForDay(ymd) {
+  if (!forexNewsLoaded) return [];
+  const d = parseLocalDate(ymd);
+  if (isNaN(d.getTime())) return [];
+  const key = dayKey(d);
+  return allForexNews
+    .filter((e) => e.impact === 'high' && e.time && dayKey(e.time) === key)
+    .sort((a, b) => a.time - b.time);
+}
+
+// Renders (or clears) #pnlCalendarDetail for pnlCalendarSelectedDay. Trades /
+// win rate reuse computeLiveStats() — the same figures the summary strip
+// (Phase 4c) and Dashboard's Live Performance card already key off — so
+// this day's numbers are directly comparable rather than a second stats
+// definition. Avg R is the mean of each resolved trade's own realizedR
+// (rrOutcome.realizedR — the same field tradeDollarResult() reads), shown
+// as an em dash when the day has no resolved trades to average.
+function renderPnlCalendarDayDetail() {
+  const container = document.getElementById('pnlCalendarDetail');
+  if (!container) return;
+  if (!pnlCalendarSelectedDay) { container.innerHTML = ''; return; }
+
+  const ymd = pnlCalendarSelectedDay;
+  const dayTrades = getPnlCalendarDayTrades(ymd);
+  const stats = computeLiveStats(dayTrades);
+  const resolvedR = dayTrades
+    .map((t) => t.rrOutcome && typeof t.rrOutcome.realizedR === 'number' ? t.rrOutcome.realizedR : null)
+    .filter((r) => r !== null);
+  const avgR = resolvedR.length ? resolvedR.reduce((sum, r) => sum + r, 0) / resolvedR.length : null;
+
+  const d = parseLocalDate(ymd);
+  const dayLabel = isNaN(d.getTime()) ? ymd :
+    d.toLocaleDateString('en-US', { weekday: 'short' }) + ', ' + PNL_CALENDAR_MONTH_NAMES[d.getMonth()] + ' ' + d.getDate();
+
+  const netClass = !stats.totalResolved ? 'neutral' : (stats.netPnl >= 0 ? '' : 'loss');
+  const netLabel = stats.totalResolved ? fmtCompareDollar(stats.netPnl, true) : '—';
+  const tradeCountLabel = dayTrades.length + (dayTrades.length === 1 ? ' trade' : ' trades');
+
+  // Same events the grid's red dot (pnlCalendarDayHasHighImpactNews()) is
+  // flagging — shown here with their time so tapping the dotted day
+  // actually tells you what the news was and when, not just that some
+  // exists.
+  const dayNews = pnlCalendarHighImpactNewsForDay(ymd);
+  const newsSectionHtml = dayNews.length
+    ? '<div class="plc-detail-news">' +
+        '<div class="plc-detail-news-label"><span class="plc-news-dot"></span>High-impact news</div>' +
+        dayNews.map((e) =>
+          '<div class="plc-detail-news-row">' +
+            '<span class="plc-detail-news-time mono">' + escapeHtml(e.time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })) + '</span>' +
+            '<span class="plc-detail-news-title">' + escapeHtml(e.currency) + ' — ' + escapeHtml(e.title) + '</span>' +
+          '</div>'
+        ).join('') +
+      '</div>'
+    : '';
+
+  container.innerHTML =
+    '<div class="plc-detail">' +
+      '<div class="plc-detail-head"><h3>' + dayLabel + '</h3><span class="plc-detail-net mono ' + netClass + '">' + netLabel + '</span></div>' +
+      '<div class="plc-detail-stats">' +
+        '<div>Trades<b>' + dayTrades.length + '</b></div>' +
+        '<div>Win rate<b>' + (stats.totalResolved ? stats.winRate.toFixed(0) + '%' : '—') + '</b></div>' +
+        '<div>Avg R<b>' + (avgR !== null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—') + '</b></div>' +
+      '</div>' +
+      newsSectionHtml +
+      (dayTrades.length
+        ? '<div class="plc-view-link" onclick="viewPnlCalendarDayTrades(\'' + ymd + '\')">View ' + tradeCountLabel + ' from this day</div>'
+        : '<p class="sub" style="margin:10px 0 0;">No trades logged this day.</p>') +
+    '</div>';
+}
+
+// "View N trades from this day" (Phase 4f) — hands off to the Trades tab's
+// own filter infrastructure (getFilteredTrades()/renderTradeList()) rather
+// than building a second list view: sets the new tradeDayFilter (below)
+// plus the same Pair/Strategy/Trader scope already active on the Calendar,
+// so the Trades screen shows exactly the trades the detail card just
+// summarized — not the day's full unfiltered trade list.
+function viewPnlCalendarDayTrades(ymd) {
+  tradeDayFilter = ymd;
+  const pairSel = document.getElementById('filterPair');
+  const stratSel = document.getElementById('filterStrategy');
+  const pair = getPnlCalendarPairFilter();
+  const strategy = getPnlCalendarStrategyFilter();
+  if (pairSel && Array.from(pairSel.options).some((o) => o.value === (pair || ''))) pairSel.value = pair || '';
+  if (stratSel && Array.from(stratSel.options).some((o) => o.value === (strategy || ''))) stratSel.value = strategy || '';
+  tradeAuthorFilter = pnlCalendarTraderFilter;
+  updateTradeAuthorChips();
+  showScreen('trades', document.getElementById('tabTrades'));
+  renderTradeList();
 }
 
 // Buckets one day's net $ into a heatmap step, scaled against the largest
@@ -5719,6 +5916,293 @@ function pnlCalendarHeatmapClass(net, maxWinNet, maxLossAbs) {
 // matching the approved reference mockup's day-cell figures exactly.
 function fmtPlcDayNet(net) {
   return (net < 0 ? '-' : '') + '$' + Math.round(Math.abs(net)).toLocaleString('en-US');
+}
+
+// ================= P&L CALENDAR — SHARE AS IMAGE (Phase 6) =================
+// Renders the currently-viewed month (with whatever Pair/Strategy/Trader
+// filter is active) as a single branded PNG via Canvas 2D — the same
+// no-html2canvas approach as renderWatchlistPNG()/renderWatchlistItemsPNG()
+// further down this file, not a DOM screenshot. Standalone by design: month
+// + year, the active filters, and the summary strip are all baked into the
+// image itself, since it's meant to be viewed outside the app (posted to
+// chat, sent to the other partner) with no surrounding UI to supply context.
+// loadImageAsync/wrapTextLines/roundRectPath are the same shared helpers
+// those two functions already define — reused here rather than duplicated.
+
+// "EURUSD · Scalp Model · Dan" (or the "All ___" fallback for each) — same
+// three getPnlCalendarPairFilter()/StrategyFilter()/pnlCalendarTraderFilter
+// readers the toolbar and grid already use, so the exported image always
+// matches whatever's on screen.
+function pnlCalendarActiveFiltersLabel() {
+  const pair = getPnlCalendarPairFilter();
+  const strategy = getPnlCalendarStrategyFilter();
+  const trader = pnlCalendarTraderFilter;
+  return [
+    pair || 'All Pairs',
+    strategy || 'All Strategies',
+    trader === 'all' ? 'All traders' : ((AUTHOR_BADGES[trader] || {}).name || 'All traders'),
+  ].join(' · ');
+}
+
+async function renderPnlCalendarPNG() {
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  const palette = isLight
+    ? { bg: '#F1EEF7', surface2: '#EBE6F2', border: '#D9D2E6', text: '#191320', muted: '#635C72' }
+    : { bg: '#0B0E14', surface2: '#1B2030', border: '#242938', text: '#F7F8FA', muted: '#94A3B8' };
+  const win = '#00C896', loss = '#FF5C5C', brand = '#EE82B3';
+  // Same rgba steps as the .plc-day.winN/.lossN CSS classes (pnlCalendarHeatmapClass()
+  // returns which step applies) — kept in sync by hand since canvas can't read CSS vars.
+  const winBg = ['rgba(0,200,150,0.09)', 'rgba(0,200,150,0.19)', 'rgba(0,200,150,0.33)', 'rgba(0,200,150,0.50)'];
+  const lossBg = ['rgba(255,92,92,0.12)', 'rgba(255,92,92,0.26)'];
+
+  const width = 720;
+  const padX = 24;
+  const contentW = width - padX * 2;
+  const measure = document.createElement('canvas').getContext('2d');
+
+  if (pnlCalendarViewYear === null || pnlCalendarViewMonth === null) resetPnlCalendarViewToToday();
+  const monthLabel = PNL_CALENDAR_MONTH_NAMES[pnlCalendarViewMonth] + ' ' + pnlCalendarViewYear;
+  const genDate = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  const metaText = monthLabel + ' · ' + pnlCalendarActiveFiltersLabel() + ' · Generated ' + genDate;
+  const metaFont = '500 11.5px "JetBrains Mono", monospace';
+  const metaLines = wrapTextLines(measure, metaText, metaFont, contentW, 2);
+  const headerH = 66 + metaLines.length * 15;
+
+  // Summary strip — same computeLiveStats() figures the on-screen strip
+  // (Phase 4c) reads, scoped to this same month + filters.
+  const monthTrades = getPnlCalendarMonthTrades();
+  const stats = computeLiveStats(monthTrades);
+  const netLabel = stats.totalResolved ? fmtCompareDollar(stats.netPnl, true) : '—';
+  const netIsLoss = stats.totalResolved && stats.netPnl < 0;
+  const wrLabel = stats.totalResolved ? stats.winRate.toFixed(0) + '%' : '—';
+  const summaryH = 54;
+
+  // Month grid geometry — cells/rows from the same buildPnlCalendarWeekdayCells()
+  // the live page uses, so a 4-week vs 6-week month sizes the canvas correctly.
+  const cells = buildPnlCalendarWeekdayCells(pnlCalendarViewYear, pnlCalendarViewMonth);
+  const rows = cells.length / 5;
+  const cardPad = 14;
+  const gridGap = 4;
+  const dayCellW = (contentW - cardPad * 2 - gridGap * 4) / 5;
+  const dayCellH = 58;
+  const weekdayRowH = 20;
+  const navH = 30;
+  const legendH = 40;
+  const cardH = navH + weekdayRowH + rows * dayCellH + (rows - 1) * gridGap + legendH + cardPad * 2;
+
+  const dayAggregates = buildPnlCalendarDayAggregates(monthTrades);
+  const dayNets = Object.values(dayAggregates).map((d) => d.net);
+  const maxWinNet = Math.max(0, ...dayNets.filter((n) => n > 0));
+  const maxLossAbs = Math.max(0, ...dayNets.filter((n) => n < 0).map((n) => Math.abs(n)));
+
+  const footerH = 32;
+  const gap = 14;
+  const height = headerH + gap + summaryH + gap + cardH + footerH;
+
+  const scale = 2; // export at 2x for crisp sharing on any screen
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+  ctx.textBaseline = 'alphabetic';
+
+  ctx.fillStyle = palette.bg;
+  ctx.fillRect(0, 0, width, height);
+
+  // Header — logo, title, meta line(s)
+  const logoImg = await loadImageAsync((document.querySelector('.brand img') || {}).src);
+  let titleX = padX;
+  if (logoImg) {
+    ctx.drawImage(logoImg, padX, 24, 32, 32);
+    titleX = padX + 32 + 10;
+  }
+  ctx.fillStyle = palette.text;
+  ctx.font = '700 20px "Space Grotesk", sans-serif';
+  ctx.fillText('P&L Calendar', titleX, 44);
+  ctx.fillStyle = brand;
+  ctx.font = '600 11.5px "Space Grotesk", sans-serif';
+  ctx.fillText('DANWAVES ANALYTICS', titleX, 59);
+
+  ctx.fillStyle = palette.muted;
+  ctx.font = metaFont;
+  metaLines.forEach((line, i) => ctx.fillText(line, padX, 78 + i * 15));
+
+  ctx.strokeStyle = palette.border;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padX, headerH);
+  ctx.lineTo(width - padX, headerH);
+  ctx.stroke();
+
+  // Summary strip
+  let y = headerH + gap;
+  roundRectPath(ctx, padX, y, contentW, summaryH, 10);
+  ctx.fillStyle = palette.surface2;
+  ctx.fill();
+  ctx.strokeStyle = palette.border;
+  ctx.stroke();
+  const summaryCells = [
+    { label: 'NET P&L', value: netLabel, color: !stats.totalResolved ? palette.muted : (netIsLoss ? loss : win) },
+    { label: 'TRADES', value: String(stats.totalTrades), color: palette.text },
+    { label: 'WIN RATE', value: wrLabel, color: palette.text },
+  ];
+  const summaryCellW = contentW / 3;
+  summaryCells.forEach((c, i) => {
+    const cx = padX + i * summaryCellW + 14;
+    ctx.fillStyle = palette.muted;
+    ctx.font = '500 10px "Inter", sans-serif';
+    ctx.fillText(c.label, cx, y + 20);
+    ctx.fillStyle = c.color;
+    ctx.font = '650 15px "JetBrains Mono", monospace';
+    ctx.fillText(c.value, cx, y + 40);
+    if (i > 0) {
+      ctx.strokeStyle = palette.border;
+      ctx.beginPath();
+      ctx.moveTo(padX + i * summaryCellW, y + 8);
+      ctx.lineTo(padX + i * summaryCellW, y + summaryH - 8);
+      ctx.stroke();
+    }
+  });
+
+  // Calendar card
+  y += summaryH + gap;
+  roundRectPath(ctx, padX, y, contentW, cardH, 12);
+  ctx.fillStyle = palette.surface2;
+  ctx.fill();
+  ctx.strokeStyle = palette.border;
+  ctx.stroke();
+
+  let cy = y + cardPad;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = palette.text;
+  ctx.font = '650 14.5px "Space Grotesk", sans-serif';
+  ctx.fillText(monthLabel, padX + contentW / 2, cy + 15);
+  ctx.textAlign = 'left';
+  cy += navH;
+
+  const weekdayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+  ctx.font = '600 10px "Inter", sans-serif';
+  ctx.fillStyle = palette.muted;
+  weekdayLabels.forEach((lbl, i) => {
+    ctx.fillText(lbl, padX + cardPad + i * (dayCellW + gridGap), cy + 14);
+  });
+  cy += weekdayRowH;
+
+  const gridTopY = cy;
+  for (let r = 0; r < rows; r++) {
+    for (let cIdx = 0; cIdx < 5; cIdx++) {
+      const cell = cells[r * 5 + cIdx];
+      if (!cell.inMonth) continue;
+      const cx = padX + cardPad + cIdx * (dayCellW + gridGap);
+      const cellY = gridTopY + r * (dayCellH + gridGap);
+
+      const ymd = dateToYMD(cell.date);
+      const agg = dayAggregates[ymd];
+      let bg = 'rgba(127,127,127,0.05)', pnlColor = palette.text;
+      if (agg) {
+        const heatClass = pnlCalendarHeatmapClass(agg.net, maxWinNet, maxLossAbs);
+        const heatMap = { win1: [winBg[0], win], win2: [winBg[1], win], win3: [winBg[2], '#EAFFF6'], win4: [winBg[3], '#EAFFF6'], loss1: [lossBg[0], loss], loss2: [lossBg[1], loss] };
+        if (heatMap[heatClass]) { bg = heatMap[heatClass][0]; pnlColor = heatMap[heatClass][1]; }
+      }
+      roundRectPath(ctx, cx, cellY, dayCellW, dayCellH, 8);
+      ctx.fillStyle = bg;
+      ctx.fill();
+
+      ctx.fillStyle = agg ? palette.text : palette.muted;
+      ctx.font = '650 10.5px "Inter", sans-serif';
+      ctx.fillText(String(cell.date.getDate()), cx + 7, cellY + 15);
+
+      if (pnlCalendarDayHasHighImpactNews(cell.date)) {
+        ctx.fillStyle = loss;
+        ctx.beginPath();
+        ctx.arc(cx + dayCellW - 9, cellY + 11, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (agg) {
+        ctx.fillStyle = palette.muted;
+        ctx.font = '400 9px "Inter", sans-serif';
+        ctx.fillText(agg.count + (agg.count === 1 ? ' trade' : ' trades'), cx + 7, cellY + dayCellH - 20);
+
+        ctx.fillStyle = pnlColor;
+        ctx.font = '650 11px "JetBrains Mono", monospace';
+        ctx.fillText(fmtPlcDayNet(agg.net), cx + 7, cellY + dayCellH - 7);
+      }
+    }
+  }
+  cy = gridTopY + rows * dayCellH + (rows - 1) * gridGap + 14;
+
+  // Legend — same swatch order as the on-screen .plc-legend (darkest-loss
+  // toward the "Loss" label, darkest-win toward the "Profit" label).
+  ctx.strokeStyle = palette.border;
+  ctx.beginPath();
+  ctx.moveTo(padX + cardPad, cy);
+  ctx.lineTo(padX + contentW - cardPad, cy);
+  ctx.stroke();
+  cy += 16;
+
+  let lx = padX + cardPad;
+  ctx.font = '500 10px "Inter", sans-serif';
+  ctx.fillStyle = palette.muted;
+  ctx.fillText('Loss', lx, cy + 8);
+  lx += ctx.measureText('Loss').width + 6;
+  lossBg.slice().reverse().forEach((c) => {
+    roundRectPath(ctx, lx, cy, 13, 9, 2);
+    ctx.fillStyle = c;
+    ctx.fill();
+    lx += 15;
+  });
+  lx += 6;
+  winBg.forEach((c) => {
+    roundRectPath(ctx, lx, cy, 13, 9, 2);
+    ctx.fillStyle = c;
+    ctx.fill();
+    lx += 15;
+  });
+  lx += 6;
+  ctx.fillStyle = palette.muted;
+  ctx.font = '500 10px "Inter", sans-serif';
+  ctx.fillText('Profit', lx, cy + 8);
+
+  const newsKeyText = 'High-impact news';
+  const newsKeyW = ctx.measureText(newsKeyText).width + 12;
+  const newsKeyX = padX + contentW - cardPad - newsKeyW;
+  ctx.fillStyle = loss;
+  ctx.beginPath();
+  ctx.arc(newsKeyX + 3, cy + 4, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = palette.muted;
+  ctx.fillText(newsKeyText, newsKeyX + 10, cy + 8);
+
+  // Footer
+  ctx.textAlign = 'center';
+  ctx.fillStyle = palette.muted;
+  ctx.font = '500 10.5px "Inter", sans-serif';
+  ctx.fillText('Generated with Danwaves Analytics', width / 2, height - footerH / 2);
+  ctx.textAlign = 'left';
+
+  return canvas.toDataURL('image/png');
+}
+
+async function sharePnlCalendarPNG() {
+  const btn = document.getElementById('sharePnlCalendarBtn');
+  if (btn) { btn.style.opacity = '0.5'; btn.style.pointerEvents = 'none'; }
+  try {
+    const dataUrl = await renderPnlCalendarPNG();
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    const monthSlug = PNL_CALENDAR_MONTH_NAMES[pnlCalendarViewMonth].toLowerCase() + '-' + pnlCalendarViewYear;
+    a.download = 'pnl-calendar-' + monthSlug + '.png';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } catch (e) {
+    console.error('Failed to generate P&L Calendar image:', e);
+    showToast('Could not generate the calendar image — try again.');
+  } finally {
+    if (btn) { btn.style.opacity = ''; btn.style.pointerEvents = ''; }
+  }
 }
 
 // ---- History tab: collapsible Timeline / Growth History / Recovery
@@ -12662,9 +13146,21 @@ function getFilteredTrades() {
     tradeMatchesDurationBucket(t, durationBucket) &&
     tradeMatchesDirection(t, direction) &&
     matchesAuthorFilter(t, tradeAuthorFilter) &&
-    tradeMatchesSearchText(t, tradeSearchQuery)
+    tradeMatchesSearchText(t, tradeSearchQuery) &&
+    (!tradeDayFilter || (t.date || '').slice(0, 10) === tradeDayFilter)
   );
 }
+
+// P&L Calendar / Trader Filter Roadmap, Phase 4f: set by
+// viewPnlCalendarDayTrades() when the Calendar's "View N trades from this
+// day" link hands off to this screen — a 'YYYY-MM-DD' string, or null when
+// no day hand-off is active. Deliberately not one of the filterMonth-style
+// select fields (a day is finer-grained than that select supports), so it's
+// tracked as its own variable and folded into TRADE_FILTER_IDS-adjacent
+// logic (clearTradeFilters()/updateTradeFilterSummary()) by hand below
+// rather than added to that array, which assumes every entry is a
+// document.getElementById(id).value select.
+let tradeDayFilter = null;
 
 // Milestone 8 / Phase 5: free-text search over pair / model / strategy /
 // confluences / notes.
@@ -12733,6 +13229,7 @@ function clearTradeFilters() {
   document.getElementById('tradeSearchText').value = '';
   tradeSearchQuery = '';
   tradeAuthorFilter = 'all';
+  tradeDayFilter = null; // Phase 4f: clears a Calendar day hand-off, if any
   renderTradeList();
 }
 
@@ -12764,18 +13261,31 @@ function updateGridSlotToggle() {
 
 // Milestone 4: shows "N filters active · Clear" only when at least one of the
 // 10 filter fields is non-default; hidden otherwise. Click clears everything.
+// Phase 4f: tradeDayFilter counts as one more active filter here, but also
+// gets its own leading "Showing <day> ·" label — a bare "N filters active"
+// wouldn't tell someone who landed here via the Calendar's "View trades"
+// link which day they're actually looking at.
 function updateTradeFilterSummary() {
   const n = TRADE_FILTER_IDS.filter(id => document.getElementById(id).value).length
     + (tradeSearchQuery ? 1 : 0)
-    + (tradeAuthorFilter !== 'all' ? 1 : 0);
+    + (tradeAuthorFilter !== 'all' ? 1 : 0)
+    + (tradeDayFilter ? 1 : 0);
   const el = document.getElementById('tradeFilterSummary');
   if (!n) {
     el.style.display = 'none';
     el.textContent = '';
   } else {
     el.style.display = 'block';
-    el.textContent = n + ' filter' + (n === 1 ? '' : 's') + ' active · Clear';
+    const dayPrefix = tradeDayFilter ? ('Showing ' + formatTradeDayFilterLabel(tradeDayFilter) + ' · ') : '';
+    el.textContent = dayPrefix + n + ' filter' + (n === 1 ? '' : 's') + ' active · Clear';
   }
+}
+
+// Short "Sep 3, 2026" label for the tradeDayFilter summary line above.
+function formatTradeDayFilterLabel(ymd) {
+  const d = parseLocalDate(ymd);
+  if (isNaN(d.getTime())) return ymd;
+  return PNL_CALENDAR_MONTH_NAMES[d.getMonth()].slice(0, 3) + ' ' + d.getDate() + ', ' + d.getFullYear();
 }
 
 function setTradeView(view) {
