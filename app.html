@@ -41,6 +41,14 @@
     --brand-3: #F4A093;
     --brand-dark: #A7407D;
 
+    /* Watchlist-only accent (2026-09-04 ledger redesign) — a muted antique
+       brass, the one color on the Watchlist screen that isn't inherited
+       from the rest of the app. Used sparingly (a rule, a ring, small
+       icons) to nod at a trading-floor ticker/plaque without tinting the
+       whole card — never used as a fill or wash. */
+    --wl-brass: #C9A227;
+    --wl-brass-bg: rgba(201,164,39,0.10);
+
     /* ===== Design system tokens (Phase 1 of the polish roadmap) =====
        Spacing / elevation / motion, extracted from values already in use
        throughout the file so this is a zero-visual-diff pass — existing
@@ -207,6 +215,7 @@
   .win { color: var(--win); }
   .loss { color: var(--loss); }
   .lead { color: var(--lead); }
+  .info { color: var(--info); }
 
   h1 { font-family: 'Space Grotesk'; font-size: 24px; font-weight: 600; margin: 0 0 4px; }
   h2 { font-family: 'Space Grotesk'; font-size: 14px; font-weight: 600; margin: 0 0 16px; }
@@ -1496,61 +1505,39 @@
   .trade-row.drag-over { outline: 2px dashed var(--light); outline-offset: -2px; }
   .wl-reorder-handle { flex: none; width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: var(--muted); cursor: grab; }
   .wl-reorder-handle:active { cursor: grabbing; }
-  /* Watchlist redesign, round 3: the user asked for the actual Journal
-     *list* feel (.journal-card — gradient-tinted background, roomy
-     padding, a real thumb, a pill-style status, "fills the screen") on
-     the Watchlist list itself, not just an accent strip on a slim row —
-     plus the Journal *subfolder* feel (.subfolder-card) on each post
-     update, which the trail entries below already carry. */
+  /* Card shell matches Trade's own .trade-row conventions (2026-09-04) —
+     flat surface, no per-item accent wash/ring. The wrapper still exists
+     because Watchlist cards expand in place to reveal the follow-up trail
+     (Trade opens a side panel instead, so it never needed this), but the
+     collapsed shell now reads as a plain trade-row: only the win/lost
+     outcome classes reused directly from Trade color it. */
   .wl-card {
-    position: relative; margin-bottom: 10px; border-radius: 14px; overflow: hidden;
+    position: relative; margin-bottom: 10px; border-radius: 12px; overflow: hidden;
     background: var(--surface); border: 1px solid var(--border);
-    transition: transform var(--duration-fast) var(--ease), border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
+    transition: border-color var(--duration-base) var(--ease), box-shadow var(--duration-base) var(--ease);
   }
-  .wl-card::before {
-    content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-    background: var(--accent, var(--border)); opacity: .7; z-index: 2;
-  }
-  .wl-card:hover:not(.expanded) { border-color: #3a4358; transform: translateY(-2px); box-shadow: var(--shadow-2); }
-  .wl-card.expanded { border-color: var(--accent, var(--border)); box-shadow: var(--shadow-2); }
-  .wl-card.expanded::before { opacity: 1; }
+  .wl-card:hover:not(.expanded) { border-color: #3a4358; }
+  .wl-card.expanded { border-color: var(--border); box-shadow: var(--shadow-2); }
   .wl-card .trade-row { margin-bottom: 0; }
-  /* A real thumb, not a small icon — same footprint as .journal-card-thumb,
-     tinted with this idea's own accent instead of a media screenshot. */
+  /* Neutral icon slot — same footprint/treatment as Trade's own
+     .trade-row-thumb (plain surface2 fill, muted icon), not an
+     accent-colored ring. Trade uses this space for real before/after
+     screenshots; Watchlist ideas don't have an equivalent at a glance, so
+     it stays a plain direction glyph. */
   .wl-pair-icon-chip {
-    width: 44px; height: 44px; flex-shrink: 0; border-radius: 12px;
-    background: var(--accent-bg, var(--surface2)); color: var(--accent, var(--muted));
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px;
     display: inline-flex; align-items: center; justify-content: center; margin-right: 1px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 12px; letter-spacing: 0.01em;
+    transition: transform var(--duration-fast) var(--ease);
   }
-  /* Buy/Sell as an actual pill (echoes .journal-status-pill) instead of a
-     bare colored mono label, using the win/loss semantic colors — this one
-     legitimately needs a direction color, unlike the neutral accent pill. */
-  .wl-direction-pill {
-    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
-    font-size: 10px; font-weight: 700; letter-spacing: .2px;
-    padding: 3px 9px 3px 7px; border-radius: 999px;
-  }
-  .wl-direction-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-  .wl-direction-pill.buy { background: rgba(0,200,150,0.12); color: var(--win); }
-  .wl-direction-pill.sell { background: rgba(255,92,92,0.12); color: var(--loss); }
-  /* Watchlist → Trade handoff roadmap, Phase 5: card-level status pill —
-     same pill shape as .wl-direction-pill (dot + label) so it reads as part
-     of the same family, colored by lifecycle stage: pending mirrors the
-     amber --lead "in progress" semantic used elsewhere in the app, won/lost
-     reuse --win/--loss, invalidated is deliberately neutral (muted, no dot
-     color implying an outcome that didn't happen). Only rendered once
-     item.status leaves 'idea' — see wlStatusPillHtml(). */
-  .wl-status-pill {
-    display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0;
-    font-size: 10px; font-weight: 700; letter-spacing: .2px;
-    padding: 3px 9px 3px 7px; border-radius: 999px;
-  }
-  .wl-status-pill::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-  .wl-status-pill.pending { background: rgba(245,166,35,0.14); color: var(--lead); }
-  .wl-status-pill.won { background: rgba(0,200,150,0.12); color: var(--win); }
-  .wl-status-pill.lost { background: rgba(255,92,92,0.12); color: var(--loss); }
-  .wl-status-pill.invalidated { background: var(--surface2); color: var(--muted); }
-  .wl-status-pill.missed { background: rgba(78,161,247,0.14); color: var(--info); }
+  .wl-pair-icon-chip.buy { background: rgba(0,200,150,0.12); color: var(--win); border: 1px solid rgba(0,200,150,0.28); }
+  .wl-pair-icon-chip.sell { background: rgba(255,92,92,0.12); color: var(--loss); border: 1px solid rgba(255,92,92,0.28); }
+  .trade-row:active .wl-pair-icon-chip { transform: scale(0.9); }
+  /* Model tag (Reversal / Continuation / etc.) — its own accent, distinct
+     from .badge-poi's blue, since it's a different kind of information
+     (setup category vs. price location). Same bordered+tinted shape as
+     .badge-poi/.badge-strategy so the tag row reads as one family. */
+  .badge-wl-model { background: rgba(178,121,178,0.14); color: var(--brand-2); border: 1px solid rgba(178,121,178,0.32); font-weight: 600; }
   /* Small inline "View trade →" quick-link shown at card-row level once
      linked, so the trade is reachable without expanding the card first.
      Sits in the tag row alongside the other badges. */
@@ -1574,18 +1561,13 @@
   .wl-trail-tag-chip.invalidated { background: var(--surface2); color: var(--muted); }
   /* Swipe-to-delete was removed 2026-08-27 (redundant with the row's own
      delete icon) — the row's clipping/rounding still lives directly on
-     .wl-card (see above) and the row itself just needs its gradient fill. */
+     .wl-card (see above); the row itself is flat now, matching Trade's own
+     .trade-row (2026-09-04: dropped the accent gradient wash along with
+     the rest of the per-pair accent treatment). */
   .wl-card .trade-row {
     position: relative; z-index: 1; margin-bottom: 0; border: none; border-radius: 0;
-    background: linear-gradient(160deg, var(--accent-bg, transparent), transparent 65%);
     padding: 10px 12px 10px 14px;
   }
-  /* Height fix 2026-09-04: the 44px icon chip was the tallest thing in the
-     row and set a floor under how short the card could get even after the
-     padding trim above — shrunk to line up with the row's own text height,
-     same as .trade-thumb's footprint on the Trades screen. */
-  .wl-card .wl-pair-icon-chip { width: 34px; height: 34px; border-radius: 9px; }
-  .wl-card .wl-pair-icon-chip i { width: 16px; height: 16px; }
   .wl-card-detail { max-height: 0; opacity: 0; overflow: hidden; background: var(--surface); border-top: 1px solid var(--border); transition: max-height var(--duration-base) var(--ease), opacity var(--duration-base) var(--ease); }
   .wl-card-detail > div { padding: var(--space-2) 10px 10px; }
   .wl-card.expanded .wl-card-detail { max-height: 3000px; opacity: 1; border-top-color: var(--accent, var(--border)); }
@@ -1607,7 +1589,7 @@
      moves to line two (this flex-wrap:wrap parent still allows that), it
      never splits inside itself. */
   .wl-card-title {
-    font-weight: 600; font-size: 14.5px; display: inline-flex; flex-wrap: wrap;
+    font-weight: 600; font-size: 13.5px; display: inline-flex; flex-wrap: wrap;
     align-items: center; row-gap: 4px; column-gap: 7px; min-width: 0; overflow: visible; flex: 1 1 auto;
   }
   .wl-card-title-pair { min-width: 0; white-space: nowrap; flex-shrink: 0; }
@@ -1620,16 +1602,8 @@
     .wl-row-actions .icon-btn i { width: 15px; height: 15px; }
   }
 
-  /* Watchlist Card Timestamp Roadmap: date/time the idea was logged, plus
-     how long it's been sitting on the watchlist. Sits between the title row
-     and the model/POI tag row — its own line rather than another tag chip,
-     since it's metadata about the card (when/how-long) rather than a
-     descriptor of the setup itself (pair/model/POI), and mixing the two
-     into one wrapped row made the tag row read cluttered. Muted/small so it
-     stays secondary to the pair name and BUY/SELL pill above it. */
-  .wl-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; font-size: 11px; color: var(--muted); margin: 3px 0 7px; }
-  .wl-card-meta i[data-lucide] { flex: none; width: 11px; height: 11px; opacity: 0.75; }
-  .wl-card-meta-sep { opacity: 0.5; }
+  .wl-view-trade-link { font-family: 'JetBrains Mono', monospace; }
+
 
   /* ===== Watchlist follow-up trail — the "post an update" timeline.
      Native classes (kept separate from .journal-subnote so Journal styling
@@ -3635,8 +3609,8 @@
         <div id="wlAddStatus" class="extract-status"></div>
       </div>
       <div class="nested-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-3);">
-          <h2 style="text-transform:uppercase; letter-spacing:0.05em; font-size:11px; margin-bottom:0;">Your Watchlist</h2>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-3); padding-bottom: var(--space-2); border-bottom: 1px solid var(--wl-brass-bg);">
+          <h2 style="font-size:13px; margin-bottom:0; border-left: 2px solid var(--wl-brass); padding-left: 8px;">Your watchlist</h2>
           <!-- Phase 7: exports card summaries only (pair, direction, model,
                POI type, HTF, LTF) as one PNG — adapted from the Trade page's
                shareWatchlistPNG()/renderWatchlistPNG() (those keep the OLD
@@ -4649,7 +4623,14 @@ function latestOtherActivityTs(item, otherEmail) {
   });
   (item.subfolders || []).forEach((sf) => {
     consider(sf.createdBy, sf.updatedAt || sf.createdAt);
-    (sf.blocks || []).forEach((b) => { consider(b.createdBy, sf.updatedAt || sf.createdAt); considerComments(b.media); });
+    // A block's `media` is a single object (one image per block), not a
+    // list — unlike e.images/item.media above. considerComments() expects
+    // an array, so wrap it, same as how e.video is wrapped into [e.video]
+    // two lines up. Passing the bare object here was the bug: any journal
+    // entry with a subfolder image block threw "(media || []).forEach is
+    // not a function" inside this walk, which (before the per-entry
+    // try/catch was added) silently blanked the entire journal list.
+    (sf.blocks || []).forEach((b) => { consider(b.createdBy, sf.updatedAt || sf.createdAt); if (b.media) considerComments([b.media]); });
   });
   (item.voiceNotes || []).forEach((vn) => consider(vn.createdBy, vn.createdAt));
   // Media Attribution Roadmap Phase 1: trade Before/During/After images now
@@ -8649,36 +8630,56 @@ async function renderJournalList() {
     return;
   }
 
-  container.innerHTML = entries.map((e) => {
-    const idArg = escapeHtml(JSON.stringify(e.id));
-    const meta = JOURNAL_STATUS_META[e.status] || JOURNAL_STATUS_META.idea;
-    const snippet = journalSnippet(e.body, 110);
-    const dateLabel = new Date(e.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    // Roadmap Phase 4: feed thumbnail uses gridThumbSrc(), which already
-    // swaps a video's URL for its Cloudinary-generated poster frame — the
-    // list never loads an actual <video> element, just a static image, same
-    // as every other thumbnail grid in the app.
-    const firstMedia = (e.media && e.media[0]) || null;
-    const thumbHtml = firstMedia
-      ? '<div class="journal-card-thumb trade-thumb"><img src="' + gridThumbSrc(firstMedia).replace(/"/g, '&quot;') + '" alt="" />' + mediaBadgesHtml(firstMedia) + '</div>'
-      : '';
-    return '<div class="journal-card" style="--accent:' + meta.hex + '; --accent-bg:' + meta.bg + ';" onclick="openJournalEntry(' + idArg + ')">' +
-      unseenDotHtml('journal', e) +
-      thumbHtml +
-      '<div class="journal-card-body">' +
-        '<div class="journal-card-title-row">' +
-          '<div class="journal-card-title">' + escapeHtml(e.title || 'Untitled') + '</div>' +
-          '<span class="journal-status-pill">' + meta.label + '</span>' +
+  // Diagnostic hardening: previously a single malformed entry (bad body/
+  // media/subfolder shape) throwing inside this map() would abort the whole
+  // Array.map call, leaving container.innerHTML untouched (still whatever
+  // the pre-load skeleton was) — every entry would vanish with zero
+  // indication why, and there's no console access on mobile to see the
+  // thrown error. Each entry now renders in its own try/catch: a bad entry
+  // shows an inline red error card (with the actual error message and the
+  // entry's id/title so it's identifiable) instead of silently killing every
+  // other entry in the list.
+  const cardHtmls = entries.map((e) => {
+    try {
+      const idArg = escapeHtml(JSON.stringify(e.id));
+      const meta = JOURNAL_STATUS_META[e.status] || JOURNAL_STATUS_META.idea;
+      const snippet = journalSnippet(e.body, 110);
+      const dateLabel = new Date(e.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      // Roadmap Phase 4: feed thumbnail uses gridThumbSrc(), which already
+      // swaps a video's URL for its Cloudinary-generated poster frame — the
+      // list never loads an actual <video> element, just a static image, same
+      // as every other thumbnail grid in the app.
+      const firstMedia = (e.media && e.media[0]) || null;
+      const thumbHtml = firstMedia
+        ? '<div class="journal-card-thumb trade-thumb"><img src="' + gridThumbSrc(firstMedia).replace(/"/g, '&quot;') + '" alt="" />' + mediaBadgesHtml(firstMedia) + '</div>'
+        : '';
+      return '<div class="journal-card" style="--accent:' + meta.hex + '; --accent-bg:' + meta.bg + ';" onclick="openJournalEntry(' + idArg + ')">' +
+        unseenDotHtml('journal', e) +
+        thumbHtml +
+        '<div class="journal-card-body">' +
+          '<div class="journal-card-title-row">' +
+            '<div class="journal-card-title">' + escapeHtml(e.title || 'Untitled') + '</div>' +
+            '<span class="journal-status-pill">' + meta.label + '</span>' +
+          '</div>' +
+          '<div class="journal-card-meta">' +
+            authorBadgeHtml(e.createdBy) +
+            (e.pair ? '<span>' + escapeHtml(e.pair) + '</span><span class="meta-sep">·</span>' : '') +
+            '<span>' + dateLabel + '</span>' +
+          '</div>' +
+          (snippet ? '<div class="journal-card-snippet">' + escapeHtml(snippet) + '</div>' : '') +
         '</div>' +
-        '<div class="journal-card-meta">' +
-          authorBadgeHtml(e.createdBy) +
-          (e.pair ? '<span>' + escapeHtml(e.pair) + '</span><span class="meta-sep">·</span>' : '') +
-          '<span>' + dateLabel + '</span>' +
+      '</div>';
+    } catch (renderErr) {
+      console.error('Journal entry failed to render:', e && e.id, renderErr);
+      return '<div class="journal-card" style="--accent:#ef4444; --accent-bg:rgba(239,68,68,0.12); border:1px solid #ef4444;">' +
+        '<div class="journal-card-body">' +
+          '<div class="journal-card-title-row"><div class="journal-card-title">⚠ Failed to render: ' + escapeHtml((e && e.title) || '(untitled)') + '</div></div>' +
+          '<div class="journal-card-meta" style="color:#ef4444; word-break:break-word;">id: ' + escapeHtml(String(e && e.id)) + ' — ' + escapeHtml(renderErr && renderErr.message || String(renderErr)) + '</div>' +
         '</div>' +
-        (snippet ? '<div class="journal-card-snippet">' + escapeHtml(snippet) + '</div>' : '') +
-      '</div>' +
-    '</div>';
-  }).join('');
+      '</div>';
+    }
+  });
+  container.innerHTML = cardHtmls.join('');
   // Phase 8: same stagger-in as renderTradeList()'s .trade-row-enter — reuses
   // that exact animation/keyframe (it's generic opacity+translateY, nothing
   // trade-specific about it) rather than defining a near-duplicate for cards.
@@ -14625,7 +14626,11 @@ function wlStatusPillHtml(status) {
     : status === 'missed' ? 'MISSED'
     : '';
   if (!label) return '';
-  return ' <span class="wl-status-pill ' + escapeHtml(status) + '">' + label + '</span>';
+  // 2026-09-04: matches Trade's own inline direction treatment (colored
+  // mono text, no pill/border) rather than the previous bordered-stamp
+  // look — see watchlistCardRowHtml()'s direction span for the pattern.
+  const colorClass = status === 'won' ? 'win' : status === 'lost' ? 'loss' : status === 'pending' ? 'lead' : status === 'missed' ? 'info' : 'muted';
+  return ' <span class="mono ' + colorClass + '" style="font-size:11px;">' + label + '</span>';
 }
 
 async function renderWatchlistList() {
@@ -14728,8 +14733,20 @@ function watchlistCardRowHtml(it, opts) {
   // Swipe-to-delete was removed (redundant — every card already has its
   // own delete icon in the row, and the row-level delete button below
   // covers it) — the row renders directly now, no .wl-swipe wrapper.
-  const accent = watchlistAccent(it.pair);
+  // 2026-09-04: card visuals brought in line with the Trade page's own
+  // .trade-row conventions instead of a bespoke Watchlist treatment — see
+  // tradeRowHtml() in renderTradeList() for the pattern being mirrored:
+  // plain bold pair name + small colored-mono direction text (no pill/
+  // border), a semantic border-left color reused verbatim from Trade's
+  // own .trade-row-outcome-win/-loss classes (won/lost only — matches
+  // Trade's "only color it once there's an outcome" rule; idea/watching/
+  // pending/invalidated/missed stay neutral, same as an unresolved trade),
+  // and date/duration folded into the tag row as plain badges instead of
+  // their own meta line — the same slot Trade's own ⏱ duration badge sits
+  // in. The arbitrary per-pair hue accent (watchlistAccent()) is dropped
+  // here since Trade rows carry no equivalent decorative per-item color.
   const isSell = it.direction === 'sell';
+  const outcomeClass = it.status === 'won' ? 'trade-row-outcome-win' : it.status === 'lost' ? 'trade-row-outcome-loss' : '';
   const rowAttrs = opts.draggable
     ? 'draggable="true" data-reorder-index="' + opts.reorderIndex + '" ' +
       'ondragstart="onWatchlistDragStart(event)" ondragover="onWatchlistDragOver(event)" ' +
@@ -14738,14 +14755,20 @@ function watchlistCardRowHtml(it, opts) {
   const reorderHandleHtml = opts.draggable
     ? '<div class="wl-reorder-handle" title="Drag to reorder, or tap to move…" onclick="event.stopPropagation(); promptWatchlistReorder(' + opts.reorderIndex + ', ' + opts.sortedLength + ');"><i data-lucide="grip-vertical" style="width:16px;height:16px;"></i></div>'
     : '';
-  return '<div class="wl-card' + (cardExpanded ? ' expanded' : '') + '" style="--accent:' + accent.hex + '; --accent-bg:' + accent.bg + ';" data-item-id="' + escapeHtml(it.id) + '">' +
+  return '<div class="wl-card' + (cardExpanded ? ' expanded' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
       unseenDotHtml('watchlist', it) +
-      '<div class="trade-row" ' + rowAttrs + ' onclick="toggleWatchlistCard(' + idArg + ')">' +
+      '<div class="trade-row ' + outcomeClass + '" ' + rowAttrs + ' onclick="toggleWatchlistCard(' + idArg + ')">' +
         reorderHandleHtml +
-        '<span class="wl-pair-icon-chip"><i data-lucide="' + (isSell ? 'trending-down' : 'trending-up') + '" style="width:20px;height:20px;"></i></span>' +
+        // 2026-09-04: the icon chip used to hold a trending-up/down arrow —
+        // purely decorative once BUY/SELL is already spelled out next to
+        // the pair name a few pixels away. Replaced with a two-letter
+        // monogram of the pair itself (actually identifies which row this
+        // is at a glance, the arrow never did) tinted by direction so the
+        // color still reinforces buy/sell instead of duplicating it.
+        '<span class="wl-pair-icon-chip ' + (isSell ? 'sell' : 'buy') + '">' + escapeHtml((it.pair || '??').slice(0, 2).toUpperCase()) + '</span>' +
         '<div class="trade-row-info">' +
           '<div class="trade-row-top">' +
-            '<span class="wl-card-title"><span class="wl-card-chevron">▶</span><span class="wl-card-title-pair">' + escapeHtml(it.pair || 'Unknown') + '</span><span class="wl-direction-pill ' + (isSell ? 'sell' : 'buy') + '">' + escapeHtml((it.direction || '').toUpperCase()) + '</span>' + wlStatusPillHtml(it.status) + '</span>' +
+            '<span class="wl-card-title"><span class="wl-card-chevron">▶</span><span class="wl-card-title-pair">' + escapeHtml(it.pair || 'Unknown') + '</span> <span class="mono ' + (isSell ? 'loss' : 'win') + '" style="font-size:11px;">' + escapeHtml((it.direction || '').toUpperCase()) + '</span>' + wlStatusPillHtml(it.status) + '</span>' +
             // Invalidated Status Roadmap, Phase A1: only offered while the
             // card is still open — once it's gone live/resolved (any other
             // status), this is meaningless (frozen composer already covers it).
@@ -14767,13 +14790,21 @@ function watchlistCardRowHtml(it, opts) {
             '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
             '</div>' +
           '</div>' +
-          watchlistCardMetaHtml(it) +
+          // 2026-09-04: htf/poiType reuse Trade's own .badge-poi treatment
+          // verbatim (same blue, same field role — where price is being
+          // watched). Model gets its own distinct accent (.badge-wl-model)
+          // since it's a different kind of information (the setup/model
+          // category, not a location) — deliberately a different hue so
+          // the two aren't read as the same category. Author and
+          // timeframe (ltf) stay plain; not every tag needs a color.
           '<div class="trade-row-tags">' +
             authorBadgeHtml(it.createdBy) +
-            (it.model ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.model) + '</span>' : '') +
-            (it.htf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.htf) + ' POI</span>' : '') +
-            (it.poiType ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.poiType) + '</span>' : '') +
+            (it.model ? '<span class="badge badge-wl-model">' + escapeHtml(it.model) + '</span>' : '') +
+            (it.htf ? '<span class="badge badge-poi">' + escapeHtml(it.htf) + ' POI</span>' : '') +
+            (it.poiType ? '<span class="badge badge-poi">' + escapeHtml(it.poiType) + '</span>' : '') +
             (it.ltf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.ltf) + '</span>' : '') +
+            (it.createdAt ? '<span class="badge mono" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(watchlistCardDateLabel(it.createdAt)) + '</span>' : '') +
+            (it.createdAt ? '<span class="badge mono" style="background:var(--surface2); color:var(--muted);">⏱ ' + escapeHtml(daysOnWatchlistLabel(it)) + '</span>' : '') +
             nearbyNewsBadgeHtml(it.createdAt) +
             (it.linkedTradeId ? '<span class="wl-view-trade-link" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(it.linkedTradeId) + '\')">View trade →</span>' : '') +
           '</div>' +
@@ -14914,9 +14945,8 @@ function daysOnWatchlistLabel(it) {
   if (!it || !it.createdAt) return '';
   const endTs = isWatchlistItemOpen(it) ? Date.now() : (it.updatedAt || it.createdAt);
   const days = Math.floor(Math.max(0, endTs - it.createdAt) / 86400000);
-  if (days <= 0) return 'Added today';
-  if (days === 1) return '1 day on watchlist';
-  return days + ' days on watchlist';
+  if (days <= 0) return 'Day 0';
+  return 'Day ' + days;
 }
 
 // Watchlist Card Timestamp Roadmap: same date/time as watchlistTrailDateLabel()
@@ -14932,18 +14962,6 @@ function watchlistCardDateLabel(ts) {
   const sameYear = d.getFullYear() === new Date().getFullYear();
   return d.toLocaleDateString('en-US', sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' }) +
     ' · ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-}
-
-// Watchlist Card Timestamp Roadmap: the meta line itself.
-function watchlistCardMetaHtml(it) {
-  if (!it || !it.createdAt) return '';
-  return '<div class="wl-card-meta">' +
-    '<i data-lucide="calendar" ></i>' +
-    '<span>' + escapeHtml(watchlistCardDateLabel(it.createdAt)) + '</span>' +
-    '<span class="wl-card-meta-sep">•</span>' +
-    '<i data-lucide="clock-3"></i>' +
-    '<span>' + escapeHtml(daysOnWatchlistLabel(it)) + '</span>' +
-  '</div>';
 }
 
 // Watchlist → Trade handoff roadmap, Phase 5: small tag chip on a trail
