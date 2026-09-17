@@ -482,6 +482,8 @@
      Sits just above the bottom size bar, left-aligned, so it never collides
      with the top-corner remove/id/reorder badges above. */
   .trade-thumb-during-badge { position: absolute; bottom: 16px; left: 4px; background: var(--brand); color: #1a0f16; font-size: 8px; font-weight: 700; letter-spacing: 0.4px; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+  .trade-thumb-before-badge { position: absolute; bottom: 16px; left: 4px; background: var(--info); color: #0a1a2e; font-size: 8px; font-weight: 700; letter-spacing: 0.4px; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
+  .trade-thumb-after-badge { position: absolute; bottom: 16px; left: 4px; background: var(--muted); color: #10131c; font-size: 8px; font-weight: 700; letter-spacing: 0.4px; padding: 1px 5px; border-radius: 4px; pointer-events: none; }
   /* Media Attribution Roadmap Phase 1: who added this thumbnail — reuses
      the same badge-author-dan/badge-author-ako colors as the row-level
      author badges (authorBadgeHtml), just sized down to fit a thumbnail
@@ -3664,6 +3666,7 @@
 <div id="viewerOverlay" style="display:none; position:fixed; inset:0; background:rgba(5,7,12,0.97); z-index:200; touch-action:none;">
   <div style="position:absolute; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding: var(--space-3) var(--space-4); z-index:5; background:linear-gradient(rgba(5,7,12,0.8), transparent);">
     <span id="viewerCounter" class="mono muted" style="font-size:12px;"></span>
+    <span id="viewerSlotTag" class="mono muted" style="font-size:11px; margin-left: var(--space-2); opacity:0.85; display:none;"></span>
     <span id="viewerMediaIdLabel" class="mono muted" style="font-size:11px; margin-left: var(--space-2); opacity:0.75;"></span>
     <div style="display:flex; gap: var(--space-2);">
       <div id="viewerZoomInBtn" class="icon-btn" onclick="viewerZoom(1.4)" title="Zoom in">＋</div>
@@ -13571,10 +13574,12 @@ function gridThumbSrc(item) {
 // the same overlays without duplicating the check-and-build logic per site.
 function mediaBadgesHtml(item) {
   let out = '';
-  // Phase 3 (Watchlist → Trade handoff): distinguishes a screenshot added
-  // while the trade was live from the original Before shots / closing After
-  // shots, wherever this thumbnail is rendered.
-  if (item && item.slot === 'during') out += '<div class="trade-thumb-during-badge">DURING</div>';
+  // Phase 3 (Watchlist → Trade handoff) + user request: every Before/
+  // During/After image always carries its own slot tag, wherever this
+  // thumbnail is rendered — not just During, which is all this used to show.
+  if (item && item.slot === 'before') out += '<div class="trade-thumb-before-badge">BEFORE</div>';
+  else if (item && item.slot === 'during') out += '<div class="trade-thumb-during-badge">DURING</div>';
+  else if (item && item.slot === 'after') out += '<div class="trade-thumb-after-badge">AFTER</div>';
   // Media Attribution Roadmap Phase 1: only trade images carry createdBy so
   // far (Phase 2/3 will extend this to journal/strategy media) — but this
   // check is generic, so it lights up automatically for those once they do.
@@ -14275,11 +14280,13 @@ async function loadAllWatchlistItems() {
 async function createWatchlistItem(fields) {
   const now = Date.now();
   const id = 'watchlist_' + now + '_' + Math.random().toString(36).slice(2, 8);
-  // New ideas default to the bottom of the manually-ordered list — one past
-  // whatever the current highest order value is, so a brand new idea never
-  // jumps ahead of ones the user already ranked. Phase 4 makes this order
-  // meaningful via drag-to-reorder; for now it's just a stable append point.
-  const maxOrder = allWatchlistItems.reduce((max, it) => Math.max(max, it.order || 0), -1);
+  // New ideas go to the TOP of the manually-ordered list, per user
+  // request — one less than whatever the current lowest order value is
+  // (sort_order is ascending, so lower = higher up the list). A manual
+  // drag (onWatchlistDrop) fully overrides this by setting clean
+  // sequential order values on every item it touches, and that override
+  // sticks until the next create/edit bumps something to the top again.
+  const minOrder = allWatchlistItems.reduce((min, it) => Math.min(min, it.order || 0), 0);
   const item = {
     id: id,
     createdAt: now,
@@ -14294,7 +14301,7 @@ async function createWatchlistItem(fields) {
     htf: fields.htf || '',
     poiType: fields.poiType || '',
     ltf: fields.ltf || '',
-    order: maxOrder + 1,
+    order: minOrder - 1,
     trail: [],
     // Watchlist → Trade handoff roadmap, Phase 1.
     status: 'idea',
@@ -14522,6 +14529,9 @@ async function saveWatchlistItemEdit(id) {
     return;
   }
   if (statusEl) statusEl.textContent = 'Saving…';
+  // Editing a card also bumps it to the top, same rule/reasoning as a
+  // brand new idea — see the comment in createWatchlistItem().
+  const minOrder = allWatchlistItems.reduce((min, it) => Math.min(min, it.order || 0), 0);
   const ok = await updateWatchlistItem(id, {
     pair: pair,
     direction: wlEditCurrentDirection,
@@ -14529,6 +14539,7 @@ async function saveWatchlistItemEdit(id) {
     htf: document.getElementById('wlEditHtfSelect').value,
     poiType: document.getElementById('wlEditPoiTypeSelect').value,
     ltf: document.getElementById('wlEditLtfSelect').value,
+    order: minOrder - 1,
   });
   if (!ok) {
     if (statusEl) statusEl.textContent = 'Could not save — try again.';
@@ -16452,19 +16463,31 @@ async function openSidePanel(id) {
   markItemSeen('trade', id); // unseen-activity indicators: clears this row's dot immediately on open
   const panel = document.getElementById('sidePanel');
   const tradeImgs = trade.images || [];
-  const beforeIdx = tradeImgs.findIndex(i => i.slot === 'before' && i.url);
-  const afterIdx = tradeImgs.findIndex(i => i.slot === 'after' && i.url);
-  const slotThumb = (idx, label) => {
-    if (idx === -1) {
-      return '<div><div class="sub" style="font-size:10.5px; margin-bottom: var(--space-1);">' + label + '</div>' +
+  const beforeIdxs = [];
+  const afterIdxs = [];
+  tradeImgs.forEach((img, idx) => {
+    if (img.slot === 'before' && img.url) beforeIdxs.push(idx);
+    else if (img.slot === 'after' && img.url) afterIdxs.push(idx);
+  });
+  const slotThumb = (idxs, label, slot) => {
+    // Before/After can hold any number of images (uncapped — see
+    // MAX_IMAGES_PER_SLOT_BEFORE/AFTER) but this compact view only ever
+    // shows ONE representative thumbnail, per user request — the total
+    // count sits in the label instead of expanding into a grid like
+    // During's row below. Tapping it opens a slot-scoped viewer
+    // (openViewerForTradeSlot) so browsing the rest stays inside that
+    // slot only, never spilling into During/After images.
+    if (idxs.length === 0) {
+      return '<div><div class="sub" style="font-size:10.5px; margin-bottom: var(--space-1);">' + label + ' (0)</div>' +
         '<div class="trade-thumb" style="display:flex; align-items:center; justify-content:center; aspect-ratio:1;"><span class="sub" style="font-size:11px;">None</span></div></div>';
     }
-    return '<div><div class="sub" style="font-size:10.5px; margin-bottom: var(--space-1);">' + label + '</div>' +
-      '<div class="trade-thumb" onclick="openViewerForTrade(\'' + trade.id + '\', ' + idx + ')"><img src="' + gridThumbSrc(tradeImgs[idx]).replace(/"/g,'&quot;') + '" />' + mediaBadgesHtml(tradeImgs[idx]) + '</div></div>';
+    const firstIdx = idxs[0];
+    return '<div><div class="sub" style="font-size:10.5px; margin-bottom: var(--space-1);">' + label + ' (' + idxs.length + ')</div>' +
+      '<div class="trade-thumb" onclick="openViewerForTradeSlot(\'' + trade.id + '\', \'' + slot + '\')"><img src="' + gridThumbSrc(tradeImgs[firstIdx]).replace(/"/g,'&quot;') + '" />' + mediaBadgesHtml(tradeImgs[firstIdx]) + '</div></div>';
   };
   const thumbs = '<div style="display:flex; gap:10px;">' +
-    '<div style="flex:1;">' + slotThumb(beforeIdx, 'Before') + '</div>' +
-    '<div style="flex:1;">' + slotThumb(afterIdx, 'After') + '</div>' +
+    '<div style="flex:1;">' + slotThumb(beforeIdxs, 'Before', 'before') + '</div>' +
+    '<div style="flex:1;">' + slotThumb(afterIdxs, 'After', 'after') + '</div>' +
   '</div>';
   // Phase 3 (Watchlist → Trade handoff): During shots don't fit the fixed
   // Before/After pair above (there can be many, added over the trade's
@@ -16476,8 +16499,8 @@ async function openSidePanel(id) {
     ? '<div style="margin-top:10px;">' +
         '<div class="sub" style="font-size:10.5px; margin-bottom: var(--space-1);">During (' + duringIdxs.length + ')</div>' +
         '<div class="trade-img-grid">' +
-          duringIdxs.map((idx) =>
-            '<div class="trade-thumb" onclick="openViewerForTrade(\'' + trade.id + '\', ' + idx + ')"><img src="' + gridThumbSrc(tradeImgs[idx]).replace(/"/g,'&quot;') + '" />' + mediaBadgesHtml(tradeImgs[idx]) + '</div>'
+          duringIdxs.map((idx, posInSlot) =>
+            '<div class="trade-thumb" onclick="openViewerForTradeSlot(\'' + trade.id + '\', \'during\', ' + posInSlot + ')"><img src="' + gridThumbSrc(tradeImgs[idx]).replace(/"/g,'&quot;') + '" />' + mediaBadgesHtml(tradeImgs[idx]) + '</div>'
           ).join('') +
         '</div>' +
       '</div>'
@@ -16617,6 +16640,81 @@ function openViewerForTrade(tradeId, index) {
     },
     deepLinkFor: (imgId) => 'trade:' + trade.id + ':' + imgId,
   });
+}
+
+// Grouped variant of openViewerForTrade for the Before/After/During thumbs
+// in openSidePanel — per user request, browsing IS allowed to flow across
+// slots (Before → During → After) via Next/Prev, but each new slot is
+// announced by its own divider step first (reusing the same battle-tested
+// openViewerGrouped() mechanism already used for cross-subfolder/post
+// browsing elsewhere), and every image also carries a persistent slot tag
+// in the corner the whole time you're looking at it (see renderViewerImage/
+// viewerSlotTag) — not just at the divider.
+//
+// `startSlot` is which of the three groups to open on ('before'/'during'/
+// 'after'); always starts at that group's first image. onDelete/onReplace
+// locate the real position in trade.images via object reference (each
+// group's images array holds the SAME object references trade.images
+// does, since built with .filter() — no cloning), so they stay correct
+// regardless of which group the image came from.
+function openViewerForTradeSlot(tradeId, startSlot, startIdxInSlot) {
+  const trade = allTrades.find(t => t.id === tradeId);
+  if (!trade) return;
+  const imagesFor = (slot) => (trade.images || []).filter(img => img.slot === slot);
+  const makeGroup = (slot, label, shortLabel) => {
+    const images = imagesFor(slot);
+    return {
+      label: label,
+      shortLabel: shortLabel,
+      images: images,
+      onDelete: async (imgIndex) => {
+        const removedImg = images[imgIndex];
+        const realIdx = trade.images.indexOf(removedImg);
+        if (realIdx === -1) return;
+        trade.images.splice(realIdx, 1);
+        const ok = await persistTrade(trade);
+        if (ok && removedImg && removedImg.source === 'cloudinary' && removedImg.publicId) deleteFromCloudinary(removedImg.publicId, mediaType(removedImg));
+        await loadAllTrades();
+        openSidePanel(trade.id);
+        if (!ok) showToast('Failed to delete the screenshot — check your connection and try again.');
+      },
+      onReplace: async (imgIndex, newImg) => {
+        const oldImg = images[imgIndex];
+        const realIdx = trade.images.indexOf(oldImg);
+        if (realIdx === -1) return;
+        trade.images[realIdx] = newImg;
+        const ok = await persistTrade(trade);
+        if (ok && oldImg && oldImg.source === 'cloudinary' && oldImg.publicId) deleteFromCloudinary(oldImg.publicId, mediaType(oldImg));
+        await loadAllTrades();
+        openSidePanel(trade.id);
+        if (!ok) showToast('Failed to save the replacement screenshot — check your connection and try again.');
+      },
+      onCaptionSave: async (imgIndex, caption, imgId) => {
+        const img = trade.images.find((i) => i.id === imgId) || images[imgIndex];
+        if (!img) return false;
+        img.caption = caption;
+        const ok = await persistTrade(trade);
+        if (!ok) console.error('Failed to autosave caption for trade', trade.id);
+        return ok;
+      },
+      onCommentsSave: async (imgIndex, comments, imgId) => {
+        const img = trade.images.find((i) => i.id === imgId) || images[imgIndex];
+        if (!img) return false;
+        img.comments = comments;
+        const ok = await persistTrade(trade);
+        if (!ok) console.error('Failed to autosave comments for trade', trade.id);
+        return ok;
+      },
+      deepLinkFor: (imgId) => 'trade:' + trade.id + ':' + imgId,
+    };
+  };
+  const groups = [
+    makeGroup('before', 'Before Trade', 'BEFORE'),
+    makeGroup('during', 'During Trade (after entering)', 'DURING'),
+    makeGroup('after', 'After Trade (after closing)', 'AFTER'),
+  ];
+  const startGroupIndex = { before: 0, during: 1, after: 2 }[startSlot] || 0;
+  openViewerGrouped(groups, startGroupIndex, startIdxInSlot || 0, { editable: true });
 }
 
 // Opens a strategy's Chart Gallery in the same fullscreen zoom/pan/pinch viewer
@@ -17045,15 +17143,24 @@ function renderViewerGroupLabel(step) {
 
 function renderViewerImage() {
   const labelEl = document.getElementById('viewerGroupLabel');
+  const slotTagEl = document.getElementById('viewerSlotTag');
   if (viewerGroups) {
     const step = viewerSteps[viewerStepIndex];
     if (!step) return;
-    if (step.type === 'label') { renderViewerGroupLabel(step); return; }
+    if (step.type === 'label') { if (slotTagEl) slotTagEl.style.display = 'none'; renderViewerGroupLabel(step); return; }
     if (labelEl) labelEl.style.display = 'none';
     document.getElementById('viewerDropup').style.display = '';
     viewerImages = viewerGroups[step.groupIndex].images;
     viewerIndex = step.itemIndex;
     renderViewerMediaCommon();
+    // Persistent slot tag (user request) — stays visible on every image
+    // within a group, not just at the group-boundary divider, so you
+    // always know which section you're looking at even several swipes in.
+    if (slotTagEl) {
+      const g = viewerGroups[step.groupIndex];
+      if (g && (g.shortLabel || g.label)) { slotTagEl.textContent = g.shortLabel || g.label; slotTagEl.style.display = ''; }
+      else slotTagEl.style.display = 'none';
+    }
     const mediaSteps = viewerSteps.filter((s) => s.type === 'media');
     document.getElementById('viewerCounter').textContent = (mediaSteps.indexOf(step) + 1) + ' / ' + mediaSteps.length;
     document.getElementById('viewerReplaceBtn').style.display = (viewerOpts.editable && viewerOnReplace()) ? 'flex' : 'none';
@@ -17061,6 +17168,7 @@ function renderViewerImage() {
     return;
   }
   if (labelEl) labelEl.style.display = 'none';
+  if (slotTagEl) slotTagEl.style.display = 'none';
   document.getElementById('viewerDropup').style.display = '';
   renderViewerMediaCommon();
   document.getElementById('viewerCounter').textContent = (viewerIndex + 1) + ' / ' + viewerImages.length;
