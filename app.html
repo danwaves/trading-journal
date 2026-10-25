@@ -176,6 +176,86 @@
   .more-menu button:hover { background: var(--surface2); color: var(--light); }
   .more-menu button.active { color: var(--brand); }
 
+  /* Floating shortcut button — News + P&L Calendar used to sit inside the
+     More dropdown; they now live behind one floating button (bottom-right,
+     above the safe area). Tap to fan the two shortcuts upward over a
+     softly blurred backdrop. z-index 55 keeps it above page content and the
+     sticky tab bar (50) but beneath every modal, drawer, viewer and the
+     global search overlay (100+). The wrapper has no transform/filter so
+     the fixed backdrop inside it still covers the real viewport.
+     Selectors are prefixed with .float-nav so they out-rank the global
+     `button` press/transition fallbacks above. */
+  .float-nav {
+    position: fixed; right: var(--space-4);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-5));
+    width: 52px; height: 52px; z-index: 55;
+  }
+  .float-nav.is-hidden { display: none; }
+  .float-nav .float-nav-backdrop {
+    position: fixed; inset: 0; z-index: 0;
+    background: rgba(5,7,12,0.55);
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    opacity: 0; visibility: hidden;
+    transition: opacity var(--duration-base) var(--ease), visibility 0s linear var(--duration-base);
+  }
+  .float-nav.open .float-nav-backdrop {
+    opacity: 1; visibility: visible;
+    transition: opacity var(--duration-base) var(--ease), visibility 0s;
+  }
+  .float-nav .float-nav-fab {
+    position: absolute; right: 0; bottom: 0; z-index: 2;
+    width: 52px; height: 52px; padding: 0; border: none; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, var(--brand-dark), var(--brand));
+    color: #fff; cursor: pointer;
+    box-shadow: var(--shadow-2), 0 0 0 1px rgba(255,255,255,0.08) inset;
+    transition: transform 320ms cubic-bezier(.34,1.56,.64,1), box-shadow var(--duration-base) var(--ease);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .float-nav .float-nav-fab svg { width: 22px; height: 22px; stroke-width: 2.25; }
+  .float-nav .float-nav-fab:active:not(:disabled) { transform: scale(0.92); }
+  .float-nav.open .float-nav-fab { transform: rotate(135deg); }
+  /* Ring on the button while you're sitting on News or P&L Calendar, so it
+     still shows where you are now that neither has a tab. */
+  .float-nav .float-nav-fab.on-screen { box-shadow: var(--shadow-2), 0 0 0 3px var(--bg), 0 0 0 5px var(--brand); }
+  .float-nav .float-nav-item {
+    position: absolute; right: 0; bottom: 4px; z-index: 1;
+    height: 44px; padding: 0 var(--space-4) 0 var(--space-3);
+    display: flex; align-items: center; gap: 10px; white-space: nowrap;
+    background: var(--surface); color: var(--light);
+    border: 1px solid var(--border); border-radius: 999px;
+    box-shadow: var(--shadow-1);
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer;
+    opacity: 0; visibility: hidden; transform: translateY(0) scale(0.85);
+    transition: transform 280ms var(--ease), opacity var(--duration-fast) var(--ease), visibility 0s linear 280ms, border-color var(--duration-fast) var(--ease);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .float-nav .float-nav-item svg { width: 18px; height: 18px; color: var(--brand); flex: none; }
+  .float-nav .float-nav-item.active { border-color: var(--brand); }
+  .float-nav.open .float-nav-item {
+    opacity: 1; visibility: visible;
+    transition: transform 340ms cubic-bezier(.34,1.56,.64,1), opacity var(--duration-base) var(--ease), visibility 0s, border-color var(--duration-fast) var(--ease);
+  }
+  .float-nav .float-nav-item.fn-i1 { --fn-y: -64px;  --fn-n: 1; }
+  .float-nav .float-nav-item.fn-i2 { --fn-y: -116px; --fn-n: 2; }
+  .float-nav .float-nav-item.fn-i3 { --fn-y: -168px; --fn-n: 3; }
+  .float-nav .float-nav-item.fn-i4 { --fn-y: -220px; --fn-n: 4; }
+  .float-nav .float-nav-item.fn-i5 { --fn-y: -272px; --fn-n: 5; }
+  .float-nav .float-nav-item.fn-i6 { --fn-y: -324px; --fn-n: 6; }
+  .float-nav.open .float-nav-item { transform: translateY(var(--fn-y)) scale(1); transition-delay: calc(var(--fn-n) * 35ms); }
+  .float-nav.open .float-nav-item:active { transform: translateY(var(--fn-y)) scale(0.96); transition-delay: 0s; }
+  /* Unseen-activity dot on the button itself (Journal lives inside the menu
+     now, so its tab dot would otherwise be invisible while the menu is shut). */
+  .float-nav .float-nav-dot {
+    display: none; position: absolute; top: 1px; right: 1px; z-index: 3;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: var(--info); border: 2px solid var(--bg); pointer-events: none;
+  }
+  .float-nav .float-nav-dot.show { display: block; }
+  @media (prefers-reduced-motion: reduce) {
+    .float-nav .float-nav-fab, .float-nav .float-nav-item, .float-nav .float-nav-backdrop { transition: none !important; }
+  }
+
   /* Sync/connectivity indicator (item #6) — a small always-visible signal in
      the sticky tab bar showing whether the last Supabase write landed. Wired
      into the app's core save functions (persistTrade, saveConfluenceList,
@@ -2203,16 +2283,13 @@
 </div>
 
 <div class="preview-tabs">
-  <button id="tabLogin" class="active" onclick="showScreen('login', this)">Login</button>
+  <button id="tabLogin" class="active" style="display:none" tabindex="-1" aria-hidden="true" onclick="showScreen('login', this)">Login</button>
   <button class="app-tab is-hidden" onclick="showScreen('dashboard', this); refreshDashboardTradeSummary();">Dashboard</button>
   <button class="app-tab is-hidden" id="tabTrades" onclick="showScreen('trades', this); renderTradeList();">Trades<span class="tab-unseen-dot" id="tabDot_trade"></span></button>
   <button class="app-tab is-hidden" onclick="openNewTradeTab();" id="tabEntry">New Trade</button>
+  <button class="app-tab is-hidden" id="tabWatchlist" onclick="showScreen('watchlist', this); renderWatchlistList();">Watchlist<span class="tab-unseen-dot" id="tabDot_watchlist"></span></button>
   <button class="app-tab is-hidden" onclick="showScreen('insights', this); inheritDashboardFiltersToInsights();">Insights</button>
   <button class="app-tab is-hidden" onclick="showScreen('history', this); inheritDashboardFiltersToHistory(); restoreHistoryCardCollapseState(); refreshDashboardTradeSummary();">History</button>
-  <button class="app-tab is-hidden" id="tabWatchlist" onclick="showScreen('watchlist', this); renderWatchlistList();">Watchlist<span class="tab-unseen-dot" id="tabDot_watchlist"></span></button>
-  <div class="more-tab-wrapper is-hidden" id="moreTabWrapper">
-    <button id="tabMore" class="app-tab is-hidden" onclick="toggleMoreMenu(event)">More ▾</button>
-  </div>
   <div class="sync-indicator is-hidden" id="syncIndicator" title="Data sync status">
     <span class="sync-dot"></span><span class="sync-label" id="syncLabel">Synced</span>
   </div>
@@ -2238,29 +2315,18 @@
     <p class="global-search-hint">Start typing to search everything — pair, model, strategy, notes, or a media ID like <span class="mono">00042</span>.</p>
   </div>
 </div>
-<!-- #moreMenu lives outside .preview-tabs on purpose. iOS Safari (unlike
-     Chrome/desktop) treats a position:fixed descendant of a scrolling
-     ancestor (.preview-tabs has overflow-x:auto) as if it were contained
-     by that ancestor instead of the real viewport, so the dropdown could
-     end up positioned/clipped somewhere a finger can't reach even though
-     its 'open' class toggles correctly and it renders fine elsewhere.
-     Being a sibling of .preview-tabs instead of a descendant sidesteps
-     that entirely; toggleMoreMenu() still points it at the trigger button
-     via getBoundingClientRect(), and the outside-click handler below
-     matches on this element directly since it's no longer nested inside
-     #moreTabWrapper. -->
-<div id="moreMenu" class="more-menu">
-  <button onclick="closeMoreMenu(); showScreen('compare', this); renderCompareTable();">Compare</button>
-  <button id="tabStrategies" onclick="closeMoreMenu(); showScreen('strategies', this); renderStrategyManagerList();">Strategies</button>
-  <button id="tabJournal" onclick="closeMoreMenu(); showScreen('journal', this); renderJournalList();">Journal<span class="tab-unseen-dot" id="tabDot_journal"></span></button>
-  <button id="tabNews" onclick="closeMoreMenu(); showScreen('news', this); renderNewsTab();">News</button>
-  <!-- P&L Calendar / Trader Filter Roadmap, Phase 5: permanent entry in the
-       "More" menu, alongside the app's other less-frequently-used screens
-       (Compare/Strategies/Journal/News/Settings) rather than a top-level
-       tab — same treatment Confluence/Timeframe Manager got when those
-       moved into Settings instead of having their own tab. -->
-  <button id="tabPnlCalendar" onclick="closeMoreMenu(); showScreen('pnlCalendar', this); inheritDashboardFiltersToPnlCalendar(); resetPnlCalendarViewToToday(); renderPnlCalendarGrid();">P&amp;L Calendar</button>
-  <button id="tabSettings" onclick="closeMoreMenu(); showScreen('settings', this)">Settings</button>
+<!-- FLOATING SHORTCUT BUTTON: News + P&L Calendar. Hidden until login
+     (applyAuthGate toggles .is-hidden). See toggleFloatNav() below. -->
+<div id="floatNav" class="float-nav is-hidden">
+  <div class="float-nav-backdrop" onclick="closeFloatNav()"></div>
+  <button type="button" class="float-nav-item fn-i6" data-screen="settings" onclick="openFloatNavScreen('settings')" aria-label="Settings"><i data-lucide="settings"></i><span>Settings</span></button>
+  <button type="button" class="float-nav-item fn-i5" data-screen="compare" onclick="openFloatNavScreen('compare')" aria-label="Compare"><i data-lucide="git-compare"></i><span>Compare</span></button>
+  <button type="button" class="float-nav-item fn-i4" data-screen="strategies" onclick="openFloatNavScreen('strategies')" aria-label="Strategies"><i data-lucide="layers"></i><span>Strategies</span></button>
+  <button type="button" class="float-nav-item fn-i3" data-screen="journal" onclick="openFloatNavScreen('journal')" aria-label="Journal"><i data-lucide="book-open"></i><span>Journal</span><span class="tab-unseen-dot" id="tabDot_journal"></span></button>
+  <button type="button" class="float-nav-item fn-i2" data-screen="news" onclick="openFloatNavScreen('news')" aria-label="News"><i data-lucide="newspaper"></i><span>News</span></button>
+  <button type="button" class="float-nav-item fn-i1" data-screen="pnlCalendar" onclick="openFloatNavScreen('pnlCalendar')" aria-label="P&amp;L Calendar"><i data-lucide="calendar-days"></i><span>P&amp;L Calendar</span></button>
+  <button type="button" id="floatNavFab" class="float-nav-fab" onclick="toggleFloatNav(event)" aria-label="Open menu" aria-expanded="false"><i data-lucide="plus"></i></button>
+  <span class="float-nav-dot" id="floatNavDot"></span>
 </div>
 
 <!-- LOGIN -->
@@ -4587,6 +4653,57 @@ function markItemSeen(kind, id) {
   map[id] = Date.now();
   saveSeenMap(kind, map);
 }
+// ================= "VIEWED YOUR POST" NOTIFICATIONS =================
+// When one account opens a Trade / Journal entry / Watchlist idea that the
+// OTHER account created, the author gets a notification (push + Telegram).
+// Only the other person's posts count — opening your own never notifies, and
+// legacy records with no createdBy are skipped rather than guessed at.
+// A per-device cooldown stops repeated taps on the same post from flooding
+// the author: at most one alert per post per viewer per window below
+// (set VIEW_NOTIFY_COOLDOWN_MS to 0 for an alert on every single open).
+const VIEW_NOTIFY_COOLDOWN_MS = 30 * 60 * 1000;
+function notifyPostViewed(kind, id) {
+  try {
+    if (!currentAccount || !id) return;
+    const cfgByKind = {
+      trade: { items: typeof allTrades !== 'undefined' ? allTrades : [], table: 'trades', tagPrefix: 'trade', label: 'trade' },
+      journal: { items: typeof allJournalEntries !== 'undefined' ? allJournalEntries : [], table: 'journal_entries', tagPrefix: 'journal', label: 'journal entry' },
+      watchlist: { items: typeof allWatchlistItems !== 'undefined' ? allWatchlistItems : [], table: 'watchlist_items', tagPrefix: 'wl', label: 'watchlist idea' },
+    };
+    const cfg = cfgByKind[kind];
+    if (!cfg) return;
+    const item = cfg.items.find((x) => x.id === id);
+    if (!item || !item.createdBy || item.createdBy === currentAccount.email) return;
+    if (item.createdBy !== otherAccountEmail()) return;
+
+    const key = 'dwViewNotify_v1_' + currentAccount.email;
+    let map = {};
+    try { map = JSON.parse(localStorage.getItem(key)) || {}; } catch (e) { map = {}; }
+    const mapKey = kind + ':' + id;
+    const now = Date.now();
+    if (map[mapKey] && now - map[mapKey] < VIEW_NOTIFY_COOLDOWN_MS) return;
+    map[mapKey] = now;
+    try { localStorage.setItem(key, JSON.stringify(map)); } catch (e) { /* storage unavailable */ }
+
+    const desc = [item.pair || item.title || '', item.direction ? '(' + String(item.direction).toUpperCase() + ')' : ''].filter(Boolean).join(' ');
+    (async () => {
+      let deepLink = '';
+      const shortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(cfg.tagPrefix + ':' + id));
+      if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
+      notifyOtherAccount({
+        type: 'viewed',
+        sourceTable: cfg.table,
+        sourceId: id + ':view', // distinct push tag so it never replaces an unread alert about the same post
+        message: `${currentAccountName()} viewed your ${cfg.label}${desc ? ': ' + desc : ''}`,
+        deepLink,
+        silent: true, // a passive view should never pop an error at the viewer
+      });
+    })();
+  } catch (e) {
+    console.error('notifyPostViewed failed (non-fatal):', e);
+  }
+}
+
 function markScreenSeenOnLeave(screenId) {
   const kindsByScreen = {
     trades: { kind: 'trade', items: typeof allTrades !== 'undefined' ? allTrades : [] },
@@ -4680,6 +4797,10 @@ function updateTabUnseenBadge(kind) {
   if (!dot) return;
   const hasUnseen = (cfg.items || []).some((it) => itemHasUnseenActivity(kind, it));
   dot.classList.toggle('show', hasUnseen);
+  if (kind === 'journal') {
+    const fd = document.getElementById('floatNavDot');
+    if (fd) fd.classList.toggle('show', hasUnseen);
+  }
 }
 
 // ================= NOTIFICATIONS — Phase 2 (subscribe flow) =================
@@ -4806,12 +4927,18 @@ async function enablePushNotifications() {
 // randoms from hitting the endpoint directly and spamming pushes.
 const NOTIFY_API_SECRET_CLIENT = 'dw-notify-8x2k9';
 
+// A relative '/api/...' only resolves when this page is served from the app's
+// own host. Opened from the phone's Downloads (content://) or as a local
+// file, it points nowhere and every Telegram notification silently fails —
+// so fall back to the live site's address in that case.
+const NOTIFY_API_BASE = (location.protocol === 'http:' || location.protocol === 'https:') ? '' : 'https://danfxt.vercel.app';
+
 // { type, sourceTable, sourceId, message, deepLink }
-async function notifyOtherAccount({ type, sourceTable, sourceId, message, deepLink }) {
+async function notifyOtherAccount({ type, sourceTable, sourceId, message, deepLink, silent }) {
   try {
     const recipientEmail = otherAccountEmail();
     if (!recipientEmail || !currentAccount) return; // nothing to notify, or not logged in
-    await fetch('/api/send-notification', {
+    const res = await fetch(NOTIFY_API_BASE + '/api/send-notification', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_API_SECRET_CLIENT },
       body: JSON.stringify({
@@ -4824,8 +4951,28 @@ async function notifyOtherAccount({ type, sourceTable, sourceId, message, deepLi
         deepLink: deepLink || '',
       }),
     });
+    // Failures used to be completely silent, which made a missing Telegram
+    // message impossible to diagnose. Surface what the server said (the save
+    // itself is unaffected either way).
+    if (!res.ok) {
+      let detail = '';
+      try { detail = (await res.text()).slice(0, 120); } catch (_) {}
+      console.error('send-notification rejected:', res.status, detail, { type, sourceTable });
+      if (!silent) showToast('Alert not sent (' + res.status + ', ' + type + ')' + (detail ? ': ' + detail : ''), 'error');
+    } else {
+      // The server now reports when it couldn't write the `notifications` row.
+      // That row is what the Telegram relay listens to, so a failure there
+      // means no Telegram message even though push may have gone out.
+      let data = null;
+      try { data = await res.json(); } catch (_) {}
+      if (data && data.recordError) {
+        console.error('notifications row not recorded:', data.recordError, { type, sourceTable });
+        if (!silent) showToast('Telegram alert not logged (' + type + '): ' + String(data.recordError).slice(0, 120), 'error');
+      }
+    }
   } catch (e) {
     console.error('notifyOtherAccount failed (non-fatal):', e);
+    if (!silent) showToast('Alert not sent — could not reach the notification server.', 'error');
   }
 }
 
@@ -4933,7 +5080,8 @@ function showScreen(id, btn) {
   // them is the active screen — otherwise nothing in the visible tab bar
   // would show where you are.
   const moreBtn = document.getElementById('tabMore');
-  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'journal', 'news', 'pnlCalendar', 'settings'].includes(id));
+  if (moreBtn) moreBtn.classList.toggle('active', ['compare', 'strategies', 'journal', 'settings'].includes(id));
+  updateFloatNavActive(id); // News / P&L Calendar now live behind the floating button
 }
 
 // Opens/closes the "More" dropdown (Compare/Strategies/Settings). A
@@ -4981,6 +5129,64 @@ document.addEventListener('click', (e) => {
   if (!insideTrigger && !insideMenu) closeMoreMenu();
 });
 
+// ================= FLOATING SHORTCUT BUTTON (News / P&L Calendar) =================
+function setFloatNavOpen(open) {
+  const el = document.getElementById('floatNav');
+  const fab = document.getElementById('floatNavFab');
+  if (!el) return;
+  if (open) closeMoreMenu();
+  el.classList.toggle('open', open);
+  if (fab) {
+    fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    fab.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  }
+}
+function toggleFloatNav(event) {
+  if (event) event.stopPropagation();
+  const el = document.getElementById('floatNav');
+  if (el) setFloatNavOpen(!el.classList.contains('open'));
+}
+function closeFloatNav() { setFloatNavOpen(false); }
+function openFloatNavScreen(id) {
+  closeFloatNav();
+  closeMoreMenu();
+  // Same calls the old More-menu items (and the News / P&L Calendar entries)
+  // made — only the trigger moved.
+  if (id === 'compare') {
+    showScreen('compare', null);
+    renderCompareTable();
+  } else if (id === 'strategies') {
+    showScreen('strategies', null);
+    renderStrategyManagerList();
+  } else if (id === 'journal') {
+    showScreen('journal', null);
+    renderJournalList();
+  } else if (id === 'news') {
+    showScreen('news', null);
+    renderNewsTab();
+  } else if (id === 'pnlCalendar') {
+    showScreen('pnlCalendar', null);
+    inheritDashboardFiltersToPnlCalendar();
+    resetPnlCalendarViewToToday();
+    renderPnlCalendarGrid();
+  } else if (id === 'settings') {
+    showScreen('settings', null);
+  }
+}
+// Marks the matching menu item + rings the button while one of its screens
+// is active (called from showScreen()) — the tab bar no longer shows these.
+function updateFloatNavActive(id) {
+  let match = false;
+  document.querySelectorAll('#floatNav .float-nav-item').forEach((b) => {
+    const on = b.dataset.screen === id;
+    if (on) match = true;
+    b.classList.toggle('active', on);
+  });
+  const fab = document.getElementById('floatNavFab');
+  if (fab) fab.classList.toggle('on-screen', match);
+}
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFloatNav(); });
+
 // ================= MOBILE BACK BUTTON =================
 // This app never touched the History API, so the hardware/gesture back
 // button on mobile had nothing of ours to catch — it just exited the page.
@@ -5021,6 +5227,8 @@ function handleMobileBackButton() {
     closeSidePanel();
   } else if (hasClass('pairModal', 'show')) {
     closePairModal();
+  } else if (hasClass('floatNav', 'open')) {
+    closeFloatNav();
   } else if (hasClass('moreMenu', 'open')) {
     closeMoreMenu();
   } else if (hasClass('filtersBody', 'open')) {
@@ -8720,6 +8928,7 @@ function openJournalEntry(id) {
   const e = allJournalEntries.find((x) => x.id === id);
   if (!e) return;
   markItemSeen('journal', id); // unseen-activity indicators: clears this card's dot immediately on open
+  notifyPostViewed('journal', id);
   journalEditingId = id;
   journalFieldsDirty = false;
   journalSubfolderExpanded = new Set(); // don't leak expanded state between entries
@@ -14920,6 +15129,7 @@ function toggleWatchlistCard(id) {
   if (willExpand) {
     watchlistCardExpanded.add(id);
     markItemSeen('watchlist', id); // unseen-activity indicators: clears this card's dot immediately on expand
+    notifyPostViewed('watchlist', id);
   } else {
     watchlistCardExpanded.delete(id);
   }
@@ -15486,6 +15696,22 @@ async function removeWlTrailDraftVoice(itemId, idx) {
   renderWatchlistList();
 }
 
+// Telegram/notification body for a watchlist trail update: the note itself
+// (plain text, trimmed) plus a one-line summary of anything attached, so the
+// other account sees what was actually written rather than just "posted an
+// update". rtToText() flattens the rich-text HTML the composer saves.
+function wlNotifyNoteLines(text, images, video, voices) {
+  const lines = [];
+  const plain = rtToText(text);
+  if (plain) lines.push('Note: ' + (plain.length > 300 ? plain.slice(0, 300) + '…' : plain));
+  const bits = [];
+  if (images && images.length) bits.push(images.length + (images.length > 1 ? ' images' : ' image'));
+  if (video) bits.push('video');
+  if (voices && voices.length) bits.push(voices.length + (voices.length > 1 ? ' voice notes' : ' voice note'));
+  if (bits.length) lines.push('Attached: ' + bits.join(', '));
+  return lines.length ? '\n' + lines.join('\n') : '';
+}
+
 async function addWatchlistTrailEntry(itemId) {
   const item = allWatchlistItems.find((it) => it.id === itemId);
   if (!item) return;
@@ -15569,7 +15795,7 @@ async function addWatchlistTrailEntry(itemId) {
     type: 'watchlist_trail',
     sourceTable: 'watchlist_items',
     sourceId: itemId,
-    message: `${currentAccountName()} posted an update on ${item.pair} (${(item.direction || '').toUpperCase()})${tagAsEntry ? ' — Entry taken, now Pending' : ''}\nPOI: ${item.poiType || '—'} (${item.htf || '—'})`,
+    message: `${currentAccountName()} posted an update on ${item.pair} (${(item.direction || '').toUpperCase()})${tagAsEntry ? ' — Entry taken, now Pending' : ''}\nPOI: ${item.poiType || '—'} (${item.htf || '—'})${wlNotifyNoteLines(text, images, video, voices)}`,
     deepLink: trailDeepLink,
   });
 
@@ -15742,7 +15968,7 @@ async function saveWatchlistTrailEditEntry(itemId, entryId) {
     type: 'watchlist_trail_edit',
     sourceTable: 'watchlist_items',
     sourceId: itemId,
-    message: `${currentAccountName()} edited an update on ${item.pair} (${(item.direction || '').toUpperCase()})\nPOI: ${item.poiType || '—'} (${item.htf || '—'})`,
+    message: `${currentAccountName()} edited an update on ${item.pair} (${(item.direction || '').toUpperCase()})\nPOI: ${item.poiType || '—'} (${item.htf || '—'})${wlNotifyNoteLines(text, images, video, voices)}`,
     deepLink: editDeepLink,
   });
 }
@@ -16461,6 +16687,7 @@ async function openSidePanel(id) {
   const trade = allTrades.find(t => t.id === id);
   if (!trade) return;
   markItemSeen('trade', id); // unseen-activity indicators: clears this row's dot immediately on open
+  notifyPostViewed('trade', id);
   const panel = document.getElementById('sidePanel');
   const tradeImgs = trade.images || [];
   const beforeIdxs = [];
@@ -17222,11 +17449,41 @@ function onViewerCaptionBlur() {
 // deleteViewerVoiceNote below) persists those too — needed only by the one
 // call site (openViewerForStrategy) that re-fetches a fresh copy of the
 // image rather than mutating the same object the viewer already holds.
+// Builds and sends the Telegram/push notification for a saved viewer note:
+// who, which pair/idea it belongs to, the note text itself, and a deep link
+// back to the exact image — the same shape comments already use.
+async function notifyViewerNote(imgId, tag, plain) {
+  try {
+    const ctx = resolveMediaCommentContext(tag);
+    const contextLine = ctx ? `\n${ctx.pair} (${(ctx.direction || '').toUpperCase()}) · POI: ${ctx.poiType || '—'} (${ctx.htf || '—'})` : '';
+    const preview = plain ? `\nNote: ${plain.length > 300 ? plain.slice(0, 300) + '…' : plain}` : '';
+    let deepLink = '';
+    if (tag) {
+      const shortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(tag));
+      if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
+    }
+    notifyOtherAccount({
+      type: 'note',
+      sourceTable: 'media_notes',
+      sourceId: imgId,
+      message: `${currentAccountName()} updated a note on an image/video${contextLine}${preview}`,
+      deepLink,
+    });
+  } catch (e) {
+    console.error('notifyViewerNote failed (non-fatal):', e);
+  }
+}
+
 function flushViewerCaption() {
   if (!viewerCaptionDirty) return;
   const idx = viewerIndex;
   const img = viewerImages[idx];
   viewerCaptionDirty = false;
+  // Captured now (before the async save) so navigating to another image
+  // while it saves can't change which image the notification points at.
+  const noteDeepLinkFn = viewerDeepLinkForFn();
+  const noteTag = img && noteDeepLinkFn ? noteDeepLinkFn(img.id) : '';
+  const notePlain = img ? mediaCaptionText(img) : '';
   const onCaptionSave = viewerOnCaptionSaveFn();
   if (!img || !onCaptionSave) return;
   const stateEl = document.getElementById('viewerDropupSaveState');
@@ -17235,15 +17492,7 @@ function flushViewerCaption() {
   return Promise.resolve(onCaptionSave(idx, img.caption || '', img.id, img.voiceNotes || []))
     .then((ok) => {
       if (ok !== false) {
-        // deepLink left blank for now — no per-image nav target exists yet
-        // to jump straight to; Phase 5 will fill this in once one does.
-        notifyOtherAccount({
-          type: 'note',
-          sourceTable: 'media_notes',
-          sourceId: img.id,
-          message: `${currentAccountName()} updated a note on an image/video`,
-          deepLink: '',
-        });
+        notifyViewerNote(img.id, noteTag, notePlain); // fire-and-forget, never blocks the "Saved" label
       }
       if (!isStillCurrent() || !stateEl) return;
       stateEl.textContent = ok === false ? 'Save failed' : 'Saved';
@@ -18591,6 +18840,11 @@ function applyAuthGate() {
   if (moreWrapper) moreWrapper.classList.toggle('is-hidden', !isAuthenticated);
   const syncEl = document.getElementById('syncIndicator');
   if (syncEl) syncEl.classList.toggle('is-hidden', !isAuthenticated);
+  const floatNavEl = document.getElementById('floatNav');
+  if (floatNavEl) {
+    floatNavEl.classList.toggle('is-hidden', !isAuthenticated);
+    if (!isAuthenticated) closeFloatNav();
+  }
   const searchBtn = document.getElementById('globalSearchBtn');
   if (searchBtn) searchBtn.classList.toggle('is-hidden', !isAuthenticated);
   if (isAuthenticated) {
