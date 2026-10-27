@@ -15372,28 +15372,28 @@ function buildWlTrailViewerGroup(itemId, entry) {
     onCaptionSave: async (imgIndex, caption, imgId, voiceNotes) => {
       const item = allWatchlistItems.find((it) => it.id === itemId);
       const liveEntry = item && Array.isArray(item.trail) ? item.trail.find((e) => e.id === entry.id) : null;
-      if (!liveEntry) return false;
+      if (!liveEntry) { showToast('Note not saved — this update could not be found. Close and reopen the idea, then try again.', 'error'); return false; }
       const pool = Array.isArray(liveEntry.images) ? liveEntry.images.slice() : [];
       if (liveEntry.video) pool.push(liveEntry.video);
       const img = pool.find((im) => im.id === imgId);
-      if (!img) return false;
+      if (!img) { showToast('Note not saved — this image could not be matched to its update.', 'error'); return false; }
       img.caption = caption;
       if (voiceNotes) img.voiceNotes = voiceNotes;
       const ok = await updateWatchlistItem(itemId, { trail: item.trail });
-      if (!ok) console.error('Failed to autosave caption for watchlist trail entry', entry.id);
+      if (!ok) { console.error('Failed to autosave caption for watchlist trail entry', entry.id); showToast('Note not saved — the server refused the change. Check your connection.', 'error'); }
       return !!ok;
     },
     onCommentsSave: async (imgIndex, comments, imgId) => {
       const item = allWatchlistItems.find((it) => it.id === itemId);
       const liveEntry = item && Array.isArray(item.trail) ? item.trail.find((e) => e.id === entry.id) : null;
-      if (!liveEntry) return false;
+      if (!liveEntry) { showToast('Comment not saved — this update could not be found. Close and reopen the idea, then try again.', 'error'); return false; }
       const pool = Array.isArray(liveEntry.images) ? liveEntry.images.slice() : [];
       if (liveEntry.video) pool.push(liveEntry.video);
       const img = pool.find((im) => im.id === imgId);
-      if (!img) return false;
+      if (!img) { showToast('Comment not saved — this image could not be matched to its update.', 'error'); return false; }
       img.comments = comments;
       const ok = await updateWatchlistItem(itemId, { trail: item.trail });
-      if (!ok) console.error('Failed to autosave comments for watchlist trail entry', entry.id);
+      if (!ok) { console.error('Failed to autosave comments for watchlist trail entry', entry.id); showToast('Comment not saved — the server refused the change. Check your connection.', 'error'); }
       return !!ok;
     },
     deepLinkFor: (imgId) => 'wl:' + itemId + ':' + entry.id + ':' + imgId,
@@ -17518,7 +17518,8 @@ function flushViewerCaption() {
   const noteTag = img && noteDeepLinkFn ? noteDeepLinkFn(img.id) : '';
   const notePlain = img ? mediaCaptionText(img) : '';
   const onCaptionSave = viewerOnCaptionSaveFn();
-  if (!img || !onCaptionSave) return;
+  if (!img) return;
+  if (!onCaptionSave) { showToast("Note not saved — this view can't save notes.", 'error'); return; }
   const stateEl = document.getElementById('viewerDropupSaveState');
   const isStillCurrent = () => viewerImages[viewerIndex] === img; // guards against updating the label after nav'ing away
   if (isStillCurrent() && stateEl) stateEl.textContent = 'Saving…';
