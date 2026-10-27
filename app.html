@@ -17473,6 +17473,18 @@ function onViewerCaptionBlur() {
 // Builds and sends the Telegram/push notification for a saved viewer note:
 // who, which pair/idea it belongs to, the note text itself, and a deep link
 // back to the exact image — the same shape comments already use.
+// Which `notifications.source_table` a note/comment alert is filed under.
+// The rows that reliably reach Telegram are all filed under the real parent
+// table (trades / journal_entries / watchlist_items) — while the two
+// media-only names ('media_notes', 'media_comments') were the only ones that
+// never showed up in the table at all. So file them under the parent the
+// image belongs to; the type ('note' / 'comment') still says what happened.
+function mediaNotifySourceTable(tag, fallback) {
+  const prefix = String(tag || '').split(':')[0];
+  const map = { trade: 'trades', wl: 'watchlist_items', journal: 'journal_entries', 'journal-sub': 'journal_entries', 'journal-sf': 'journal_entries' };
+  return map[prefix] || fallback;
+}
+
 async function notifyViewerNote(imgId, tag, plain) {
   try {
     const ctx = resolveMediaCommentContext(tag);
@@ -17485,7 +17497,7 @@ async function notifyViewerNote(imgId, tag, plain) {
     }
     notifyOtherAccount({
       type: 'note',
-      sourceTable: 'media_notes',
+      sourceTable: mediaNotifySourceTable(tag, 'media_notes'),
       sourceId: imgId,
       message: `${currentAccountName()} updated a note on an image/video${contextLine}${preview}`,
       deepLink,
@@ -17646,7 +17658,7 @@ async function addViewerComment() {
   const contextLine = ctx ? `\n${ctx.pair} (${(ctx.direction || '').toUpperCase()}) · POI: ${ctx.poiType || '—'} (${ctx.htf || '—'})` : '';
   notifyOtherAccount({
     type: 'comment',
-    sourceTable: 'media_comments',
+    sourceTable: mediaNotifySourceTable(tag, 'media_comments'),
     sourceId: imgId,
     message: `${currentAccountName()} commented: "${text.length > 80 ? text.slice(0, 80) + '…' : text}"${contextLine}`,
     deepLink,
