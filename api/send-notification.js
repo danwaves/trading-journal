@@ -48,8 +48,14 @@ module.exports = async function handler(req, res) {
   );
 
   // 1. Record the event (best-effort — a logging failure shouldn't block the push).
+  // supabase-js reports a rejected insert (bad column, CHECK constraint, RLS...)
+  // by RETURNING { error }, not by throwing, so the old try/catch alone never
+  // saw it. The Telegram relay is a webhook on this table's INSERTs, so a
+  // failed insert here means no Telegram message — it's now logged and passed
+  // back to the app instead of vanishing.
+  let recordError = null;
   try {
-    await supabase.from('notifications').insert({
+    const { error: insertError } = await supabase.from('notifications').insert({
       recipient_email: recipientEmail,
       sender_email: senderEmail,
       type,
@@ -58,7 +64,12 @@ module.exports = async function handler(req, res) {
       message,
       deep_link: deepLink || '',
     });
+    if (insertError) {
+      recordError = insertError.message || String(insertError.code || 'insert failed');
+      console.error('Failed to record notification row (continuing to send push):', insertError, { type, sourceTable });
+    }
   } catch (e) {
+    recordError = (e && e.message) || 'insert threw';
     console.error('Failed to record notification row (continuing to send push):', e);
   }
 
@@ -75,7 +86,7 @@ module.exports = async function handler(req, res) {
   }
   if (!subs || subs.length === 0) {
     // Not an error — the recipient just hasn't enabled notifications on any device yet.
-    res.status(200).json({ sent: 0, note: 'Recipient has no registered devices.' });
+    res.status(200).json({ sent: 0, note: 'Recipient has no registered devices.', recordError });
     return;
   }
 
@@ -110,5 +121,5 @@ module.exports = async function handler(req, res) {
     await supabase.from('push_subscriptions').delete().in('id', deadSubIds);
   }
 
-  res.status(200).json({ sent, removed: deadSubIds.length });
+  res.status(200).json({ sent, removed: deadSubIds.length, recordError });
 };
