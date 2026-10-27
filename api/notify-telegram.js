@@ -44,14 +44,30 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'message is required' });
   }
 
+  // Telegram rejects anything over 4096 characters; trim so a long comment or
+  // note can never make the whole message fail.
+  if (message.length > 4000) message = message.slice(0, 3990) + '…';
+
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const results = await Promise.all(chatIds.map((chatId) =>
     fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text: message }),
-    }).then((r) => r.json())
+    })
+      .then((r) => r.json())
+      // A network failure for one chat must not crash the whole handler.
+      .catch((e) => ({ ok: false, description: 'fetch failed: ' + ((e && e.message) || e) }))
   ));
+
+  // Telegram answers HTTP 200 + { ok: false } for bad chat ids, blocked bots,
+  // etc. That used to be returned as a success and never looked at. Log it, and
+  // return 502 so the failure shows up in Supabase's webhook response log.
+  const failed = results.filter((r) => !r || r.ok !== true);
+  if (failed.length) {
+    console.error('Telegram sendMessage failed:', JSON.stringify(failed));
+    return res.status(502).json({ ok: false, results });
+  }
 
   return res.status(200).json({ ok: true, results });
     }
