@@ -242,6 +242,8 @@
   .float-nav .float-nav-item.fn-i4 { --fn-y: -220px; --fn-n: 4; }
   .float-nav .float-nav-item.fn-i5 { --fn-y: -272px; --fn-n: 5; }
   .float-nav .float-nav-item.fn-i6 { --fn-y: -324px; --fn-n: 6; }
+  .float-nav .float-nav-item.fn-i7 { --fn-y: -376px; --fn-n: 7; }
+  .float-nav .float-nav-item.fn-i8 { --fn-y: -428px; --fn-n: 8; }
   .float-nav.open .float-nav-item { transform: translateY(var(--fn-y)) scale(1); transition-delay: calc(var(--fn-n) * 35ms); }
   .float-nav.open .float-nav-item:active { transform: translateY(var(--fn-y)) scale(0.96); transition-delay: 0s; }
   /* Unseen-activity dot on the button itself (Journal lives inside the menu
@@ -2288,8 +2290,6 @@
   <button class="app-tab is-hidden" id="tabTrades" onclick="showScreen('trades', this); renderTradeList();">Trades<span class="tab-unseen-dot" id="tabDot_trade"></span></button>
   <button class="app-tab is-hidden" onclick="openNewTradeTab();" id="tabEntry">New Trade</button>
   <button class="app-tab is-hidden" id="tabWatchlist" onclick="showScreen('watchlist', this); renderWatchlistList();">Watchlist<span class="tab-unseen-dot" id="tabDot_watchlist"></span></button>
-  <button class="app-tab is-hidden" onclick="showScreen('insights', this); inheritDashboardFiltersToInsights();">Insights</button>
-  <button class="app-tab is-hidden" onclick="showScreen('history', this); inheritDashboardFiltersToHistory(); restoreHistoryCardCollapseState(); refreshDashboardTradeSummary();">History</button>
   <div class="sync-indicator is-hidden" id="syncIndicator" title="Data sync status">
     <span class="sync-dot"></span><span class="sync-label" id="syncLabel">Synced</span>
   </div>
@@ -2319,9 +2319,11 @@
      (applyAuthGate toggles .is-hidden). See toggleFloatNav() below. -->
 <div id="floatNav" class="float-nav is-hidden">
   <div class="float-nav-backdrop" onclick="closeFloatNav()"></div>
-  <button type="button" class="float-nav-item fn-i6" data-screen="settings" onclick="openFloatNavScreen('settings')" aria-label="Settings"><i data-lucide="settings"></i><span>Settings</span></button>
-  <button type="button" class="float-nav-item fn-i5" data-screen="compare" onclick="openFloatNavScreen('compare')" aria-label="Compare"><i data-lucide="git-compare"></i><span>Compare</span></button>
-  <button type="button" class="float-nav-item fn-i4" data-screen="strategies" onclick="openFloatNavScreen('strategies')" aria-label="Strategies"><i data-lucide="layers"></i><span>Strategies</span></button>
+  <button type="button" class="float-nav-item fn-i8" data-screen="settings" onclick="openFloatNavScreen('settings')" aria-label="Settings"><i data-lucide="settings"></i><span>Settings</span></button>
+  <button type="button" class="float-nav-item fn-i7" data-screen="compare" onclick="openFloatNavScreen('compare')" aria-label="Compare"><i data-lucide="git-compare"></i><span>Compare</span></button>
+  <button type="button" class="float-nav-item fn-i6" data-screen="strategies" onclick="openFloatNavScreen('strategies')" aria-label="Strategies"><i data-lucide="layers"></i><span>Strategies</span></button>
+  <button type="button" class="float-nav-item fn-i5" data-screen="history" onclick="openFloatNavScreen('history')" aria-label="History"><i data-lucide="history"></i><span>History</span></button>
+  <button type="button" class="float-nav-item fn-i4" data-screen="insights" onclick="openFloatNavScreen('insights')" aria-label="Insights"><i data-lucide="trending-up"></i><span>Insights</span></button>
   <button type="button" class="float-nav-item fn-i3" data-screen="journal" onclick="openFloatNavScreen('journal')" aria-label="Journal"><i data-lucide="book-open"></i><span>Journal</span><span class="tab-unseen-dot" id="tabDot_journal"></span></button>
   <button type="button" class="float-nav-item fn-i2" data-screen="news" onclick="openFloatNavScreen('news')" aria-label="News"><i data-lucide="newspaper"></i><span>News</span></button>
   <button type="button" class="float-nav-item fn-i1" data-screen="pnlCalendar" onclick="openFloatNavScreen('pnlCalendar')" aria-label="P&amp;L Calendar"><i data-lucide="calendar-days"></i><span>P&amp;L Calendar</span></button>
@@ -3495,11 +3497,10 @@
           <textarea id="tradeNotesInput" class="mono" style="width:100%; min-height:70px; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding: var(--space-2); color:var(--light); font-size:12px; resize:vertical;" placeholder="Anything about this trade — what you saw, how you felt, what to remember next time…"></textarea>
         </div>
         <div class="field">
-          <label>Voice note <span class="muted" style="font-weight:400;">— press and hold to record</span></label>
+          <label>Voice note <span class="muted" style="font-weight:400;">— tap to record, tap again to stop</span></label>
           <button type="button" id="tradeVoiceBtn" class="voice-record-btn"
-            onmousedown="startVoiceRecording('trade')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()"
-            ontouchstart="event.preventDefault(); startVoiceRecording('trade');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">
-            <i data-lucide="mic"></i><span>Hold to record</span>
+            onclick="toggleVoiceRecording('trade')">
+            <i data-lucide="mic"></i><span>Tap to record</span>
           </button>
           <div id="tradeVoiceLive" class="mono" style="display:none; font-size:11px; color:var(--loss); margin-top:6px;"></div>
           <div id="tradeVoiceStatus" class="extract-status"></div>
@@ -3801,12 +3802,11 @@
           <span class="viewer-dropup-section-label"><i data-lucide="mic"></i>Voice notes</span>
         </div>
         <div class="viewer-dropup-voice-row">
-          <button type="button" id="viewerDropupVoiceBtn" class="viewer-dropup-mic-btn" title="Hold to record"
-            onmousedown="startVoiceRecording('viewer')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()"
-            ontouchstart="event.preventDefault(); startVoiceRecording('viewer');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">
+          <button type="button" id="viewerDropupVoiceBtn" class="viewer-dropup-mic-btn" title="Tap to record"
+            onclick="toggleVoiceRecording('viewer')">
             <i data-lucide="mic"></i>
           </button>
-          <span class="viewer-dropup-mic-hint">Hold to record</span>
+          <span class="viewer-dropup-mic-hint">Tap to record</span>
         </div>
         <div id="viewerDropupVoiceLive" class="mono" style="display:none;"></div>
         <div id="viewerDropupVoiceList"></div>
@@ -4241,11 +4241,10 @@
            first" pattern as Media below) until the entry has an id, since
            the recording is attached straight to the entry row on stop. -->
       <div class="field">
-        <div class="journal-field-label"><span class="icon"><i data-lucide="mic"></i></span>Voice note<span class="hint">— press and hold to record</span></div>
+        <div class="journal-field-label"><span class="icon"><i data-lucide="mic"></i></span>Voice note<span class="hint">— tap to record, tap again to stop</span></div>
         <button type="button" id="journalVoiceBtn" class="voice-record-btn"
-          onmousedown="startVoiceRecording('journal')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()"
-          ontouchstart="event.preventDefault(); startVoiceRecording('journal');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">
-          <i data-lucide="mic"></i><span>Hold to record</span>
+          onclick="toggleVoiceRecording('journal')">
+          <i data-lucide="mic"></i><span>Tap to record</span>
         </button>
         <div id="journalVoiceLive" class="mono" style="display:none; font-size:11px; color:var(--loss); margin-top:6px;"></div>
         <div id="journalVoiceStatus" class="extract-status"></div>
@@ -5169,6 +5168,14 @@ function openFloatNavScreen(id) {
     inheritDashboardFiltersToPnlCalendar();
     resetPnlCalendarViewToToday();
     renderPnlCalendarGrid();
+  } else if (id === 'insights') {
+    showScreen('insights', null);
+    inheritDashboardFiltersToInsights();
+  } else if (id === 'history') {
+    showScreen('history', null);
+    inheritDashboardFiltersToHistory();
+    restoreHistoryCardCollapseState();
+    refreshDashboardTradeSummary();
   } else if (id === 'settings') {
     showScreen('settings', null);
   }
@@ -7057,6 +7064,23 @@ function uploadFileToCloudinaryWithProgress(file, onProgress) {
 // iOS) the recording still records and saves fine, just with no transcript.
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition || null;
 
+// Mic buttons used to be press-and-hold: a stray tap started a recording at
+// once. They are now tap-to-start behind a confirmation pop-up, and tap again
+// to stop. (The pop-up is the whole point — nothing records until you say so.)
+let voiceRecordingConfirming = false;
+async function toggleVoiceRecording(kind, context) {
+  if (voiceRecordingState) { stopVoiceRecording(); return; } // already recording: this tap is "stop"
+  if (voiceRecordingConfirming) return;                      // pop-up already open
+  voiceRecordingConfirming = true;
+  try {
+    const ok = await confirmDialog('Start recording a voice note?', { confirmLabel: 'Start recording', cancelLabel: 'Cancel' });
+    if (!ok) return;
+    await startVoiceRecording(kind, context);
+  } finally {
+    voiceRecordingConfirming = false;
+  }
+}
+
 let voiceRecordingState = null; // null when idle, else { kind, mediaRecorder, chunks, stream, recognition, transcript, startedAt, timerInterval }
 
 function voiceRecordingSupported() {
@@ -7225,7 +7249,7 @@ function updateVoiceRecordingUI(kind, forceIdle, context) {
     if (live) {
       live.style.display = 'block';
       live.className = 'mono';
-      live.textContent = '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…');
+      live.textContent = '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening… tap the mic to stop');
     }
     return;
   }
@@ -7238,7 +7262,7 @@ function updateVoiceRecordingUI(kind, forceIdle, context) {
     }
     if (btnEl) btnEl.classList.add('recording');
     if (context && context.subfolderId) {
-      setSubfolderStatus(context.subfolderId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…'), '');
+      setSubfolderStatus(context.subfolderId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening… tap the mic to stop'), '');
     }
     return;
   }
@@ -7251,7 +7275,7 @@ function updateVoiceRecordingUI(kind, forceIdle, context) {
     }
     if (btnEl) btnEl.classList.add('recording');
     if (context && context.itemId) {
-      setWlTrailStatus(context.itemId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…'), '');
+      setWlTrailStatus(context.itemId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening… tap the mic to stop'), '');
     }
     return;
   }
@@ -7264,7 +7288,7 @@ function updateVoiceRecordingUI(kind, forceIdle, context) {
     }
     if (btnEl) btnEl.classList.add('recording');
     if (context && context.entryId) {
-      setWlTrailEditStatus(context.entryId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…'), '');
+      setWlTrailEditStatus(context.entryId, '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening… tap the mic to stop'), '');
     }
     return;
   }
@@ -7279,7 +7303,7 @@ function updateVoiceRecordingUI(kind, forceIdle, context) {
   if (btn) btn.classList.add('recording');
   if (live) {
     live.style.display = 'block';
-    live.textContent = '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening…');
+    live.textContent = '● ' + formatRecordingClock(Date.now() - state.startedAt) + (state.transcript ? ' — "' + state.transcript + '"' : ' — listening… tap the mic to stop');
   }
 }
 
@@ -10533,9 +10557,8 @@ function subfolderInsertRow(subfolderId, atIndex) {
     '<button title="Add text" onclick="addSubfolderTextBlock(\'' + subfolderId + '\', ' + atIndex + ')">Aa</button>' +
     '<button title="Add image or video" onclick="triggerSubfolderImagePick(\'' + subfolderId + '\', ' + atIndex + ')"><i data-lucide="image" style="width:14px;height:14px;"></i></button>' +
     '<button title="Add link" onclick="addSubfolderLinkBlock(\'' + subfolderId + '\', ' + atIndex + ')"><i data-lucide="link" style="width:14px;height:14px;"></i></button>' +
-    '<button title="Hold to record a voice note" class="subfolder-voice-btn" ' +
-      'onmousedown="startSubfolderVoiceRecording(event, \'' + subfolderId + '\', ' + atIndex + ')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()" ' +
-      'ontouchstart="event.preventDefault(); startSubfolderVoiceRecording(event, \'' + subfolderId + '\', ' + atIndex + ');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">' +
+    '<button title="Tap to record a voice note" class="subfolder-voice-btn" ' +
+      'onclick="startSubfolderVoiceRecording(event, \'' + subfolderId + '\', ' + atIndex + ')">' +
       '<i data-lucide="mic" style="width:14px;height:14px;"></i></button>' +
   '</div>';
 }
@@ -10722,7 +10745,7 @@ async function addSubfolderLinkBlock(subfolderId, atIndex) {
 // updateVoiceRecordingUI can pulse exactly the button that was pressed, even
 // though a subfolder can have many insert rows/mic buttons on screen at once.
 function startSubfolderVoiceRecording(event, subfolderId, atIndex) {
-  startVoiceRecording('subfolder', { subfolderId: subfolderId, atIndex: atIndex, btnEl: event.currentTarget });
+  toggleVoiceRecording('subfolder', { subfolderId: subfolderId, atIndex: atIndex, btnEl: event.currentTarget });
 }
 
 // Called once a voice note recorded from a subfolder's insert row has
@@ -15547,9 +15570,8 @@ function watchlistTrailComposerHtml(itemId) {
     '<div class="wl-update-composer-actions">' +
       '<div class="wl-update-composer-tools">' +
         '<div class="icon-btn" onclick="document.getElementById(\'wlTrailMediaInput_' + itemId + '\').click()" title="Attach image or video"><i data-lucide="paperclip"></i></div>' +
-        '<div class="icon-btn" title="Hold to record a voice note" ' +
-          'onmousedown="startWlTrailVoiceRecording(event, \'' + itemId + '\')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()" ' +
-          'ontouchstart="event.preventDefault(); startWlTrailVoiceRecording(event, \'' + itemId + '\');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">' +
+        '<div class="icon-btn" title="Tap to record a voice note" ' +
+          'onclick="startWlTrailVoiceRecording(event, \'' + itemId + '\')">' +
           '<i data-lucide="mic"></i></div>' +
       '</div>' +
       '<input type="file" id="wlTrailMediaInput_' + itemId + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleWlTrailMediaSelect(event, \'' + itemId + '\')" />' +
@@ -15671,7 +15693,7 @@ async function removeWlTrailDraftVideo(itemId) {
 // routed through the 'wltrail' kind so the pulse lands on this composer's
 // own mic button and the live timer writes to this item's own status line.
 function startWlTrailVoiceRecording(event, itemId) {
-  startVoiceRecording('wltrail', { itemId: itemId, btnEl: event.currentTarget });
+  toggleVoiceRecording('wltrail', { itemId: itemId, btnEl: event.currentTarget });
 }
 
 // Called once a trail voice note has finished uploading to Cloudinary — it
@@ -16012,9 +16034,8 @@ function watchlistTrailEditFormHtml(itemId, entry) {
     '<div class="wl-update-composer-actions">' +
       '<div class="wl-update-composer-tools">' +
         '<div class="icon-btn" onclick="document.getElementById(\'wlTrailEditMediaInput_' + entryId + '\').click()" title="Attach image or video"><i data-lucide="paperclip"></i></div>' +
-        '<div class="icon-btn" title="Hold to record a voice note" ' +
-          'onmousedown="startWlTrailEditVoiceRecording(event, \'' + entryId + '\')" onmouseup="stopVoiceRecording()" onmouseleave="stopVoiceRecording()" ' +
-          'ontouchstart="event.preventDefault(); startWlTrailEditVoiceRecording(event, \'' + entryId + '\');" ontouchend="stopVoiceRecording()" ontouchcancel="stopVoiceRecording()">' +
+        '<div class="icon-btn" title="Tap to record a voice note" ' +
+          'onclick="startWlTrailEditVoiceRecording(event, \'' + entryId + '\')">' +
           '<i data-lucide="mic"></i></div>' +
       '</div>' +
       '<input type="file" id="wlTrailEditMediaInput_' + entryId + '" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/quicktime,video/webm,video/x-m4v" multiple style="display:none;" onchange="handleWlTrailEditMediaSelect(event, \'' + entryId + '\')" />' +
@@ -16097,7 +16118,7 @@ async function removeWlTrailEditDraftVideo(entryId) {
 }
 
 function startWlTrailEditVoiceRecording(event, entryId) {
-  startVoiceRecording('wltrailedit', { entryId: entryId, btnEl: event.currentTarget });
+  toggleVoiceRecording('wltrailedit', { entryId: entryId, btnEl: event.currentTarget });
 }
 
 async function onWlTrailEditVoiceNoteRecorded(voiceNote, context) {
@@ -17505,7 +17526,7 @@ function flushViewerCaption() {
     });
 }
 
-// Fired when the "Hold to record" mic button in the viewer's Notes panel
+// Fired when the "Tap to record" mic button in the viewer's Notes panel
 // finishes uploading a voice note (see startVoiceRecording('viewer') /
 // stopVoiceRecording dispatch above). Same in-place-mutate-then-save pattern
 // as onViewerCaptionInput — pushes onto the current item's own voiceNotes
@@ -18828,7 +18849,15 @@ function toggleAuthMode(forceMode) {
 
 // Shows/hides the app-tab nav buttons based on auth state and jumps to the
 // right screen. Login tab (#tabLogin) always stays visible.
+// applyAuthGate() runs on every auth event — including silent token refreshes
+// and tab-refocus "sign-ins" — not just real logins. Tracking the previous
+// state lets it send you to the Dashboard only when you actually go from
+// logged-out to logged-in, instead of yanking you off whatever screen you
+// were saving something on.
+let authGateWasAuthenticated = false;
 function applyAuthGate() {
+  const justLoggedIn = isAuthenticated && !authGateWasAuthenticated;
+  authGateWasAuthenticated = isAuthenticated;
   document.querySelectorAll('.preview-tabs button.app-tab').forEach((b) => {
     b.classList.toggle('is-hidden', !isAuthenticated);
   });
@@ -18854,9 +18883,14 @@ function applyAuthGate() {
     if (emailEl) emailEl.textContent = email;
         renderSettingsTeamList(); // Accountability roadmap Phase E
         renderDailyLossLimitSettingsInput(); // Loss Limit & Quotes Roadmap, Phase 1a
-    const dashboardBtn = document.querySelector('.preview-tabs button.app-tab');
-    if (dashboardBtn) { showScreen('dashboard', dashboardBtn); refreshDashboardTradeSummary(); }
-    handleMediaDeepLink(); // Media Comments & Notify Roadmap, Phase 4 — jumps straight to a commented-on media item if ?media=... is in the URL
+    // Only land on the Dashboard for a real login (or if somehow no screen is
+    // showing / the login screen is still up). A background session refresh
+    // while you're on Watchlist, Journal, etc. leaves you right where you are.
+    if (justLoggedIn || !currentScreenId || currentScreenId === 'login') {
+      const dashboardBtn = document.querySelector('.preview-tabs button.app-tab');
+      if (dashboardBtn) { showScreen('dashboard', dashboardBtn); refreshDashboardTradeSummary(); }
+      handleMediaDeepLink(); // Media Comments & Notify Roadmap, Phase 4 — jumps straight to a commented-on media item if ?media=... is in the URL
+    }
   } else {
     showScreen('login', document.getElementById('tabLogin'));
   }
