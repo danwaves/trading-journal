@@ -746,6 +746,8 @@
   .comment-bubble { padding: 8px 11px; border-radius: 14px; font-size: 13px; line-height: 1.4; word-break: break-word; position: relative; }
   .comment-bubble-row.mine .comment-bubble { background: rgba(238,130,179,0.16); border: 1px solid var(--brand); color: #F4E4EC; border-bottom-right-radius: 4px; }
   .comment-bubble-row.theirs .comment-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--light, #E7E9F3); border-bottom-left-radius: 4px; }
+  .comment-bubble-status { margin-top: 2px; font-size: 10px; color: var(--muted, #8B90A3); }
+  .comment-bubble-status.seen { color: var(--brand); }
   .comment-bubble-delete { cursor: pointer; opacity: 0.55; }
   .comment-bubble-delete:hover { opacity: 1; }
   .viewer-comment-composer { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
@@ -4327,12 +4329,92 @@
      innerHTML update that introduces new data-lucide elements. -->
 <script src="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.js" defer></script>
 <script>
+  // ---- Weak-connection resilience ----
+  // On patchy mobile data a single dropped request used to mean a failed save.
+  // resilientFetch() wraps fetch(): a request that fails at the network level,
+  // times out, or gets a "try again" server answer (408/429/502/503/504) is
+  // retried automatically — up to 3 more times with growing pauses — and if
+  // the phone reports it's offline it waits (up to 8s) for the signal to come
+  // back first. Used for every Supabase call (below), alert sending, and the
+  // image/video/audio uploads. Only retries bodies it can safely resend.
+  // The app's writes are upserts/updates/deletes, so a retry of one that had
+  // actually landed is harmless.
+  const NET_RETRY_DELAYS_MS = [800, 2000, 4500];
+  let netRetryNoticeAt = 0;
+  let netNoticeShown = false;
+  function netSleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+  function netNotice(message) {
+    try { if (typeof showToast === 'function') showToast(message, 'info'); } catch (e) { /* toast not ready yet */ }
+  }
+  // At most one "retrying…" notice per 15 seconds, however many calls retry.
+  function netNoticeThrottled(message) {
+    const now = Date.now();
+    if (now - netRetryNoticeAt < 15000) return;
+    netRetryNoticeAt = now;
+    netNoticeShown = true;
+    netNotice(message);
+  }
+  async function netWaitForOnline(maxMs) {
+    if (typeof navigator === 'undefined' || navigator.onLine !== false) return;
+    await new Promise((resolve) => {
+      let t = null;
+      const done = () => { window.removeEventListener('online', done); if (t) clearTimeout(t); resolve(); };
+      t = setTimeout(done, maxMs);
+      window.addEventListener('online', done);
+    });
+  }
+  async function resilientFetch(input, init, opts) {
+    opts = opts || {};
+    const retries = opts.retries != null ? opts.retries : NET_RETRY_DELAYS_MS.length;
+    const timeoutMs = opts.timeoutMs != null ? opts.timeoutMs : 25000; // 0 = no per-attempt timeout (big uploads)
+    const body = init && init.body;
+    const replayable = body == null || typeof body === 'string' ||
+      (typeof FormData !== 'undefined' && body instanceof FormData) ||
+      (typeof URLSearchParams !== 'undefined' && body instanceof URLSearchParams) ||
+      (typeof Blob !== 'undefined' && body instanceof Blob) ||
+      (typeof ArrayBuffer !== 'undefined' && body instanceof ArrayBuffer);
+    if (!replayable) return fetch(input, init); // a stream can't be sent twice
+    const isRequest = typeof Request !== 'undefined' && input instanceof Request;
+    const callerSignal = (init && init.signal) || (isRequest ? input.signal : null);
+    let retried = false;
+    for (let attempt = 0; ; attempt++) {
+      await netWaitForOnline(8000);
+      const ctrl = new AbortController();
+      const onCallerAbort = () => ctrl.abort();
+      if (callerSignal) {
+        if (callerSignal.aborted) ctrl.abort();
+        else callerSignal.addEventListener('abort', onCallerAbort, { once: true });
+      }
+      const timer = timeoutMs > 0 ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+      let res = null;
+      let err = null;
+      try {
+        res = await fetch(isRequest ? input.clone() : input, Object.assign({}, init, { signal: ctrl.signal }));
+      } catch (e) {
+        err = e;
+      } finally {
+        if (timer) clearTimeout(timer);
+        if (callerSignal) callerSignal.removeEventListener('abort', onCallerAbort);
+      }
+      if (err && callerSignal && callerSignal.aborted) throw err; // the caller cancelled on purpose — never retry that
+      const retryable = !!err || [408, 429, 502, 503, 504].includes(res.status);
+      if (!retryable || attempt >= retries) {
+        if (retried && netNoticeShown && res && res.ok) { netNoticeShown = false; netNotice('Back online.'); }
+        if (err) throw err;
+        return res;
+      }
+      retried = true;
+      netNoticeThrottled('Weak connection — retrying…');
+      await netSleep(NET_RETRY_DELAYS_MS[Math.min(attempt, NET_RETRY_DELAYS_MS.length - 1)]);
+    }
+  }
+
   // ---- Supabase project connection ----
   // Project: danwaves-analytics. The anon key below is meant to be public/client-side —
   // real data protection comes from the Row Level Security policies on each table.
   const SUPABASE_URL = 'https://tqemathmlzevedbzqrdr.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRxZW1hdGhtbHpldmVkYnpxcmRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU2NzQ0NDksImV4cCI6MjEwMTI1MDQ0OX0._L2m3BH_GXdTdcrURhiP1cKQABj0fFdt8CEqryUgmPo';
-  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { global: { fetch: resilientFetch } });
 </script>
 
 <script>
@@ -4930,6 +5012,9 @@ const NOTIFY_API_SECRET_CLIENT = 'dw-notify-8x2k9';
 // own host. Opened from the phone's Downloads (content://) or as a local
 // file, it points nowhere and every Telegram notification silently fails —
 // so fall back to the live site's address in that case.
+// Alerts retry less than saves do: if a request actually reached the server
+// before the connection dropped, a resend would send a duplicate message.
+const notifyFetch = (url, init) => resilientFetch(url, init, { retries: 2, timeoutMs: 20000 });
 const NOTIFY_API_BASE = (location.protocol === 'http:' || location.protocol === 'https:') ? '' : 'https://danfxt.vercel.app';
 
 // { type, sourceTable, sourceId, message, deepLink }
@@ -4937,7 +5022,7 @@ async function notifyOtherAccount({ type, sourceTable, sourceId, message, deepLi
   try {
     const recipientEmail = otherAccountEmail();
     if (!recipientEmail || !currentAccount) return; // nothing to notify, or not logged in
-    const res = await fetch(NOTIFY_API_BASE + '/api/send-notification', {
+    const res = await notifyFetch(NOTIFY_API_BASE + '/api/send-notification', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-notify-secret': NOTIFY_API_SECRET_CLIENT },
       body: JSON.stringify({
@@ -6986,11 +7071,14 @@ function cloudinaryDeliveryUrl(secureUrl) {
 // delivery instead, which is what actually fixed the "blurry" complaint.
 // Roadmap Step 2: also returns resourceType ('image'|'video') straight from
 // Cloudinary's response, so callers don't need to re-derive it from the file.
+// Uploads can be big and slow on mobile data, so no per-attempt timeout —
+// just retry when the connection actually drops.
+const uploadFetch = (url, init) => resilientFetch(url, init, { retries: 3, timeoutMs: 0 });
 async function uploadFileToCloudinary(file) {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
+  const res = await uploadFetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
   const data = await res.json();
   if (!res.ok) throw new Error((data && data.error && data.error.message) || 'Cloudinary upload failed');
   return {
@@ -7009,7 +7097,7 @@ async function uploadRemoteUrlToCloudinary(url) {
   const formData = new FormData();
   formData.append('file', url);
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  const res = await fetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
+  const res = await uploadFetch(CLOUDINARY_UPLOAD_URL, { method: 'POST', body: formData });
   const data = await res.json();
   if (!res.ok) throw new Error((data && data.error && data.error.message) || 'Cloudinary could not fetch that link');
   return {
@@ -7025,7 +7113,23 @@ async function uploadRemoteUrlToCloudinary(url) {
 // video is exactly the case where a bare "Uploading…" label isn't enough
 // feedback on a slow mobile connection (Roadmap Phase 4). onProgress is
 // called with a 0-1 fraction as bytes go out; omit it for a plain upload.
-function uploadFileToCloudinaryWithProgress(file, onProgress) {
+async function uploadFileToCloudinaryWithProgress(file, onProgress) {
+  // Retries the whole upload (progress restarts from 0) on a dropped
+  // connection or a server-side error; anything else fails straight away.
+  const delays = [1500, 3500, 7000];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await uploadFileToCloudinaryOnce(file, onProgress);
+    } catch (err) {
+      const transient = /network error|server error|failed to fetch|load failed/i.test(String((err && err.message) || ''));
+      if (!transient || attempt >= delays.length) throw err;
+      if (onProgress) onProgress(0);
+      netNoticeThrottled('Weak connection — retrying the upload…');
+      await netSleep(delays[attempt]);
+    }
+  }
+}
+function uploadFileToCloudinaryOnce(file, onProgress) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
@@ -7044,6 +7148,8 @@ function uploadFileToCloudinaryWithProgress(file, onProgress) {
           sizeKB: Math.round(data.bytes / 1024),
           resourceType: data.resource_type === 'video' ? 'video' : 'image',
         });
+      } else if (xhr.status >= 500) {
+        reject(new Error('Upload server error (' + xhr.status + ')'));
       } else {
         reject(new Error((data && data.error && data.error.message) || 'Cloudinary upload failed'));
       }
@@ -14262,10 +14368,25 @@ function rowToWatchlistItem(r) {
   };
 }
 
+// Plain-words version of the last database refusal for the watchlist, so the
+// red "not saved" messages can say WHY (e.g. a permissions rule) instead of
+// just "server refused".
+let lastWatchlistSaveErrorText = '';
+function describeDbError(error) {
+  if (!error) return '';
+  const code = error.code ? '[' + error.code + '] ' : '';
+  return (code + (error.message || error.details || error.hint || 'unknown error')).slice(0, 160);
+}
 async function persistWatchlistItem(item) {
   setSyncState('saving');
   const { error } = await supabaseClient.from('watchlist_items').upsert(watchlistItemToRow(item));
-  if (error) { console.error('Failed to save watchlist item ' + item.id + ':', error); setSyncState('error'); return false; }
+  if (error) {
+    console.error('Failed to save watchlist item ' + item.id + ':', error);
+    lastWatchlistSaveErrorText = describeDbError(error);
+    setSyncState('error');
+    return false;
+  }
+  lastWatchlistSaveErrorText = '';
   setSyncState('synced');
   return true;
 }
@@ -15380,7 +15501,7 @@ function buildWlTrailViewerGroup(itemId, entry) {
       img.caption = caption;
       if (voiceNotes) img.voiceNotes = voiceNotes;
       const ok = await updateWatchlistItem(itemId, { trail: item.trail });
-      if (!ok) { console.error('Failed to autosave caption for watchlist trail entry', entry.id); showToast('Note not saved — the server refused the change. Check your connection.', 'error'); }
+      if (!ok) { console.error('Failed to autosave caption for watchlist trail entry', entry.id); showToast('Note not saved — the server refused the change' + (lastWatchlistSaveErrorText ? ': ' + lastWatchlistSaveErrorText : '. Check your connection.'), 'error'); }
       return !!ok;
     },
     onCommentsSave: async (imgIndex, comments, imgId) => {
@@ -15393,7 +15514,7 @@ function buildWlTrailViewerGroup(itemId, entry) {
       if (!img) { showToast('Comment not saved — this image could not be matched to its update.', 'error'); return false; }
       img.comments = comments;
       const ok = await updateWatchlistItem(itemId, { trail: item.trail });
-      if (!ok) { console.error('Failed to autosave comments for watchlist trail entry', entry.id); showToast('Comment not saved — the server refused the change. Check your connection.', 'error'); }
+      if (!ok) { console.error('Failed to autosave comments for watchlist trail entry', entry.id); showToast('Comment not saved — the server refused the change' + (lastWatchlistSaveErrorText ? ': ' + lastWatchlistSaveErrorText : '. Check your connection.'), 'error'); }
       return !!ok;
     },
     deepLinkFor: (imgId) => 'wl:' + itemId + ':' + entry.id + ':' + imgId,
@@ -17408,6 +17529,7 @@ function renderViewerMediaCommon() {
   document.getElementById('viewerDropupSaveState').textContent = ''; // Roadmap Step 6: clear any stale "Saved"/"Saving…" left over from the previous item
   renderViewerVoiceNotes(); // per-item voice notes list, same "keyed off the item" pattern as the caption above
   renderViewerComments(); // per-item comment thread, same pattern (Media Comments & Notify Roadmap, Phase 2)
+  markViewerCommentsSeen();
   const dropupEditor = document.getElementById('viewerDropupEditor');
   if (dropupEditor) dropupEditor.contentEditable = 'false'; // back to read-only until Edit is tapped again for this item
   const dropupBody = document.getElementById('viewerDropupBody');
@@ -17490,6 +17612,7 @@ function toggleViewerDropup() {
   if (!viewerDropupOpen) flushViewerCaption(); // Roadmap Step 6: closing the tab blurs the textarea in most browsers, but don't rely on it
   saveViewerDropupOpen(); // Roadmap Phase 10: remember this choice for next time
   updateViewerDropupUI();
+  if (viewerDropupOpen) markViewerCommentsSeen();
 }
 function updateViewerDropupUI() {
   document.getElementById('viewerDropup').classList.toggle('open', viewerDropupOpen);
@@ -17653,13 +17776,52 @@ function commentBubbleHtml(c) {
   const info = AUTHOR_BADGES[c.createdBy];
   const name = info ? info.name : 'Someone';
   const ts = c.createdAt ? new Date(c.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+  // Delivery status under my own comments: "✓ Sent" until the other account
+  // has opened the image with the comments showing, then "✓✓ Seen <time>".
+  let statusHtml = '';
+  if (mine) {
+    const seenTimes = Object.keys(c.seenBy || {}).filter((em) => em !== c.createdBy).map((em) => c.seenBy[em]).filter(Boolean);
+    if (seenTimes.length) {
+      const seenAt = new Date(Math.max.apply(null, seenTimes));
+      const sameDay = seenAt.toDateString() === new Date().toDateString();
+      const seenLabel = seenAt.toLocaleString('en-US', sameDay ? { hour: 'numeric', minute: '2-digit' } : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      statusHtml = '<div class="comment-bubble-status seen">✓✓ Seen ' + escapeHtml(seenLabel) + '</div>';
+    } else {
+      statusHtml = '<div class="comment-bubble-status">✓ Sent</div>';
+    }
+  }
   return '<div class="comment-bubble-row ' + (mine ? 'mine' : 'theirs') + '">' +
     '<div class="comment-bubble-meta">' +
       '<span>' + escapeHtml(name) + '</span><span>·</span><span>' + escapeHtml(ts) + '</span>' +
       (mine ? '<span class="comment-bubble-delete" onclick="deleteViewerComment(\'' + c.id + '\')" title="Delete"><i data-lucide="trash-2" style="width:11px;height:11px;"></i></span>' : '') +
     '</div>' +
     '<div class="comment-bubble">' + escapeHtml(c.text) + '</div>' +
+    statusHtml +
   '</div>';
+}
+
+// Stamps the OTHER account's comments on the image now showing as seen by me
+// (c.seenBy[myEmail] = time) and saves that quietly — no alert — so the
+// sender's bubble flips from "✓ Sent" to "✓✓ Seen". Only counts when the
+// comments panel is actually open, and only writes when something is new.
+// The sender sees the change the next time they open that image.
+function markViewerCommentsSeen() {
+  if (!viewerDropupOpen || !currentAccount) return;
+  const img = viewerImages[viewerIndex];
+  if (!img) return;
+  const me = currentAccount.email;
+  let changed = false;
+  mediaComments(img).forEach((c) => {
+    if (!c.createdBy || c.createdBy === me) return;
+    if (c.seenBy && c.seenBy[me]) return;
+    if (!c.seenBy) c.seenBy = {};
+    c.seenBy[me] = Date.now();
+    changed = true;
+  });
+  if (!changed) return;
+  const save = viewerOnCommentsSaveFn();
+  if (!save) return;
+  Promise.resolve(save(viewerIndex, img.comments, img.id)).catch((e) => console.error('Could not save seen marks (non-fatal):', e));
 }
 function renderViewerComments() {
   const container = document.getElementById('viewerDropupCommentsList');
