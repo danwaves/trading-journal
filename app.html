@@ -3787,12 +3787,12 @@
         </div>
         <div id="viewerDropupToolbar" class="viewer-rt-toolbar"></div>
         <div id="viewerDropupEditor" class="rt-editor" contenteditable="false" inputmode="text"
-          data-placeholder="No note yet — tap to write one…"
+          data-placeholder="Tap to write — Send posts it to the comments…"
           onclick="viewerEditorTap()"
           oninput="onViewerCaptionInput()" onblur="onViewerCaptionBlur()" onpaste="rtHandlePaste(event)"></div>
         <div class="viewer-dropup-actions">
           <button type="button" class="viewer-dropup-cancel-btn" onmousedown="event.preventDefault();" onclick="viewerCancelNoteEdit()">Cancel</button>
-          <button type="button" class="viewer-dropup-save-btn" onmousedown="event.preventDefault();" onclick="viewerSaveCaptionClick()">Save</button>
+          <button type="button" class="viewer-dropup-save-btn" onmousedown="event.preventDefault();" onclick="viewerSaveCaptionClick()">Send</button>
         </div>
       </div>
 
@@ -16694,6 +16694,25 @@ function openViewerFromGrid(i) {
       if (!ok) console.error('Failed to autosave caption for trade', entry.trade.id);
       return ok;
     },
+    // This gallery viewer used to have NO comment handler and no deep link:
+    // a comment typed here showed up on screen but was never saved or sent
+    // anywhere, so it vanished ("No comments yet") the next time the image was
+    // opened and the other account never heard about it. Same direct-write
+    // pattern as onCaptionSave above, matched by image id.
+    onCommentsSave: async (imgIndex, comments, imgId) => {
+      const entry = entries.find((e) => e.img && e.img.id === imgId) || entries[imgIndex];
+      if (!entry || !entry.trade) return false;
+      const img = (entry.trade.images || []).find((im) => im.id === imgId) || entry.img;
+      if (!img) return false;
+      img.comments = comments;
+      const ok = await persistTrade(entry.trade);
+      if (!ok) console.error('Failed to autosave comments for trade', entry.trade.id);
+      return ok;
+    },
+    deepLinkFor: (imgId) => {
+      const entry = entries.find((e) => e.img && e.img.id === imgId);
+      return entry && entry.trade ? 'trade:' + entry.trade.id + ':' + imgId : '';
+    },
   });
 }
 
@@ -17178,9 +17197,48 @@ function viewerCancelNoteEdit() {
 
 // Explicit Save button: flushes the caption immediately (rather than
 // waiting for blur), then leaves edit mode.
-function viewerSaveCaptionClick() {
-  flushViewerCaption();
+async function viewerSaveCaptionClick() {
+  const editor = document.getElementById('viewerDropupEditor');
+  const img = viewerImages[viewerIndex];
+  const plain = editor ? rtToText(rtSanitize(editor.innerHTML)).trim() : '';
+  // Nothing typed (or a view that can't hold comments): old behaviour — just
+  // save the note as it stands (an emptied box clears the note).
+  if (!img || !plain || !viewerOnCommentsSaveFn()) {
+    flushViewerCaption();
+    viewerExitNoteEdit();
+    return;
+  }
+  // Otherwise the note is SENT as a chat comment (the other account sees it
+  // in the thread and gets the alert) and the Note box empties — it is not
+  // kept in both places. Formatting (bold/colors) is dropped: comments are
+  // plain text.
+  const originalCaption = viewerNoteEditOriginal || '';
+  const idx = viewerIndex;
+  const imgId = img.id;
+  viewerCaptionDirty = false;
+  img.caption = '';
+  if (editor) editor.innerHTML = '';
   viewerExitNoteEdit();
+  await postViewerCommentText(plain, {
+    fromNote: true,
+    // If the comment can't be stored, give the text back to the Note box
+    // instead of losing it, and take the failed bubble out of the thread.
+    onFail: (failed) => {
+      const cur = viewerImages[viewerIndex];
+      if (!cur || cur.id !== imgId) return;
+      cur.comments = mediaComments(cur).filter((c) => c.id !== failed.id);
+      cur.caption = originalCaption || rtSanitize(escapeHtml(plain));
+      if (editor) editor.innerHTML = rtDisplayHtml(cur.caption);
+      renderViewerComments();
+      updateViewerNoteButtonsState();
+    },
+    // Comment is stored — now persist the emptied note (no separate "note
+    // updated" alert: the comment alert already carries the text).
+    afterSave: async () => {
+      const onCaptionSave = viewerOnCaptionSaveFn();
+      if (onCaptionSave) await onCaptionSave(idx, '', imgId);
+    },
+  });
 }
 
 // Clears just the written note (voice notes have their own per-row delete
@@ -17628,18 +17686,40 @@ async function addViewerComment() {
   if (!input || !img) return;
   const text = input.value.trim();
   if (!text) return;
+  await postViewerCommentText(text);
+}
+// Posts `text` as a chat comment on the image currently showing. Used by the
+// comment box's Send arrow and by the Note box's Save button (a saved note is
+// now sent to the chat as a comment).
+//   opts.fromNote  — keep whatever is half-typed in the comment box
+//   opts.onFail    — called (with the comment) if the save is rejected
+//   opts.afterSave — awaited once the comment is stored, before the alert goes out
+async function postViewerCommentText(text, opts) {
+  opts = opts || {};
+  const img = viewerImages[viewerIndex];
+  if (!img || !text) return;
   if (!Array.isArray(img.comments)) img.comments = [];
-  img.comments.push(buildMediaComment(text));
+  const newComment = buildMediaComment(text);
+  img.comments.push(newComment);
   const idx = viewerIndex;
   const imgId = img.id;
+  const commentInput = document.getElementById('viewerCommentInput');
+  const keepTyped = opts.fromNote && commentInput ? commentInput.value : null;
   renderViewerComments();
+  if (keepTyped !== null) { commentInput.value = keepTyped; updateViewerCommentSendBtn(); }
   const onCommentsSave = viewerOnCommentsSaveFn();
-  if (!onCommentsSave) return;
+  if (!onCommentsSave) {
+    showToast("Comment not saved — this view can't save comments.", 'error');
+    if (opts.onFail) opts.onFail(newComment);
+    return;
+  }
   const ok = await onCommentsSave(idx, img.comments, imgId);
   if (ok === false) {
     showToast('Failed to send — check your connection and try again.');
+    if (opts.onFail) opts.onFail(newComment);
     return;
   }
+  if (opts.afterSave) await opts.afterSave(idx, imgId);
   // Media Comments & Notify Roadmap, Phase 3: reuses the same
   // notifyOtherAccount()/Part A relay flushViewerCaption() already uses for
   // note edits — notifyOtherAccount() always targets otherAccountEmail(),
@@ -17661,7 +17741,7 @@ async function addViewerComment() {
     type: 'comment',
     sourceTable: mediaNotifySourceTable(tag, 'media_comments'),
     sourceId: imgId,
-    message: `${currentAccountName()} commented: "${text.length > 80 ? text.slice(0, 80) + '…' : text}"${contextLine}`,
+    message: `${currentAccountName()} commented: "${text.length > 200 ? text.slice(0, 200) + '…' : text}"${contextLine}`,
     deepLink,
   });
 }
