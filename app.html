@@ -746,6 +746,10 @@
   .comment-bubble { padding: 8px 11px; border-radius: 14px; font-size: 13px; line-height: 1.4; word-break: break-word; position: relative; }
   .comment-bubble-row.mine .comment-bubble { background: rgba(238,130,179,0.16); border: 1px solid var(--brand); color: #F4E4EC; border-bottom-right-radius: 4px; }
   .comment-bubble-row.theirs .comment-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--light, #E7E9F3); border-bottom-left-radius: 4px; }
+  .wl-update-chip.ok { background: rgba(46,204,154,0.14); color: var(--profit, #2ECC9A); }
+  .wl-update-chip.due { background: rgba(245,184,61,0.16); color: #F5B83D; }
+  .wl-update-chip.missed { background: rgba(255,92,92,0.16); color: var(--loss, #FF5C5C); }
+  .wl-update-chip.rest { background: var(--surface2); color: var(--muted); }
   .comment-edit-box { align-self: stretch; display: flex; flex-direction: column; gap: 6px; }
   .comment-edit-input {
     width: 100%; min-height: 64px; resize: vertical; box-sizing: border-box;
@@ -15192,6 +15196,7 @@ function watchlistCardRowHtml(it, opts) {
             (it.ltf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.ltf) + '</span>' : '') +
             (it.createdAt ? '<span class="badge mono" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(watchlistCardDateLabel(it.createdAt)) + '</span>' : '') +
             (it.createdAt ? '<span class="badge mono" style="background:var(--surface2); color:var(--muted);">⏱ ' + escapeHtml(daysOnWatchlistLabel(it)) + '</span>' : '') +
+            watchlistUpdateChipHtml(it) +
             nearbyNewsBadgeHtml(it.createdAt) +
             (it.linkedTradeId ? '<span class="wl-view-trade-link" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(it.linkedTradeId) + '\')">View trade →</span>' : '') +
           '</div>' +
@@ -15335,6 +15340,51 @@ function daysOnWatchlistLabel(it) {
   const days = Math.floor(Math.max(0, endTs - it.createdAt) / 86400000);
   if (days <= 0) return 'Day 0';
   return 'Day ' + days;
+}
+
+// ---- Accountability: "last updated" on every open watchlist idea ----
+// What counts as an update: a follow-up the idea's OWNER posted to its trail
+// (the other account's follow-ups don't count for the owner), or the post
+// itself if there are none yet. Editing the fields doesn't count.
+// The daily rule: on a weekday an open idea should have an update from that
+// day. Saturday/Sunday (market closed) never count as missed. A "missed" day
+// is a completed Mon–Fri with no update, so Friday → Monday is not a miss,
+// but Monday with nothing by Tuesday is. Uses the phone's local clock.
+// Returns null for closed ideas (won/lost/invalidated/missed — nothing to
+// keep updating). `nowTs` is only a parameter so this can be tested.
+function watchlistLastUpdateInfo(it, nowTs) {
+  if (!it || !it.createdAt || !isWatchlistItemOpen(it)) return null;
+  const now = nowTs || Date.now();
+  let ts = it.createdAt;
+  (Array.isArray(it.trail) ? it.trail : []).forEach((e) => {
+    if (!e || !e.timestamp) return;
+    if (it.createdBy && e.createdBy && e.createdBy !== it.createdBy) return;
+    if (e.timestamp > ts) ts = e.timestamp;
+  });
+  const dayStart = (t) => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const isWeekday = (t) => { const g = new Date(t).getDay(); return g !== 0 && g !== 6; };
+  const todayStart = dayStart(now);
+  const lastStart = dayStart(ts);
+  let missed = 0;
+  const d = new Date(lastStart);
+  for (let guard = 0; guard < 400; guard++) {
+    d.setDate(d.getDate() + 1);
+    if (d.getTime() >= todayStart) break;
+    if (isWeekday(d.getTime())) missed++;
+  }
+  const timeStr = new Date(ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const dayDiff = Math.round((todayStart - lastStart) / 86400000);
+  const when = dayDiff <= 0 ? 'today ' + timeStr
+    : dayDiff === 1 ? 'yesterday ' + timeStr
+    : new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ', ' + timeStr;
+  if (dayDiff <= 0) return { state: 'ok', label: 'Updated ' + when, missed: 0 };
+  if (missed > 0) return { state: 'missed', label: 'Missed ' + missed + (missed === 1 ? ' day' : ' days') + ' · updated ' + when, missed };
+  if (!isWeekday(now)) return { state: 'rest', label: 'Updated ' + when, missed: 0 };
+  return { state: 'due', label: 'Due today · updated ' + when, missed: 0 };
+}
+function watchlistUpdateChipHtml(it) {
+  const u = watchlistLastUpdateInfo(it);
+  return u ? '<span class="badge mono wl-update-chip ' + u.state + '">' + escapeHtml(u.label) + '</span>' : '';
 }
 
 // Watchlist Card Timestamp Roadmap: same date/time as watchlistTrailDateLabel()
