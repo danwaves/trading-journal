@@ -746,9 +746,32 @@
   .comment-bubble { padding: 8px 11px; border-radius: 14px; font-size: 13px; line-height: 1.4; word-break: break-word; position: relative; }
   .comment-bubble-row.mine .comment-bubble { background: rgba(238,130,179,0.16); border: 1px solid var(--brand); color: #F4E4EC; border-bottom-right-radius: 4px; }
   .comment-bubble-row.theirs .comment-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--light, #E7E9F3); border-bottom-left-radius: 4px; }
+  .comment-edit-box { align-self: stretch; display: flex; flex-direction: column; gap: 6px; }
+  .comment-edit-input {
+    width: 100%; min-height: 64px; resize: vertical; box-sizing: border-box;
+    background: var(--surface); color: var(--light); border: 1px solid var(--brand);
+    border-radius: 12px; padding: 10px 12px; font: inherit; font-size: 14px;
+  }
+  .comment-edit-actions { display: flex; justify-content: flex-end; gap: 8px; }
+  .comment-edit-actions button {
+    padding: 6px 14px; border-radius: 999px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--border); background: transparent; color: var(--light);
+  }
+  .comment-edit-actions .comment-edit-save { background: var(--brand); border-color: var(--brand); color: #fff; }
   .comment-bubble-status { margin-top: 2px; font-size: 10px; color: var(--muted, #8B90A3); }
   .comment-bubble-status.seen { color: var(--brand); }
   .comment-bubble-delete { cursor: pointer; opacity: 0.55; }
+  /* Edit / delete icons on my own comments: each is a real thumb-sized tap
+     target (32x28, drawn around the small icon with negative vertical
+     margins so the line doesn't grow), set well apart from each other, and
+     the bin is tinted red so the two are easy to tell apart. */
+  .comment-action {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 28px; margin: -9px 0; border-radius: 8px;
+    cursor: pointer; opacity: 0.7; -webkit-tap-highlight-color: transparent;
+  }
+  .comment-action:hover, .comment-action:active { opacity: 1; background: rgba(255,255,255,0.07); }
+  .comment-action.danger { margin-right: 12px; color: #F08A8A; }
   .comment-bubble-delete:hover { opacity: 1; }
   .viewer-comment-composer { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
   #viewerCommentInput {
@@ -17528,6 +17551,7 @@ function renderViewerMediaCommon() {
   document.getElementById('viewerDropupEditor').innerHTML = rtDisplayHtml(mediaCaption(img));
   document.getElementById('viewerDropupSaveState').textContent = ''; // Roadmap Step 6: clear any stale "Saved"/"Saving…" left over from the previous item
   renderViewerVoiceNotes(); // per-item voice notes list, same "keyed off the item" pattern as the caption above
+  viewerEditingCommentId = null; // an open comment editor never follows you to another image
   renderViewerComments(); // per-item comment thread, same pattern (Media Comments & Notify Roadmap, Phase 2)
   markViewerCommentsSeen();
   const dropupEditor = document.getElementById('viewerDropupEditor');
@@ -17790,14 +17814,93 @@ function commentBubbleHtml(c) {
       statusHtml = '<div class="comment-bubble-status">✓ Sent</div>';
     }
   }
+  // Only the person who wrote a comment gets the pencil (and the bin). While
+  // one is being edited its bubble turns into a small editor.
+  const editing = mine && c.id === viewerEditingCommentId;
+  const bubbleHtml = editing
+    ? '<div class="comment-edit-box">' +
+        '<textarea id="viewerCommentEditInput" class="comment-edit-input" rows="3">' + escapeHtml(c.text) + '</textarea>' +
+        '<div class="comment-edit-actions">' +
+          '<button type="button" class="comment-edit-cancel" onclick="cancelEditViewerComment()">Cancel</button>' +
+          '<button type="button" class="comment-edit-save" onclick="saveEditViewerComment(\'' + c.id + '\')">Save</button>' +
+        '</div>' +
+      '</div>'
+    : '<div class="comment-bubble">' + escapeHtml(c.text) + '</div>';
   return '<div class="comment-bubble-row ' + (mine ? 'mine' : 'theirs') + '">' +
     '<div class="comment-bubble-meta">' +
       '<span>' + escapeHtml(name) + '</span><span>·</span><span>' + escapeHtml(ts) + '</span>' +
-      (mine ? '<span class="comment-bubble-delete" onclick="deleteViewerComment(\'' + c.id + '\')" title="Delete"><i data-lucide="trash-2" style="width:11px;height:11px;"></i></span>' : '') +
+      (c.editedAt ? '<span>·</span><span>edited</span>' : '') +
+      (mine && !editing ? '<span class="comment-action" onclick="startEditViewerComment(\'' + c.id + '\')" title="Edit"><i data-lucide="pencil" style="width:11px;height:11px;"></i></span>' : '') +
+      (mine ? '<span class="comment-action danger" onclick="deleteViewerComment(\'' + c.id + '\')" title="Delete"><i data-lucide="trash-2" style="width:11px;height:11px;"></i></span>' : '') +
     '</div>' +
-    '<div class="comment-bubble">' + escapeHtml(c.text) + '</div>' +
-    statusHtml +
+    bubbleHtml +
+    (editing ? '' : statusHtml) +
   '</div>';
+}
+
+// ---- Editing your own comments ----
+// Which of my comments is open in the inline editor (null = none).
+let viewerEditingCommentId = null;
+
+// Re-draws the comment list without losing the scroll position or whatever
+// is half-typed in the comment box (a plain render jumps to the newest
+// message and empties that box).
+function rerenderViewerCommentsKeepState() {
+  const list = document.getElementById('viewerDropupCommentsList');
+  const input = document.getElementById('viewerCommentInput');
+  const scroll = list ? list.scrollTop : 0;
+  const typed = input ? input.value : '';
+  renderViewerComments();
+  const list2 = document.getElementById('viewerDropupCommentsList');
+  if (list2) list2.scrollTop = scroll;
+  const input2 = document.getElementById('viewerCommentInput');
+  if (input2) { input2.value = typed; updateViewerCommentSendBtn(); }
+}
+function startEditViewerComment(id) {
+  const img = viewerImages[viewerIndex];
+  if (!img || !currentAccount) return;
+  const c = mediaComments(img).find((x) => x.id === id);
+  if (!c || c.createdBy !== currentAccount.email) return; // only the author can edit
+  viewerEditingCommentId = id;
+  rerenderViewerCommentsKeepState();
+  const ta = document.getElementById('viewerCommentEditInput');
+  if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+}
+function cancelEditViewerComment() {
+  viewerEditingCommentId = null;
+  rerenderViewerCommentsKeepState();
+}
+// Saves the edited wording. It shows an "edited" tag, and clears the Seen
+// mark — the other person hasn't read the new text yet, so the bubble goes
+// back to "✓ Sent" until they open it again. No alert is sent for an edit.
+async function saveEditViewerComment(id) {
+  const img = viewerImages[viewerIndex];
+  if (!img || !currentAccount) return;
+  const ta = document.getElementById('viewerCommentEditInput');
+  const c = mediaComments(img).find((x) => x.id === id);
+  if (!c || !ta || c.createdBy !== currentAccount.email) { cancelEditViewerComment(); return; }
+  const text = ta.value.trim();
+  if (!text) { showToast("A comment can't be empty — use the bin to delete it.", 'error'); return; }
+  if (text === c.text) { cancelEditViewerComment(); return; }
+  const before = { text: c.text, editedAt: c.editedAt, seenBy: c.seenBy };
+  c.text = text;
+  c.editedAt = Date.now();
+  delete c.seenBy;
+  viewerEditingCommentId = null;
+  rerenderViewerCommentsKeepState();
+  const idx = viewerIndex;
+  const imgId = img.id;
+  const undo = (message) => {
+    c.text = before.text;
+    if (before.editedAt === undefined) delete c.editedAt; else c.editedAt = before.editedAt;
+    if (before.seenBy) c.seenBy = before.seenBy;
+    if (viewerImages[viewerIndex] === img) rerenderViewerCommentsKeepState();
+    showToast(message, 'error');
+  };
+  const onCommentsSave = viewerOnCommentsSaveFn();
+  if (!onCommentsSave) { undo("Edit not saved — this view can't save comments."); return; }
+  const ok = await onCommentsSave(idx, img.comments, imgId);
+  if (ok === false) undo('Failed to save the edit — check your connection and try again.');
 }
 
 // Stamps the OTHER account's comments on the image now showing as seen by me
