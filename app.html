@@ -746,6 +746,30 @@
   .comment-bubble { padding: 8px 11px; border-radius: 14px; font-size: 13px; line-height: 1.4; word-break: break-word; position: relative; }
   .comment-bubble-row.mine .comment-bubble { background: rgba(238,130,179,0.16); border: 1px solid var(--brand); color: #F4E4EC; border-bottom-right-radius: 4px; }
   .comment-bubble-row.theirs .comment-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--light, #E7E9F3); border-bottom-left-radius: 4px; }
+  /* Animated rainbow border: Entry taken, POI Tapped, or something new from
+     the other account you haven't seen. A conic gradient ring drawn over the
+     card's own border (masked so only the 2px edge shows) whose angle is
+     animated; browsers without @property support just show it static. */
+  @property --wl-glow-angle { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
+  @keyframes wl-glow-spin { to { --wl-glow-angle: 360deg; } }
+  .wl-card.wl-glow { border-color: transparent; box-shadow: 0 0 16px rgba(139,92,246,0.22); }
+  .wl-card.wl-glow::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2px; z-index: 2; pointer-events: none;
+    background: conic-gradient(from var(--wl-glow-angle), #ff3b6b, #ffb703, #3be37a, #22c7ff, #8b5cf6, #ff3bd0, #ff3b6b);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    animation: wl-glow-spin 4s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) { .wl-card.wl-glow::after { animation: none; } }
+  .wl-poi-pill { background: rgba(245,184,61,0.16); color: #F5B83D; }
+  .wl-trail-tag-chip.tapped { background: rgba(245,184,61,0.16); color: #F5B83D; }
+  .wl-poi-btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface2); color: var(--light); font-size: 12.5px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .wl-poi-btn svg { width: 16px; height: 16px; }
+  .wl-poi-btn.on { border-color: #F5B83D; color: #F5B83D; background: rgba(245,184,61,0.12); }
   .wl-update-chip.ok { background: rgba(46,204,154,0.14); color: var(--profit, #2ECC9A); }
   .wl-update-chip.due { background: rgba(245,184,61,0.16); color: #F5B83D; }
   .wl-update-chip.missed { background: rgba(255,92,92,0.16); color: var(--loss, #FF5C5C); }
@@ -14994,6 +15018,181 @@ async function markWatchlistMissed(id) {
   }
 }
 
+// Undo for a mis-tap: puts an idea that was closed as Invalidated or Missed
+// back on the active watchlist. Those two endings can only ever be reached
+// from an open 'idea' (their buttons only show on open ideas), so 'idea' is
+// exactly the state it came from. Nothing posted so far is touched. A short
+// "Restored" entry is added to its updates for two reasons: it leaves a clear
+// record of what happened, and it counts as a fresh update by whoever
+// restored it — so the days it sat closed by mistake aren't charged to the
+// owner as missed days. (Won / Lost ideas aren't restorable here: they're
+// tied to a real trade.)
+async function restoreWatchlistIdea(id) {
+  const item = allWatchlistItems.find((it) => it.id === id);
+  if (!item || (item.status !== 'invalidated' && item.status !== 'missed')) return;
+  const word = item.status === 'invalidated' ? 'Invalidated' : 'Missed';
+  const label = item.pair ? '"' + item.pair + '"' : 'this idea';
+  const confirmed = await confirmDialog(
+    'Move ' + label + ' back to your watchlist? It reopens as an active idea and accepts updates again.',
+    { confirmLabel: 'Restore idea' }
+  );
+  if (!confirmed) return;
+  const entry = {
+    id: 'wltrail_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    timestamp: Date.now(),
+    createdBy: currentAccount ? currentAccount.email : '',
+    text: 'Restored to the watchlist (it had been marked ' + word + ').',
+    images: [],
+    video: null,
+    voices: [],
+    statusTag: null,
+  };
+  const trail = Array.isArray(item.trail) ? item.trail : [];
+  const ok = await updateWatchlistItem(id, { status: 'idea', missedReason: '', trail: [...trail, entry] });
+  if (!ok) {
+    showToast('Failed to restore — check your connection and try again.', 'error');
+    return;
+  }
+  renderWatchlistList();
+  showToast(label + ' is back on your watchlist.', 'success');
+  let deepLink = '';
+  const shortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`wl:${id}`));
+  if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
+  notifyOtherAccount({
+    type: 'watchlist_item',
+    sourceTable: 'watchlist_items',
+    sourceId: id,
+    message: `${currentAccountName()} restored ${item.pair ? item.pair : 'a watchlist idea'} to the watchlist (it had been marked ${word})`,
+    deepLink,
+  });
+}
+
+// ================= POI TAPPED =================
+// A stage between "idea" and "Entry": price has tapped (entered) the idea's
+// POI zone. It is NOT a status — the idea stays open and keeps taking updates.
+// The state lives in the idea's updates: marking adds an update tagged
+// 'tapped', removing adds one tagged 'untapped', and the most recent of the
+// two decides. (No database change; both accounts see it because the updates
+// already sync.) An idea whose Entry has been taken is "Live" instead, so
+// the flag only applies to ideas still at the plain 'idea' stage.
+function isWatchlistPoiTapped(it) {
+  if (!it || (it.status && it.status !== 'idea')) return false;
+  const trail = Array.isArray(it.trail) ? it.trail : [];
+  for (let i = trail.length - 1; i >= 0; i--) {
+    const t = trail[i] && trail[i].statusTag;
+    if (t === 'tapped') return true;
+    if (t === 'untapped') return false;
+  }
+  return false;
+}
+function watchlistPoiTappedAt(it) {
+  const trail = Array.isArray(it.trail) ? it.trail : [];
+  for (let i = trail.length - 1; i >= 0; i--) {
+    if (trail[i] && trail[i].statusTag === 'tapped') return trail[i].timestamp || 0;
+  }
+  return 0;
+}
+// When the Entry was taken: the update tagged 'entry' (latest), else the last save.
+function watchlistEntryAt(it) {
+  const trail = Array.isArray(it.trail) ? it.trail : [];
+  for (let i = trail.length - 1; i >= 0; i--) {
+    if (trail[i] && trail[i].statusTag === 'entry') return trail[i].timestamp || 0;
+  }
+  return it.updatedAt || it.createdAt || 0;
+}
+// Newest thing the OTHER account added to this idea — a new update or a
+// comment on one of its images — as a time. Deliberately ignores the idea's
+// own "last saved" time: every save (including your own, and the quiet
+// "Seen" marks) bumps that, so it can't tell who did what.
+function watchlistUnseenFromOtherTs(it) {
+  const other = otherAccountEmail();
+  if (!other || !it) return 0;
+  let latest = 0;
+  const c = (by, ts) => { if (by === other && ts && ts > latest) latest = ts; };
+  c(it.createdBy, it.createdAt);
+  (Array.isArray(it.trail) ? it.trail : []).forEach((e) => {
+    if (!e) return;
+    c(e.createdBy, e.timestamp);
+    const media = (Array.isArray(e.images) ? e.images : []).concat(e.video ? [e.video] : []);
+    media.forEach((m) => (m && Array.isArray(m.comments) ? m.comments : []).forEach((cm) => c(cm.createdBy, cm.createdAt)));
+  });
+  return latest;
+}
+function watchlistHasUnseenFromOther(it) {
+  const latest = watchlistUnseenFromOtherTs(it);
+  if (!latest) return false;
+  return latest > (loadSeenMap('watchlist')[it.id] || 0);
+}
+// Where an open idea sits in the list: 0 = Entry taken (Live), 1 = POI
+// Tapped, 2 = has something new from the other account you haven't seen,
+// 3 = everything else (your own drag order).
+function watchlistListRank(it) {
+  if (it.status === 'pending') return 0;
+  if (isWatchlistPoiTapped(it)) return 1;
+  if (watchlistHasUnseenFromOther(it)) return 2;
+  return 3;
+}
+// The animated rainbow border: Entry taken, POI Tapped, or something new
+// from the other account that you haven't looked at yet.
+function watchlistGlowClass(it) {
+  return isWatchlistItemOpen(it) && watchlistListRank(it) < 3 ? ' wl-glow' : '';
+}
+function watchlistPoiPillHtml(it) {
+  return isWatchlistPoiTapped(it) ? '<span class="badge mono wl-poi-pill">POI Tapped</span>' : '';
+}
+function poiTappedControlHtml(it) {
+  if (!it || (it.status && it.status !== 'idea')) return '';
+  const tapped = isWatchlistPoiTapped(it);
+  const idArg = escapeHtml(JSON.stringify(it.id));
+  return '<div style="margin:2px 0 10px;"><button type="button" class="wl-poi-btn' + (tapped ? ' on' : '') + '" onclick="event.stopPropagation(); toggleWatchlistPoiTapped(' + idArg + ')">' +
+    '<i data-lucide="crosshair"></i><span>' + (tapped ? 'POI Tapped — tap to remove' : 'Mark POI Tapped') + '</span></button></div>';
+}
+async function toggleWatchlistPoiTapped(id) {
+  const item = allWatchlistItems.find((it) => it.id === id);
+  if (!item || !currentAccount || (item.status && item.status !== 'idea')) return;
+  const tapped = isWatchlistPoiTapped(item);
+  const label = item.pair ? '"' + item.pair + '"' : 'this idea';
+  if (!tapped) {
+    // Confirm first: marking alerts the other account, and a stray tap
+    // shouldn't send one.
+    const confirmed = await confirmDialog(
+      'Mark ' + label + ' as POI Tapped? ' + otherAccountName() + ' will be alerted that price is in the zone.',
+      { confirmLabel: 'Mark POI Tapped' }
+    );
+    if (!confirmed) return;
+  }
+  const entry = {
+    id: 'wltrail_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    timestamp: Date.now(),
+    createdBy: currentAccount.email,
+    text: tapped ? 'POI Tapped removed.' : 'Price tapped the POI.',
+    images: [],
+    video: null,
+    voices: [],
+    statusTag: tapped ? 'untapped' : 'tapped',
+  };
+  const trail = Array.isArray(item.trail) ? item.trail : [];
+  const ok = await updateWatchlistItem(id, { trail: [...trail, entry] });
+  if (!ok) {
+    showToast('Failed to save — check your connection and try again.', 'error');
+    return;
+  }
+  renderWatchlistList();
+  showToast(tapped ? 'POI Tapped removed.' : label + ' marked POI Tapped.', 'success');
+  if (!tapped) {
+    let deepLink = '';
+    const shortId = await createShortLink('https://danfxt.vercel.app/?media=' + encodeURIComponent(`wl:${id}`));
+    if (shortId) deepLink = 'https://danfxt.vercel.app/api/go/' + shortId;
+    notifyOtherAccount({
+      type: 'poi_tapped',
+      sourceTable: 'watchlist_items',
+      sourceId: id,
+      message: `${currentAccountName()}: ${item.pair || 'an idea'} (${String(item.direction || '').toUpperCase()}) tapped its POI — price is in the zone`,
+      deepLink,
+    });
+  }
+}
+
 // Watchlist Closed-Folder Roadmap, Phase 1: shared status predicate so the
 // render path and the reorder logic both agree on exactly which items count
 // as "open" (still manually reorderable, shown in the main list) vs
@@ -15092,8 +15291,22 @@ async function renderWatchlistList() {
     updateTabUnseenBadge('watchlist'); // Tab-Level Unseen Badges Roadmap, Phase B2
     return;
   }
+  // Display order: Entry taken first (newest first), then POI Tapped (newest
+  // first), then ideas with something new from the other account (newest
+  // first), then everything else in your own drag order. `i` stays each
+  // card's position in the drag order, so reordering still works on that —
+  // but the first two groups are automatic and have no drag handle.
+  visible.sort((a, b) => {
+    const ra = watchlistListRank(a.it);
+    const rb = watchlistListRank(b.it);
+    if (ra !== rb) return ra - rb;
+    if (ra === 0) return watchlistEntryAt(b.it) - watchlistEntryAt(a.it);
+    if (ra === 1) return watchlistPoiTappedAt(b.it) - watchlistPoiTappedAt(a.it);
+    if (ra === 2) return watchlistUnseenFromOtherTs(b.it) - watchlistUnseenFromOtherTs(a.it);
+    return a.i - b.i;
+  });
   const openListHtml = visible.map(({ it, i }) =>
-    watchlistCardRowHtml(it, { draggable: true, reorderIndex: i, sortedLength: sorted.length })
+    watchlistCardRowHtml(it, { draggable: watchlistListRank(it) >= 2, reorderIndex: i, sortedLength: sorted.length })
   ).join('');
   wrap.innerHTML = openListHtml + closedFolderHtml;
   // Same row stagger fade-in pattern as renderTradeList()'s .trade-row-enter.
@@ -15146,7 +15359,7 @@ function watchlistCardRowHtml(it, opts) {
   const reorderHandleHtml = opts.draggable
     ? '<div class="wl-reorder-handle" title="Drag to reorder, or tap to move…" onclick="event.stopPropagation(); promptWatchlistReorder(' + opts.reorderIndex + ', ' + opts.sortedLength + ');"><i data-lucide="grip-vertical" style="width:16px;height:16px;"></i></div>'
     : '';
-  return '<div class="wl-card' + (cardExpanded ? ' expanded' : '') + '" data-item-id="' + escapeHtml(it.id) + '">' +
+  return '<div class="wl-card' + (cardExpanded ? ' expanded' : '') + watchlistGlowClass(it) + '" data-item-id="' + escapeHtml(it.id) + '">' +
       unseenDotHtml('watchlist', it) +
       '<div class="trade-row ' + outcomeClass + '" ' + rowAttrs + ' onclick="toggleWatchlistCard(' + idArg + ')">' +
         reorderHandleHtml +
@@ -15177,7 +15390,9 @@ function watchlistCardRowHtml(it, opts) {
             (!it.status || it.status === 'idea'
               ? '<div class="icon-btn" onclick="event.stopPropagation(); markWatchlistInvalidated(' + idArg + ')" title="Mark Invalidated"><i data-lucide="ban"></i></div>' +
                 '<div class="icon-btn" onclick="event.stopPropagation(); markWatchlistMissed(' + idArg + ')" title="Mark Missed"><i data-lucide="skip-forward"></i></div>'
-              : '') +
+              : (it.status === 'invalidated' || it.status === 'missed'
+                ? '<div class="icon-btn" onclick="event.stopPropagation(); restoreWatchlistIdea(' + idArg + ')" title="Restore to watchlist"><i data-lucide="rotate-ccw"></i></div>'
+                : '')) +
             '<div class="icon-btn" style="color:var(--loss);" onclick="event.stopPropagation(); deleteWatchlistItemFromList(' + idArg + ')" title="Remove"><i data-lucide="trash-2"></i></div>' +
             '</div>' +
           '</div>' +
@@ -15196,6 +15411,7 @@ function watchlistCardRowHtml(it, opts) {
             (it.ltf ? '<span class="badge" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(it.ltf) + '</span>' : '') +
             (it.createdAt ? '<span class="badge mono" style="background:var(--surface2); color:var(--muted);">' + escapeHtml(watchlistCardDateLabel(it.createdAt)) + '</span>' : '') +
             (it.createdAt ? '<span class="badge mono" style="background:var(--surface2); color:var(--muted);">⏱ ' + escapeHtml(daysOnWatchlistLabel(it)) + '</span>' : '') +
+            watchlistPoiPillHtml(it) +
             watchlistUpdateChipHtml(it) +
             nearbyNewsBadgeHtml(it.createdAt) +
             (it.linkedTradeId ? '<span class="wl-view-trade-link" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(it.linkedTradeId) + '\')">View trade →</span>' : '') +
@@ -15412,6 +15628,7 @@ function wlTrailTagChipHtml(statusTag) {
     : statusTag === 'win' ? 'Win'
     : statusTag === 'loss' ? 'Loss'
     : statusTag === 'invalidated' ? 'Invalidated'
+    : statusTag === 'tapped' ? 'POI Tapped'
     : '';
   if (!label) return '';
   return '<span class="wl-trail-tag-chip ' + escapeHtml(statusTag) + '">' + label + '</span>';
@@ -15543,7 +15760,7 @@ function watchlistCardDetailHtml(item) {
       '<div style="font-size:10.5px; color:var(--muted); font-weight:600; margin-bottom:6px; text-transform:uppercase; letter-spacing:0.3px;">Nearby News (±1hr)</div>' +
       nearbyNewsSectionHtml(item.createdAt) +
     '</div>';
-  return '<div class="wl-card-detail" onclick="event.stopPropagation();"><div>' + timelineHtml + newsHtml + watchlistTrailComposerHtml(item.id) + '</div></div>';
+  return '<div class="wl-card-detail" onclick="event.stopPropagation();"><div>' + poiTappedControlHtml(item) + timelineHtml + newsHtml + watchlistTrailComposerHtml(item.id) + '</div></div>';
 }
 
 // One trail entry's ("post's") viewer group — labeled with its post date,
@@ -15704,7 +15921,7 @@ function watchlistTrailComposerHtml(itemId) {
       (wlItem.linkedTradeId
         ? '<button class="wl-post-update-btn" style="margin-top:8px;" onclick="event.stopPropagation(); jumpToTradeFromSearch(\'' + escapeHtml(wlItem.linkedTradeId) + '\')">View linked trade →</button>'
         : ((wlItem.status === 'invalidated' || wlItem.status === 'missed')
-            ? '' // no trade to reference or clean up, same as Invalidated
+            ? '<button class="wl-post-update-btn" style="margin-top:8px; background:var(--surface2); color:var(--light); box-shadow:none;" onclick="event.stopPropagation(); restoreWatchlistIdea(\'' + itemId + '\')">↩ Restore to watchlist</button>'
             : (wlItem.status === 'pending'
             ? '<div class="mono muted" style="font-size:11px; margin-top:6px;">The linked trade hasn\'t been saved yet — finish it on the New Trade screen, or cancel below if the draft was lost (e.g. the app was closed or refreshed before saving).</div>' +
               '<button class="wl-post-update-btn" style="margin-top:8px; background:var(--surface2); color:var(--light); box-shadow:none;" onclick="event.stopPropagation(); cancelUnlinkedWatchlistHandoff(\'' + itemId + '\')">Cancel — trade was never saved</button>'
