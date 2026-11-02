@@ -1,0 +1,21 @@
+name: Weekly Recap
+
+# Sends the Monday–Friday recap (trades, closed ideas, daily-update record)
+# to both Telegram accounts. Friday 20:00 UTC = 21:00 in Lagos (UTC+1) —
+# edit the hour to move it. GitHub can start scheduled runs up to ~40
+# minutes late. Running it by hand sends the recap for the CURRENT week
+# immediately, which is also how to test it.
+
+on:
+  schedule:
+    - cron: '0 20 * * 5'
+  workflow_dispatch:
+
+jobs:
+  recap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call weekly recap endpoint
+        run: |
+          curl -f -s -o /dev/null -w "%{http_code}" \
+            "https://danfxt.vercel.app/api/weekly-recap?secret=${{ secrets.NOTIFY_SECRET }}"
