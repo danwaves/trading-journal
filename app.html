@@ -746,6 +746,69 @@
   .comment-bubble { padding: 8px 11px; border-radius: 14px; font-size: 13px; line-height: 1.4; word-break: break-word; position: relative; }
   .comment-bubble-row.mine .comment-bubble { background: rgba(238,130,179,0.16); border: 1px solid var(--brand); color: #F4E4EC; border-bottom-right-radius: 4px; }
   .comment-bubble-row.theirs .comment-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--light, #E7E9F3); border-bottom-left-radius: 4px; }
+  /* P&L Calendar Roadmap Phase 1: Month | Week tally + trades-taken list */
+  .plc-tally-card { margin: 0 0 12px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
+  .plc-tally-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+  .plc-tally-title { font-size: 13px; font-weight: 600; color: var(--light); }
+  .plc-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 999px; overflow: hidden; flex: none; }
+  .plc-seg-btn { border: none; background: transparent; color: var(--muted); padding: 5px 12px; font-size: 12px; cursor: pointer; }
+  .plc-seg-btn.active { background: var(--brand); color: #fff; }
+  .plc-tally-week { display: flex; justify-content: space-between; margin: 0 0 10px; font-size: 11px; color: var(--muted); }
+  .plc-tally-week > div { display: flex; flex-direction: column; gap: 2px; }
+  .plc-tally-week b { font-size: 14px; color: var(--light); }
+  .plc-tally-week b.win { color: var(--profit, #2ECC9A); }
+  .plc-tally-week b.loss { color: var(--loss, #FF5C5C); }
+  .plc-tally-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .plc-tally-chip { flex: 1 1 70px; min-width: 70px; padding: 8px 10px; border-radius: 10px; display: flex; flex-direction: column; gap: 2px; background: var(--surface2); }
+  .plc-tally-chip b { font-size: 18px; }
+  .plc-tally-chip span { font-size: 11px; color: var(--muted); }
+  .plc-tally-chip.won { background: rgba(46,204,154,0.12); } .plc-tally-chip.won b { color: var(--profit, #2ECC9A); }
+  .plc-tally-chip.lost { background: rgba(255,92,92,0.12); } .plc-tally-chip.lost b { color: var(--loss, #FF5C5C); }
+  .plc-tally-chip.missed { background: rgba(245,184,61,0.14); } .plc-tally-chip.missed b { color: #F5B83D; }
+  .plc-tally-chip.invalid { background: rgba(139,92,246,0.14); } .plc-tally-chip.invalid b { color: #A78BFA; }
+  .plc-insights-card { margin: 0 0 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); overflow: hidden; }
+  .plc-insights-head { display: flex; align-items: baseline; gap: 10px; padding: 12px; cursor: pointer; }
+  .plc-insights-title { font-size: 13px; font-weight: 600; color: var(--light); }
+  .plc-insights-sub { font-size: 11.5px; color: var(--muted); flex: 1; }
+  .plc-insights-chev { color: var(--muted); }
+  .plc-ins-empty { padding: 0 12px 12px; font-size: 12px; color: var(--muted); }
+  .plc-ins-section { padding: 10px 12px; border-top: 1px solid var(--border); }
+  .plc-ins-title { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: var(--muted); margin-bottom: 6px; }
+  .plc-ins-sub2 { font-size: 10.5px; color: var(--muted); margin: 6px 0 2px; }
+  .plc-ins-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; font-size: 13px; }
+  .plc-ins-row.tap { cursor: pointer; border-radius: 8px; }
+  .plc-ins-row.tap.on { background: rgba(255,255,255,0.06); }
+  .plc-ins-name { font-weight: 600; color: var(--light); }
+  .plc-ins-name.win { color: var(--profit, #2ECC9A); } .plc-ins-name.loss { color: var(--loss, #FF5C5C); }
+  .plc-ins-meta { font-size: 11.5px; color: var(--muted); flex: 1; }
+  .plc-ins-val { font-weight: 600; margin-left: auto; }
+  .plc-ins-val.win { color: var(--profit, #2ECC9A); } .plc-ins-val.loss { color: var(--loss, #FF5C5C); } .plc-ins-val.muted { color: var(--muted); font-weight: 400; }
+  .plc-ins-hint { font-size: 11px; color: var(--muted); padding-top: 4px; }
+  .plc-ins-duel { display: flex; gap: 10px; }
+  .plc-ins-duel-col { flex: 1; display: flex; flex-direction: column; gap: 3px; padding: 10px; border-radius: 10px; background: var(--surface2); font-size: 11.5px; color: var(--muted); }
+  .plc-ins-duel-name { font-size: 12px; font-weight: 600; color: var(--light); }
+  .plc-ins-duel-col b { font-size: 17px; } .plc-ins-duel-col b.win { color: var(--profit, #2ECC9A); } .plc-ins-duel-col b.loss { color: var(--loss, #FF5C5C); }
+  .plc-equity { width: 100%; height: auto; display: block; }
+  .plc-equity-legend { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .plc-equity-legend b { font-size: 13px; }
+  .plc-target { margin-top: 12px; }
+  .plc-target-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .plc-target-top b { color: var(--light); }
+  .plc-target-edit { border: none; background: transparent; color: var(--muted); font-size: 15px; cursor: pointer; padding: 2px 6px; }
+  .plc-target-bar { height: 8px; border-radius: 999px; background: var(--surface2); overflow: hidden; }
+  .plc-target-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--brand-dark), var(--brand)); transition: width 400ms var(--ease); }
+  .plc-target-fill.done { background: #2ECC9A; }
+  .plc-target-note { font-size: 11px; color: var(--muted); margin-top: 5px; }
+  .plc-target-set { margin-top: 10px; border: 1px dashed var(--border); background: transparent; color: var(--muted); border-radius: 10px; padding: 8px 12px; font-size: 12px; cursor: pointer; width: 100%; }
+  .plc-upd { margin-left: 3px; font-size: 9px; font-weight: 700; }
+  .plc-upd.ok { color: #2ECC9A; } .plc-upd.miss { color: #F5B83D; }
+  .plc-detail-trades { margin: 10px 0 4px; }
+  .plc-detail-trades-label { font-size: 10.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 6px; }
+  .plc-detail-trade-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .plc-detail-trade-pair { font-weight: 600; color: var(--light); min-width: 70px; }
+  .plc-detail-trade-result { margin-left: auto; font-weight: 600; }
+  .plc-detail-trade-result.muted { color: var(--muted); font-weight: 400; }
+  .plc-detail-trade-who { font-size: 11px; color: var(--muted); padding: 2px 8px; border-radius: 999px; background: var(--surface2); }
   /* Animated rainbow border: Entry taken, POI Tapped, or something new from
      the other account you haven't seen. A conic gradient ring drawn over the
      card's own border (masked so only the 2px edge shows) whose angle is
@@ -2983,6 +3046,13 @@
         <div class="plc-cell"><div class="plc-cell-label">Trades</div><div class="plc-cell-value mono" id="pnlCalendarSummaryTrades">—</div></div>
         <div class="plc-cell"><div class="plc-cell-label">Win rate</div><div class="plc-cell-value mono" id="pnlCalendarSummaryWinRate">—</div></div>
       </div>
+      <!-- P&L Calendar Roadmap Phase 1: Won / Lost / Missed / Invalidated for
+           the whole month or the selected week (Month | Week switch).
+           Filled by renderPnlCalendarTally(). -->
+      <div class="plc-tally-card" id="pnlCalendarTally"></div>
+      <!-- P&L Calendar Roadmap Phase 2: insight cards (filled by
+           renderPnlCalendarInsights() from renderPnlCalendarTally()). -->
+      <div class="plc-insights-card" id="pnlCalendarInsights"></div>
       <div class="plc-card">
         <div class="plc-nav">
           <div class="plc-arrow" onclick="pnlCalendarPrevMonth()" role="button" aria-label="Previous month">‹</div>
@@ -6135,6 +6205,410 @@ function renderPnlCalendarSummary(monthTrades) {
   if (wrEl) wrEl.textContent = stats.totalResolved ? stats.winRate.toFixed(0) + '%' : '—';
 }
 
+// ---- P&L Calendar Roadmap, Phase 1: Month | Week tally ----
+// Won / Lost come from the trades in the range (same classifyTrade() rule the
+// Win rate uses, so the numbers always agree with it). Missed / Invalidated
+// are not trades — they are Watchlist ideas closed that way — so they come
+// from allWatchlistItems, counted in the range their LAST SAVE falls in (the
+// app keeps no separate "closed at" time; right unless the idea was touched
+// again later). Pair and Trader filters apply to all four; the Strategy
+// filter only to the trades (ideas have a Trade Model, not a strategy).
+// Week = Monday–Sunday around the selected day (or today / the 1st of the
+// viewed month if no day is selected).
+let pnlCalendarScope = 'month';
+let pnlCalendarTallyLoadingIdeas = false;
+function setPnlCalendarScope(scope) {
+  pnlCalendarScope = scope === 'week' ? 'week' : 'month';
+  renderPnlCalendarTally();
+}
+function pnlCalendarScopeRange() {
+  if (pnlCalendarViewYear === null || pnlCalendarViewMonth === null) resetPnlCalendarViewToToday();
+  if (pnlCalendarScope === 'week') {
+    let anchor;
+    if (pnlCalendarSelectedDay) {
+      anchor = parseLocalDate(pnlCalendarSelectedDay);
+    } else {
+      const today = new Date();
+      anchor = (today.getFullYear() === pnlCalendarViewYear && today.getMonth() === pnlCalendarViewMonth)
+        ? today : new Date(pnlCalendarViewYear, pnlCalendarViewMonth, 1);
+    }
+    const monday = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - ((anchor.getDay() + 6) % 7));
+    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 23, 59, 59, 999);
+    const fmt = (d) => PNL_CALENDAR_MONTH_NAMES[d.getMonth()].slice(0, 3) + ' ' + d.getDate();
+    return { start: monday, end: sunday, label: 'Week of ' + fmt(monday) + ' – ' + fmt(sunday) };
+  }
+  const start = new Date(pnlCalendarViewYear, pnlCalendarViewMonth, 1);
+  const end = new Date(pnlCalendarViewYear, pnlCalendarViewMonth + 1, 0, 23, 59, 59, 999);
+  return { start, end, label: PNL_CALENDAR_MONTH_NAMES[pnlCalendarViewMonth] + ' ' + pnlCalendarViewYear };
+}
+function getPnlCalendarRangeTrades(range, opts) {
+  const fromYmd = dateToYMD(range.start);
+  const toYmd = dateToYMD(range.end);
+  const pair = getPnlCalendarPairFilter();
+  const strategy = getPnlCalendarStrategyFilter();
+  const trader = opts && opts.ignoreTrader ? null : getPnlCalendarTraderFilter();
+  return allTrades.filter((t) => {
+    const d = (t.date || '').slice(0, 10);
+    return d >= fromYmd && d <= toYmd &&
+      (!pair || t.pair === pair) && (!strategy || t.strategy === strategy) && (!trader || t.createdBy === trader);
+  });
+}
+function getPnlCalendarRangeClosedIdeas(range, status) {
+  const pair = getPnlCalendarPairFilter();
+  const trader = getPnlCalendarTraderFilter();
+  const from = range.start.getTime();
+  const to = range.end.getTime();
+  return (typeof allWatchlistItems !== 'undefined' ? allWatchlistItems : []).filter((it) =>
+    it.status === status && it.updatedAt >= from && it.updatedAt <= to &&
+    (!pair || it.pair === pair) && (!trader || it.createdBy === trader)
+  );
+}
+function renderPnlCalendarTally() {
+  const host = document.getElementById('pnlCalendarTally');
+  if (!host) return;
+  // Watchlist loads in the background at sign-in; if this page is opened
+  // first, fetch it once and redraw.
+  if (typeof watchlistItemsLoaded !== 'undefined' && !watchlistItemsLoaded && !pnlCalendarTallyLoadingIdeas) {
+    pnlCalendarTallyLoadingIdeas = true;
+    loadAllWatchlistItems()
+      .then(() => { pnlCalendarTallyLoadingIdeas = false; renderPnlCalendarGrid(); })
+      .catch(() => { pnlCalendarTallyLoadingIdeas = false; });
+  }
+  const range = pnlCalendarScopeRange();
+  const trades = getPnlCalendarRangeTrades(range);
+  const stats = computeLiveStats(trades);
+  const missed = getPnlCalendarRangeClosedIdeas(range, 'missed').length;
+  const invalidated = getPnlCalendarRangeClosedIdeas(range, 'invalidated').length;
+  const seg = (id, label) =>
+    '<button type="button" class="plc-seg-btn' + (pnlCalendarScope === id ? ' active' : '') + '" onclick="setPnlCalendarScope(\'' + id + '\')">' + label + '</button>';
+  const chip = (cls, label, n) =>
+    '<div class="plc-tally-chip ' + cls + '"><b class="mono">' + n + '</b><span>' + label + '</span></div>';
+  const weekStatsHtml = pnlCalendarScope === 'week'
+    ? '<div class="plc-tally-week">' +
+        '<div>Net P&amp;L<b class="mono ' + (stats.totalResolved ? (stats.netPnl >= 0 ? 'win' : 'loss') : '') + '">' + (stats.totalResolved ? fmtCompareDollar(stats.netPnl, true) : '—') + '</b></div>' +
+        '<div>Trades<b class="mono">' + stats.totalTrades + '</b></div>' +
+        '<div>Win rate<b class="mono">' + (stats.totalResolved ? stats.winRate.toFixed(0) + '%' : '—') + '</b></div>' +
+      '</div>'
+    : '';
+  host.innerHTML =
+    '<div class="plc-tally-head"><span class="plc-tally-title">' + escapeHtml(range.label) + '</span>' +
+      '<div class="plc-seg">' + seg('month', 'Month') + seg('week', 'Week') + '</div></div>' +
+    weekStatsHtml +
+    '<div class="plc-tally-row">' +
+      chip('won', 'Won', stats.wins) + chip('lost', 'Lost', stats.losses) +
+      chip('missed', 'Missed', missed) + chip('invalid', 'Invalidated', invalidated) +
+      (stats.bes ? chip('open', 'Breakeven', stats.bes) : '') +
+      (stats.unresolved ? chip('open', 'Open', stats.unresolved) : '') +
+    '</div>' +
+    (pnlCalendarScope === 'month' ? pnlCalendarTargetHtml(stats.netPnl, stats.totalResolved > 0) : '');
+  renderPnlCalendarInsights(range, trades);
+}
+
+// ---- P&L Calendar Roadmap, Phase 2: insight cards ----
+// Everything here follows the Month | Week switch and the Pair / Strategy /
+// Trader filters, except "Dan vs Ako", which deliberately ignores the Trader
+// filter (it IS the trader comparison). Dollar figures are the same
+// computeLiveStats() net the rest of the page uses.
+let pnlCalendarInsightsOpen = (() => {
+  try { return localStorage.getItem('danwaves_pnl_insights_open') !== '0'; } catch (e) { return true; }
+})();
+function togglePnlCalendarInsights() {
+  pnlCalendarInsightsOpen = !pnlCalendarInsightsOpen;
+  try { localStorage.setItem('danwaves_pnl_insights_open', pnlCalendarInsightsOpen ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+  renderPnlCalendarTally();
+}
+// Tap a pair in the leaderboard to filter the whole page to it; tap again to clear.
+function pnlCalendarFilterToPair(pair) {
+  const sel = document.getElementById('pnlCalendarPairSelect');
+  if (!sel) return;
+  sel.value = getPnlCalendarPairFilter() === pair ? '' : pair;
+  onPnlCalendarPairChange(sel);
+}
+function pnlCalendarPreviousRange(range) {
+  if (pnlCalendarScope === 'week') {
+    const start = new Date(range.start.getFullYear(), range.start.getMonth(), range.start.getDate() - 7);
+    const end = new Date(range.end.getFullYear(), range.end.getMonth(), range.end.getDate() - 7, 23, 59, 59, 999);
+    return { start, end, label: 'the previous week' };
+  }
+  const start = new Date(range.start.getFullYear(), range.start.getMonth() - 1, 1);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 0, 23, 59, 59, 999);
+  return { start, end, label: PNL_CALENDAR_MONTH_NAMES[start.getMonth()] };
+}
+function pnlCalendarPairBoard(trades) {
+  const groups = {};
+  trades.forEach((t) => { const k = t.pair || '—'; (groups[k] || (groups[k] = [])).push(t); });
+  return Object.keys(groups)
+    .map((k) => { const st = computeLiveStats(groups[k]); return { pair: k, n: groups[k].length, net: st.netPnl, resolved: st.totalResolved }; })
+    .sort((a, b) => b.net - a.net || b.n - a.n);
+}
+function pnlCalendarDayNets(trades) {
+  const groups = {};
+  trades.forEach((t) => { const d = (t.date || '').slice(0, 10); if (d) (groups[d] || (groups[d] = [])).push(t); });
+  return Object.keys(groups)
+    .map((d) => { const st = computeLiveStats(groups[d]); return { date: d, n: groups[d].length, resolved: st.totalResolved, net: st.netPnl }; })
+    .filter((x) => x.resolved > 0);
+}
+// ---- P&L Calendar Roadmap, Phase 3 ----
+// 3a. Equity curve: running P&L trade by trade through the period shown
+// (finished trades only; open ones add nothing until they close).
+function pnlCalendarEquityHtml(trades) {
+  const sorted = trades.slice().sort((a, b) => {
+    const da = (a.date || '').slice(0, 10);
+    const db = (b.date || '').slice(0, 10);
+    if (da !== db) return da < db ? -1 : 1;
+    return (new Date(a.openedAt).getTime() || 0) - (new Date(b.openedAt).getTime() || 0);
+  });
+  const pts = [{ v: 0, date: '' }];
+  let run = 0;
+  sorted.forEach((t) => {
+    if (classifyTrade(t) === 'unresolved') return;
+    const d = tradeDollarResult(t);
+    if (d === null) return;
+    run += d;
+    pts.push({ v: run, date: (t.date || '').slice(0, 10) });
+  });
+  if (pts.length < 3) return '<div class="plc-ins-hint">Needs at least two finished trades to draw a curve.</div>';
+  const W = 300; const H = 96; const padX = 4; const padT = 8; const padB = 8;
+  const vals = pts.map((p) => p.v);
+  const lo = Math.min(0, ...vals);
+  const hi = Math.max(0, ...vals);
+  const span = (hi - lo) || 1;
+  const x = (i) => padX + (i / (pts.length - 1)) * (W - padX * 2);
+  const y = (v) => padT + (1 - (v - lo) / span) * (H - padT - padB);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(p.v).toFixed(1)).join(' ');
+  const area = line + ' L' + x(pts.length - 1).toFixed(1) + ' ' + y(0).toFixed(1) + ' L' + x(0).toFixed(1) + ' ' + y(0).toFixed(1) + ' Z';
+  const end = pts[pts.length - 1].v;
+  const color = end >= 0 ? '#2ECC9A' : '#FF5C5C';
+  const nice = (ymd) => (ymd ? parseLocalDate(ymd).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '');
+  return '<svg class="plc-equity" viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Running profit and loss">' +
+      '<line x1="' + padX + '" x2="' + (W - padX) + '" y1="' + y(0).toFixed(1) + '" y2="' + y(0).toFixed(1) + '" stroke="rgba(255,255,255,0.25)" stroke-width="1" stroke-dasharray="3 3"/>' +
+      '<path d="' + area + '" fill="' + color + '" fill-opacity="0.13"/>' +
+      '<path d="' + line + '" fill="none" stroke="' + color + '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+      '<circle cx="' + x(pts.length - 1).toFixed(1) + '" cy="' + y(end).toFixed(1) + '" r="3.2" fill="' + color + '"/>' +
+    '</svg>' +
+    '<div class="plc-equity-legend"><span>' + escapeHtml(nice(pts[1].date)) + '</span>' +
+      '<b class="mono" style="color:' + color + '">' + fmtCompareDollar(end, true) + '</b>' +
+      '<span>' + escapeHtml(nice(pts[pts.length - 1].date)) + '</span></div>';
+}
+
+// 3b. Monthly profit target. Stored on THIS device only (localStorage), so
+// each phone keeps its own; the bar measures whatever the page is filtered
+// to (All / Dan / Ako). Shown in Month view only.
+const PNL_TARGET_KEY = 'danwaves_pnl_monthly_target_v1';
+function getPnlMonthlyTarget() {
+  try { const v = Number(localStorage.getItem(PNL_TARGET_KEY)); return v > 0 ? v : 0; } catch (e) { return 0; }
+}
+async function editPnlMonthlyTarget() {
+  const cur = getPnlMonthlyTarget();
+  const input = await promptDialog('Monthly profit target in dollars (leave empty to remove it):', cur ? String(cur) : '');
+  if (input === null) return;
+  const cleaned = String(input).replace(/[$,\s]/g, '');
+  if (cleaned === '') {
+    try { localStorage.removeItem(PNL_TARGET_KEY); } catch (e) { /* storage unavailable */ }
+    renderPnlCalendarTally();
+    return;
+  }
+  const n = Number(cleaned);
+  if (!isFinite(n) || n <= 0) { showToast('Enter a positive number, like 2000.', 'error'); return; }
+  try { localStorage.setItem(PNL_TARGET_KEY, String(Math.round(n))); }
+  catch (e) { showToast("Couldn't save the target on this device.", 'error'); return; }
+  renderPnlCalendarTally();
+}
+function pnlCalendarTargetHtml(net, hasResolved) {
+  const t = getPnlMonthlyTarget();
+  if (!t) return '<button type="button" class="plc-target-set" onclick="editPnlMonthlyTarget()">+ Set a monthly profit target</button>';
+  const reached = net >= t;
+  const pct = Math.max(0, Math.min(100, (net / t) * 100));
+  return '<div class="plc-target">' +
+    '<div class="plc-target-top"><span>Target <b class="mono">' + fmtCompareDollar(t) + '</b></span>' +
+      '<span class="mono">' + (hasResolved ? fmtCompareDollar(net, true) + ' · ' + Math.round((net / t) * 100) + '%' : '—') + '</span>' +
+      '<button type="button" class="plc-target-edit" onclick="editPnlMonthlyTarget()" aria-label="Edit target">✎</button></div>' +
+    '<div class="plc-target-bar"><div class="plc-target-fill' + (reached ? ' done' : '') + '" style="width:' + pct.toFixed(1) + '%"></div></div>' +
+    '<div class="plc-target-note">' + (reached ? 'Target reached' : fmtCompareDollar(t - net) + ' to go') + '</div></div>';
+}
+
+// 3c. Daily-update record, per calendar day. The daily rule: on a weekday,
+// each person's open watchlist ideas should each get an update from their
+// owner (posting the idea counts as that day's update). Weekends and future
+// days owe nothing. Today stays "due" until it is complete — it only becomes
+// a miss once the day has passed. A CLOSED idea only owed updates up to the
+// day of its owner's last update (the app keeps no closing time, so this errs
+// on the lenient side rather than charge days after it ended).
+function pnlCalendarDailyUpdateInfo(ymd) {
+  const day = parseLocalDate(ymd);
+  if (isNaN(day.getTime())) return null;
+  const g = day.getDay();
+  if (g === 0 || g === 6) return null;
+  const startMs = day.getTime();
+  const endMs = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1).getTime() - 1;
+  const nowMs = Date.now();
+  if (startMs > nowMs) return null;
+  const isToday = nowMs <= endMs;
+  const ideas = typeof allWatchlistItems !== 'undefined' ? allWatchlistItems : [];
+  const people = Object.keys(AUTHOR_BADGES).map((email) => ({ email, name: AUTHOR_BADGES[email].name, required: 0, updated: 0 }));
+  const hit = (ts) => ts >= startMs && ts <= endMs;
+  ideas.forEach((it) => {
+    const p = people.find((x) => x.email === it.createdBy);
+    if (!p || !it.createdAt || it.createdAt > endMs) return;
+    const own = (Array.isArray(it.trail) ? it.trail : []).filter((e) => e && e.timestamp && (!e.createdBy || e.createdBy === it.createdBy));
+    if (!isWatchlistItemOpen(it)) {
+      const lastOwn = Math.max(it.createdAt, ...own.map((e) => e.timestamp));
+      if (lastOwn < startMs) return;
+    }
+    p.required++;
+    if (hit(it.createdAt) || own.some((e) => hit(e.timestamp))) p.updated++;
+  });
+  const owed = people.filter((p) => p.required > 0);
+  if (!owed.length) return { state: 'none', people: [], isToday };
+  const allDone = owed.every((p) => p.updated >= p.required);
+  return { state: allDone ? 'ok' : (isToday ? 'due' : 'miss'), people: owed, isToday };
+}
+function pnlCalendarUpdateMarkHtml(ymd) {
+  const info = pnlCalendarDailyUpdateInfo(ymd);
+  if (!info) return '';
+  if (info.state === 'ok') return '<span class="plc-upd ok" title="Daily updates done">✓</span>';
+  if (info.state === 'miss') return '<span class="plc-upd miss" title="A daily update was missed">!</span>';
+  return '';
+}
+// Per person across the period: days owed, days fully done, days missed.
+function pnlCalendarUpdateLedger(range) {
+  const rows = {};
+  Object.keys(AUTHOR_BADGES).forEach((email) => { rows[email] = { name: AUTHOR_BADGES[email].name, days: 0, done: 0, missed: 0 }; });
+  const nowMs = Date.now();
+  for (let d = new Date(range.start.getFullYear(), range.start.getMonth(), range.start.getDate());
+       d <= range.end && d.getTime() <= nowMs;
+       d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    const info = pnlCalendarDailyUpdateInfo(dateToYMD(d));
+    if (!info || info.state === 'none') continue;
+    info.people.forEach((p) => {
+      const row = rows[p.email];
+      const complete = p.updated >= p.required;
+      if (!complete && info.isToday) return; // today isn't over yet
+      row.days++;
+      if (complete) row.done++; else row.missed++;
+    });
+  }
+  return Object.values(rows).filter((r) => r.days > 0);
+}
+
+function renderPnlCalendarInsights(range, trades) {
+  const host = document.getElementById('pnlCalendarInsights');
+  if (!host) return;
+  const isWeek = pnlCalendarScope === 'week';
+  const head = '<div class="plc-insights-head" onclick="togglePnlCalendarInsights()">' +
+    '<span class="plc-insights-title">Insights</span>' +
+    '<span class="plc-insights-sub">' + escapeHtml(range.label) + '</span>' +
+    '<span class="plc-insights-chev">' + (pnlCalendarInsightsOpen ? '▾' : '▸') + '</span></div>';
+  if (!pnlCalendarInsightsOpen) { host.innerHTML = head; return; }
+  if (!trades.length) {
+    host.innerHTML = head + '<div class="plc-ins-empty">No trades ' + (isWeek ? 'this week' : 'this month') + ' yet — insights appear once there are some.</div>';
+    return;
+  }
+  const money = (v) => fmtCompareDollar(v, true);
+  const cls = (v) => (v > 0 ? 'win' : v < 0 ? 'loss' : 'muted');
+  const section = (title, body) => '<div class="plc-ins-section"><div class="plc-ins-title">' + title + '</div>' + body + '</div>';
+
+  // 2a. Pairs — best and worst (all of them when there are few)
+  const board = pnlCalendarPairBoard(trades);
+  const activePair = getPnlCalendarPairFilter();
+  const boardRow = (r) => {
+    const arg = escapeHtml(JSON.stringify(r.pair));
+    return '<div class="plc-ins-row tap' + (activePair === r.pair ? ' on' : '') + '" onclick="pnlCalendarFilterToPair(' + arg + ')">' +
+      '<span class="plc-ins-name">' + escapeHtml(r.pair) + '</span>' +
+      '<span class="plc-ins-meta">' + r.n + (r.n === 1 ? ' trade' : ' trades') + '</span>' +
+      '<span class="plc-ins-val mono ' + cls(r.net) + '">' + (r.resolved ? money(r.net) : 'open') + '</span></div>';
+  };
+  let boardHtml;
+  if (board.length <= 5) {
+    boardHtml = board.map(boardRow).join('');
+  } else {
+    boardHtml = '<div class="plc-ins-sub2">Best</div>' + board.slice(0, 3).map(boardRow).join('') +
+      '<div class="plc-ins-sub2">Worst</div>' + board.slice(-3).reverse().map(boardRow).join('');
+  }
+  boardHtml += '<div class="plc-ins-hint">Tap a pair to filter this page to it.</div>';
+
+  // 2b. Dan vs Ako — pair/strategy filters apply, the Trader filter does not
+  const both = getPnlCalendarRangeTrades(range, { ignoreTrader: true });
+  const duel = Object.keys(AUTHOR_BADGES).map((email) => {
+    const st = computeLiveStats(both.filter((t) => t.createdBy === email));
+    return '<div class="plc-ins-duel-col"><div class="plc-ins-duel-name">' + escapeHtml(AUTHOR_BADGES[email].name) + '</div>' +
+      '<b class="mono ' + cls(st.netPnl) + '">' + (st.totalResolved ? money(st.netPnl) : '—') + '</b>' +
+      '<span>' + st.totalTrades + (st.totalTrades === 1 ? ' trade' : ' trades') + '</span>' +
+      '<span>' + (st.totalResolved ? st.winRate.toFixed(0) + '% win rate' : 'no result yet') + '</span></div>';
+  }).join('');
+
+  // 2c. News effect — trades opened within ±1h of a high-impact event vs not
+  let newsHtml;
+  if (!forexNewsLoaded) {
+    ensureForexNewsForBadges(renderPnlCalendarTally);
+    newsHtml = '<div class="plc-ins-hint">Loading news…</div>';
+  } else {
+    const near = []; const far = [];
+    trades.forEach((t) => (highImpactNewsNear(t.openedAt).length ? near : far).push(t));
+    const line = (label, group) => {
+      const st = computeLiveStats(group);
+      return '<div class="plc-ins-row"><span class="plc-ins-name">' + label + '</span>' +
+        '<span class="plc-ins-meta">' + group.length + (group.length === 1 ? ' trade' : ' trades') + (st.totalResolved ? ' · ' + st.winRate.toFixed(0) + '% win' : '') + '</span>' +
+        '<span class="plc-ins-val mono ' + cls(st.netPnl) + '">' + (st.totalResolved ? money(st.netPnl) : '—') + '</span></div>';
+    };
+    newsHtml = line('Near high-impact news', near) + line('Away from news', far);
+  }
+
+  // 2d. Best day, worst day, current streak
+  const days = pnlCalendarDayNets(trades);
+  const niceDay = (ymd) => parseLocalDate(ymd).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  let daysHtml = '';
+  if (days.length) {
+    const best = days.reduce((a, b) => (b.net > a.net ? b : a));
+    const worst = days.reduce((a, b) => (b.net < a.net ? b : a));
+    const dayRow = (label, d) => '<div class="plc-ins-row"><span class="plc-ins-name">' + label + '</span>' +
+      '<span class="plc-ins-meta">' + escapeHtml(niceDay(d.date)) + '</span><span class="plc-ins-val mono ' + cls(d.net) + '">' + money(d.net) + '</span></div>';
+    daysHtml = best.date === worst.date ? dayRow('Only trading day', best) : dayRow('Best day', best) + dayRow('Worst day', worst);
+  }
+  const toYmd = dateToYMD(range.end);
+  const upToEnd = allTrades.filter((t) => (t.date || '').slice(0, 10) <= toYmd &&
+    (!getPnlCalendarPairFilter() || t.pair === getPnlCalendarPairFilter()) &&
+    (!getPnlCalendarStrategyFilter() || t.strategy === getPnlCalendarStrategyFilter()) &&
+    (!getPnlCalendarTraderFilter() || t.createdBy === getPnlCalendarTraderFilter()));
+  const streakStats = computeLiveStats(upToEnd);
+  if (streakStats.current > 0) {
+    daysHtml += '<div class="plc-ins-row"><span class="plc-ins-name">' + (isWeek ? 'Streak at week end' : 'Streak at month end') + '</span>' +
+      '<span class="plc-ins-meta"></span><span class="plc-ins-val mono ' + (streakStats.currentType === 'win' ? 'win' : 'loss') + '">' +
+      streakStats.current + (streakStats.currentType === 'win' ? ' win' : ' loss') + (streakStats.current === 1 ? '' : (streakStats.currentType === 'win' ? 's' : 'es')) + ' in a row</span></div>';
+  }
+
+  // 2e. This period vs the one before
+  const prev = pnlCalendarPreviousRange(range);
+  const prevTrades = getPnlCalendarRangeTrades(prev);
+  let vsHtml;
+  if (!prevTrades.length) {
+    vsHtml = '<div class="plc-ins-hint">No trades in ' + escapeHtml(prev.label) + ' to compare with.</div>';
+  } else {
+    const nowNet = computeLiveStats(trades).netPnl;
+    const prevNet = computeLiveStats(prevTrades).netPnl;
+    const diff = nowNet - prevNet;
+    vsHtml = '<div class="plc-ins-row"><span class="plc-ins-name ' + (diff >= 0 ? 'win' : 'loss') + '">' + (diff >= 0 ? '▲ ' : '▼ ') + money(diff) + '</span>' +
+      '<span class="plc-ins-meta">vs ' + escapeHtml(prev.label) + '</span><span class="plc-ins-val mono muted">was ' + money(prevNet) + '</span></div>';
+  }
+
+  // Phase 3 sections: equity curve first, daily-update record near the end.
+  const ledger = pnlCalendarUpdateLedger(range);
+  const ledgerHtml = ledger.map((r) =>
+    '<div class="plc-ins-row"><span class="plc-ins-name">' + escapeHtml(r.name) + '</span>' +
+    '<span class="plc-ins-meta">' + r.done + ' of ' + r.days + (r.days === 1 ? ' day' : ' days') + '</span>' +
+    '<span class="plc-ins-val mono ' + (r.missed ? 'loss' : 'win') + '">' + (r.missed ? r.missed + ' missed' : 'all done') + '</span></div>'
+  ).join('');
+
+  host.innerHTML = head +
+    section('Equity curve', pnlCalendarEquityHtml(trades)) +
+    section('Pairs', boardHtml) +
+    section('Dan vs Ako', '<div class="plc-ins-duel">' + duel + '</div>') +
+    section('News effect', newsHtml) +
+    (daysHtml ? section('Days and streak', daysHtml) : '') +
+    (ledgerHtml ? section('Daily updates', ledgerHtml + '<div class="plc-ins-hint">Watchlist updates owed on weekdays; weekends are free.</div>') : '') +
+    section(isWeek ? 'Vs the previous week' : 'Vs last month', vsHtml);
+}
+
 // Phase 4f: which day (a 'YYYY-MM-DD' string, or null) currently has its
 // detail card open. Reset to null at the top of every renderPnlCalendarGrid()
 // call — that function runs on month nav, every filter change, and fresh
@@ -6170,6 +6644,7 @@ function renderPnlCalendarGrid() {
   const monthTrades = getPnlCalendarMonthTrades();
   pnlCalendarDayAggregates = buildPnlCalendarDayAggregates(monthTrades);
   renderPnlCalendarSummary(monthTrades);
+  renderPnlCalendarTally();
 
   const gridEl = document.getElementById('pnlCalendarGrid');
   if (!gridEl) return;
@@ -6200,12 +6675,12 @@ function renderPnlCalendarGrid() {
     const newsDot = pnlCalendarDayHasHighImpactNews(c.date) ? '<span class="plc-news-dot"></span>' : '';
     const agg = pnlCalendarDayAggregates[ymd];
     if (!agg) {
-      return '<div class="plc-day"' + clickAttr + '><div class="plc-top-row"><span class="plc-date">' + dateNum + '</span>' + newsDot + '</div></div>';
+      return '<div class="plc-day"' + clickAttr + '><div class="plc-top-row"><span class="plc-date">' + dateNum + pnlCalendarUpdateMarkHtml(ymd) + '</span>' + newsDot + '</div></div>';
     }
     const heatClass = pnlCalendarHeatmapClass(agg.net, maxWinNet, maxLossAbs);
     const tradesLabel = agg.count + (agg.count === 1 ? ' trade' : ' trades');
     return '<div class="plc-day has-data' + (heatClass ? ' ' + heatClass : '') + '"' + clickAttr + '>' +
-      '<div class="plc-top-row"><span class="plc-date">' + dateNum + '</span>' + newsDot + '</div>' +
+      '<div class="plc-top-row"><span class="plc-date">' + dateNum + pnlCalendarUpdateMarkHtml(ymd) + '</span>' + newsDot + '</div>' +
       '<div class="plc-trades">' + tradesLabel + '</div>' +
       '<div class="plc-pnl mono">' + fmtPlcDayNet(agg.net) + '</div>' +
     '</div>';
@@ -6241,6 +6716,7 @@ function selectPnlCalendarDay(ymd) {
     if (target) target.classList.add('selected');
   }
   renderPnlCalendarDayDetail();
+  if (pnlCalendarScope === 'week') renderPnlCalendarTally(); // the week follows the tapped day
 }
 
 // Day trades for the detail card — the same Pair/Strategy/Trader-filtered
@@ -6312,6 +6788,41 @@ function renderPnlCalendarDayDetail() {
       '</div>'
     : '';
 
+  // P&L Calendar Roadmap Phase 1: the pairs taken that day — pair, direction,
+  // result, and who took it — so tapping a date says WHAT was traded, not
+  // just how many.
+  const tradeRowsHtml = dayTrades.length
+    ? '<div class="plc-detail-trades"><div class="plc-detail-trades-label">Trades taken</div>' +
+        dayTrades.map((t) => {
+          const cls = classifyTrade(t);
+          const dollars = tradeDollarResult(t);
+          const result = cls === 'unresolved' ? 'Open'
+            : (dollars === null ? (cls === 'win' ? 'Win' : 'Loss') : fmtCompareDollar(dollars, true));
+          const who = AUTHOR_BADGES[t.createdBy] ? AUTHOR_BADGES[t.createdBy].name : '';
+          const isSell = t.direction === 'sell';
+          return '<div class="plc-detail-trade-row">' +
+            '<span class="plc-detail-trade-pair">' + escapeHtml(t.pair || '—') + '</span>' +
+            '<span class="mono ' + (isSell ? 'loss' : 'win') + '">' + (isSell ? 'SELL' : 'BUY') + '</span>' +
+            '<span class="plc-detail-trade-result mono ' + (cls === 'win' ? 'win' : cls === 'loss' ? 'loss' : 'muted') + '">' + escapeHtml(result) + '</span>' +
+            (who ? '<span class="plc-detail-trade-who">' + escapeHtml(who) + '</span>' : '') +
+          '</div>';
+        }).join('') +
+      '</div>'
+    : '';
+
+  // P&L Calendar Roadmap Phase 3: who kept the daily watchlist update that day.
+  const upd = pnlCalendarDailyUpdateInfo(ymd);
+  const updatesHtml = upd && upd.people.length
+    ? '<div class="plc-detail-trades"><div class="plc-detail-trades-label">Daily updates</div>' +
+        upd.people.map((p) => {
+          const done = p.updated >= p.required;
+          return '<div class="plc-detail-trade-row"><span class="plc-detail-trade-pair">' + escapeHtml(p.name) + '</span>' +
+            '<span class="plc-detail-trade-result mono ' + (done ? 'win' : (upd.isToday ? 'muted' : 'loss')) + '">' +
+            (done ? '✓ ' : (upd.isToday ? 'due · ' : '✗ ')) + p.updated + '/' + p.required + (p.required === 1 ? ' idea' : ' ideas') + '</span></div>';
+        }).join('') +
+      '</div>'
+    : '';
+
   container.innerHTML =
     '<div class="plc-detail">' +
       '<div class="plc-detail-head"><h3>' + dayLabel + '</h3><span class="plc-detail-net mono ' + netClass + '">' + netLabel + '</span></div>' +
@@ -6320,6 +6831,8 @@ function renderPnlCalendarDayDetail() {
         '<div>Win rate<b>' + (stats.totalResolved ? stats.winRate.toFixed(0) + '%' : '—') + '</b></div>' +
         '<div>Avg R<b>' + (avgR !== null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—') + '</b></div>' +
       '</div>' +
+      tradeRowsHtml +
+      updatesHtml +
       newsSectionHtml +
       (dayTrades.length
         ? '<div class="plc-view-link" onclick="viewPnlCalendarDayTrades(\'' + ymd + '\')">View ' + tradeCountLabel + ' from this day</div>'
