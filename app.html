@@ -747,6 +747,26 @@
   .comment-bubble-row.mine .comment-bubble { background: rgba(238,130,179,0.16); border: 1px solid var(--brand); color: #F4E4EC; border-bottom-right-radius: 4px; }
   .comment-bubble-row.theirs .comment-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--light, #E7E9F3); border-bottom-left-radius: 4px; }
   /* P&L Calendar Roadmap Phase 1: Month | Week tally + trades-taken list */
+  .dsc-card { margin-bottom: var(--space-4); }
+  .dsc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .dsc-title { margin: 0; }
+  .dsc-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .dsc-today-label { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; color: var(--muted); margin: 8px 0 4px; }
+  .dsc-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+  .dsc-name { font-weight: 600; color: var(--light); min-width: 62px; }
+  .dsc-count { font-size: 22px; font-weight: 700; color: var(--light); min-width: 26px; text-align: center; }
+  .dsc-detail { flex: 1; font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+  .dsc-detail .loss { color: var(--loss, #FF5C5C); }
+  .dsc-status { font-size: 12px; font-weight: 600; text-align: right; }
+  .dsc-status.win { color: var(--profit, #2ECC9A); } .dsc-status.loss { color: var(--loss, #FF5C5C); } .dsc-status.muted { color: var(--muted); font-weight: 400; }
+  .dsc-together .dsc-name, .dsc-together .dsc-count { color: var(--brand); }
+  .dsc-table-head { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .dsc-table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 12.5px; }
+  .dsc-table th { font-size: 10.5px; font-weight: 600; color: var(--muted); text-align: right; padding: 4px 0; }
+  .dsc-table th:first-child, .dsc-table td:first-child { text-align: left; }
+  .dsc-table td { text-align: right; padding: 6px 0; border-top: 1px solid var(--border); color: var(--light); }
+  .dsc-total-row td { font-weight: 700; color: var(--brand); }
+  .dsc-hint { font-size: 10.5px; color: var(--muted); margin-top: 8px; }
   .plc-tally-card { margin: 0 0 12px; padding: 12px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); }
   .plc-tally-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
   .plc-tally-title { font-size: 13px; font-weight: 600; color: var(--light); }
@@ -1338,10 +1358,10 @@
   .plc-nav .plc-arrow { color: var(--muted); font-size: 13px; width: 22px; height: 22px; display:flex; align-items:center; justify-content:center; border-radius: 6px; cursor: pointer; user-select: none; }
   .plc-nav .plc-arrow:hover { background: var(--surface2); color: var(--light); }
 
-  .plc-weekday-row { display: grid; grid-template-columns: repeat(5, 1fr); margin-bottom: 5px; padding: 0 1px; }
+  .plc-weekday-row { display: grid; grid-template-columns: repeat(6, 1fr); margin-bottom: 5px; padding: 0 1px; }
   .plc-weekday-row span { font-size: 10px; color: var(--muted); font-weight: 600; letter-spacing: 0.2px; }
 
-  .plc-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .plc-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
   .plc-day {
     border-radius: 8px;
     padding: 7px 7px 6px;
@@ -1356,7 +1376,7 @@
   .plc-day .plc-date { font-size: 10.5px; font-weight: 650; color: rgba(255,255,255,0.5); }
   .plc-day.has-data .plc-date { color: rgba(255,255,255,0.85); }
   .plc-day .plc-trades { font-size: 9px; color: var(--muted); }
-  .plc-day .plc-pnl { font-size: 11px; font-weight: 650; }
+  .plc-day .plc-pnl { font-size: 10.5px; font-weight: 650; }
   .plc-day.empty { background: transparent; border: none; }
 
   .plc-day.win1 { background: rgba(0,200,150,0.09); }
@@ -2513,6 +2533,11 @@
       <button class="btn-primary" id="onboardingBannerBtn" style="width:auto; padding: var(--space-2) var(--space-4);"></button>
     </div>
 
+    <!-- DAILY SETUPS (P&L Calendar Roadmap Phase 5): today's setups per person
+         against the shared daily target, plus Week / Month / All-time totals.
+         Filled by renderDailySetupsCard(). -->
+    <div id="dailySetupsCard"></div>
+
     <!-- STICKY TOOLBAR: Filters, Strategy, Risk (Standard/Conservative) & Share
          together in one row, pinned under the tab bar for the whole page —
          see .dashboard-toolbar CSS for why this is safe to make sticky (nothing
@@ -3060,7 +3085,7 @@
           <div class="plc-arrow" onclick="pnlCalendarNextMonth()" role="button" aria-label="Next month">›</div>
         </div>
         <div class="plc-weekday-row">
-          <span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span>
+          <span>SUN</span><span>MON</span><span>TUE</span><span>WED</span><span>THU</span><span>FRI</span>
         </div>
         <div class="plc-grid" id="pnlCalendarGrid"></div>
 
@@ -6111,30 +6136,27 @@ function pnlCalendarNextMonth() {
   renderPnlCalendarGrid();
 }
 
-// Builds the Mon-Fri cell list for one month: walks day-by-day from the
-// Monday on/before the 1st through the Friday on/after the last day,
-// skipping Saturdays/Sundays entirely (they never take a grid column, same
-// as the reference layout) rather than trimming them out after the fact.
-// A cell's inMonth flag is what tells the renderer "real date" vs "empty
-// padding" — the padding cells are what keep every row a full Mon-Fri
-// week even when the 1st or the last day doesn't land on a Monday/Friday.
+// Builds the Sun-Fri cell list for one month. Forex opens Sunday night, so
+// Sunday gets a column (trades taken then used to count in the month totals
+// but had no cell to show them); Saturday, when the market is closed, still
+// never takes a column. Walks day-by-day from the Sunday on/before the 1st
+// through the Friday on/after the last day. A cell's inMonth flag tells the
+// renderer "real date" vs "empty padding" — the padding keeps every row a
+// full Sun-Fri week. A month that STARTS on a Saturday would open with a whole
+// row of previous-month padding, so it begins at its first Sunday instead.
 function buildPnlCalendarWeekdayCells(year, monthIndex) {
-  const firstOfMonth = new Date(year, monthIndex, 1);
   const lastOfMonth = new Date(year, monthIndex + 1, 0);
-
-  const firstDow = firstOfMonth.getDay(); // 0=Sun … 6=Sat
-  const mondayOffset = (firstDow + 6) % 7; // days back to that week's Monday
-  const gridStart = new Date(year, monthIndex, 1 - mondayOffset);
+  const firstDow = new Date(year, monthIndex, 1).getDay(); // 0=Sun … 6=Sat
+  const gridStart = firstDow === 6 ? new Date(year, monthIndex, 2) : new Date(year, monthIndex, 1 - firstDow);
 
   const lastDow = lastOfMonth.getDay();
-  const fridayOffset = (5 - lastDow + 7) % 7; // days forward to that week's Friday
+  const fridayOffset = lastDow === 6 ? 0 : (5 - lastDow + 7) % 7; // days forward to that week's Friday
   const gridEnd = new Date(year, monthIndex, lastOfMonth.getDate() + fridayOffset);
 
   const cells = [];
   const cursor = new Date(gridStart);
   while (cursor <= gridEnd) {
-    const dow = cursor.getDay();
-    if (dow >= 1 && dow <= 5) { // Mon-Fri only — Sat/Sun never get a cell
+    if (cursor.getDay() !== 6) { // Sun-Fri — Saturday never gets a cell
       cells.push({ date: new Date(cursor), inMonth: cursor.getMonth() === monthIndex });
     }
     cursor.setDate(cursor.getDate() + 1);
@@ -6232,10 +6254,13 @@ function pnlCalendarScopeRange() {
       anchor = (today.getFullYear() === pnlCalendarViewYear && today.getMonth() === pnlCalendarViewMonth)
         ? today : new Date(pnlCalendarViewYear, pnlCalendarViewMonth, 1);
     }
-    const monday = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - ((anchor.getDay() + 6) % 7));
-    const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 23, 59, 59, 999);
+    // The trading week runs Sunday (market opens that night) to Saturday,
+    // matching the calendar's rows; the label stops at Friday, the last session.
+    const sunday = new Date(anchor.getFullYear(), anchor.getMonth(), anchor.getDate() - anchor.getDay());
+    const saturday = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 6, 23, 59, 59, 999);
+    const friday = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + 5);
     const fmt = (d) => PNL_CALENDAR_MONTH_NAMES[d.getMonth()].slice(0, 3) + ' ' + d.getDate();
-    return { start: monday, end: sunday, label: 'Week of ' + fmt(monday) + ' – ' + fmt(sunday) };
+    return { start: sunday, end: saturday, label: 'Week of ' + fmt(sunday) + ' – ' + fmt(friday) };
   }
   const start = new Date(pnlCalendarViewYear, pnlCalendarViewMonth, 1);
   const end = new Date(pnlCalendarViewYear, pnlCalendarViewMonth + 1, 0, 23, 59, 59, 999);
@@ -6491,6 +6516,195 @@ function pnlCalendarUpdateLedger(range) {
   return Object.values(rows).filter((r) => r.days > 0);
 }
 
+// ---- P&L Calendar Roadmap, Phase 5: daily setup target ----
+// A SETUP is a trade taken OR an idea added to the watchlist, counted once:
+// a trade taken from an idea (idea.linkedTradeId) is not counted again — the
+// idea already was the setup. The MINIMUM is per person per weekday (Mon-Fri);
+// Sunday counts but isn't required; Saturday is closed. The MAXIMUM applies to
+// EXECUTED trades per person per day and only warns — it never blocks saving.
+// The two numbers are shared by both accounts through the Supabase table
+// `app_settings` (row key 'daily_targets'); until that table exists the
+// defaults below are used.
+const DAILY_TARGET_DEFAULTS = { min: 2, max: 5 };
+let dailyTargets = { min: DAILY_TARGET_DEFAULTS.min, max: DAILY_TARGET_DEFAULTS.max };
+async function loadDailyTargets() {
+  try {
+    const { data, error } = await supabaseClient.from('app_settings').select('value').eq('key', 'daily_targets').maybeSingle();
+    if (!error && data && data.value) {
+      const mn = Number(data.value.min);
+      const mx = Number(data.value.max);
+      if (Number.isInteger(mn) && mn >= 0) dailyTargets.min = mn;
+      if (Number.isInteger(mx) && mx >= Math.max(1, dailyTargets.min)) dailyTargets.max = mx;
+    }
+  } catch (e) { /* table not created yet — defaults stay */ }
+}
+async function editDailyTargets() {
+  const minIn = await promptDialog('Minimum setups EACH of you should put in per weekday (a setup = a trade taken or an idea added):', String(dailyTargets.min));
+  if (minIn === null) return;
+  const mn = Number(String(minIn).trim());
+  if (!Number.isInteger(mn) || mn < 0 || mn > 20) { showToast('Enter a whole number from 0 to 20.', 'error'); return; }
+  const maxIn = await promptDialog('Maximum trades EACH of you may execute per day (it only warns, it never blocks):', String(Math.max(dailyTargets.max, mn, 1)));
+  if (maxIn === null) return;
+  const mx = Number(String(maxIn).trim());
+  if (!Number.isInteger(mx) || mx < Math.max(1, mn) || mx > 50) { showToast('Enter a whole number from ' + Math.max(1, mn) + ' to 50.', 'error'); return; }
+  const { error } = await supabaseClient.from('app_settings').upsert({ key: 'daily_targets', value: { min: mn, max: mx }, updated_at: new Date().toISOString() });
+  if (error) { showToast("Couldn't save the targets for both of you (" + (error.message || 'error') + "). The one-time settings table may not be set up yet.", 'error'); return; }
+  dailyTargets = { min: mn, max: mx };
+  showToast('Daily targets saved: at least ' + mn + ' setups, at most ' + mx + ' trades.', 'success');
+  renderDailySetupsCard();
+  if (document.getElementById('pnlCalendarTally')) renderPnlCalendarTally();
+}
+// Everything counted once, per person per local day: executed trades, how many
+// of those came from an idea, and ideas added.
+function dailySetupIndex() {
+  const idx = {};
+  Object.keys(AUTHOR_BADGES).forEach((e) => { idx[e] = {}; });
+  const ideas = typeof allWatchlistItems !== 'undefined' ? allWatchlistItems : [];
+  const linked = new Set(ideas.map((i) => i.linkedTradeId).filter(Boolean));
+  const slot = (email, ymd) => (idx[email] && ymd ? (idx[email][ymd] || (idx[email][ymd] = { executed: 0, fromIdea: 0, ideas: 0 })) : null);
+  allTrades.forEach((t) => {
+    const sl = slot(t.createdBy, (t.date || '').slice(0, 10));
+    if (!sl) return;
+    sl.executed++;
+    if (linked.has(t.id)) sl.fromIdea++;
+  });
+  ideas.forEach((it) => {
+    if (!it.createdAt) return;
+    const sl = slot(it.createdBy, dateToYMD(new Date(it.createdAt)));
+    if (sl) sl.ideas++;
+  });
+  return idx;
+}
+function dailySetupCounts(idx, email, ymd) {
+  const sl = (idx[email] && idx[email][ymd]) || { executed: 0, fromIdea: 0, ideas: 0 };
+  const newTrades = sl.executed - sl.fromIdea;
+  return { executed: sl.executed, ideas: sl.ideas, newTrades, setups: newTrades + sl.ideas };
+}
+function dailySetupTotals(idx, email, fromYmd, toYmd) {
+  let setups = 0; let executed = 0;
+  Object.keys(idx[email] || {}).forEach((ymd) => {
+    if ((fromYmd && ymd < fromYmd) || (toYmd && ymd > toYmd)) return;
+    const c = dailySetupCounts(idx, email, ymd);
+    setups += c.setups;
+    executed += c.executed;
+  });
+  return { setups, executed };
+}
+// One line of plain words describing a person's day against the targets.
+function dailySetupStatus(c, dow) {
+  const over = c.executed > dailyTargets.max;
+  let text; let cls;
+  if (dow === 6) { text = 'market closed'; cls = 'muted'; }
+  else if (dow === 0) { text = c.setups >= dailyTargets.min ? '✓ target met' : 'optional tonight'; cls = c.setups >= dailyTargets.min ? 'win' : 'muted'; }
+  else if (c.setups >= dailyTargets.min) { text = '✓ target met'; cls = 'win'; }
+  else { const left = dailyTargets.min - c.setups; text = left + ' more to go'; cls = 'loss'; }
+  return { text, cls, over };
+}
+
+let dailySetupsMetric = 'setups';
+function setDailySetupsMetric(m) { dailySetupsMetric = m === 'trades' ? 'trades' : 'setups'; renderDailySetupsCard(); }
+function renderDailySetupsCard() {
+  const host = document.getElementById('dailySetupsCard');
+  if (!host) return;
+  // Ideas load in the background at sign-in; if the Dashboard is drawn first,
+  // fetch them once and redraw so the idea counts appear.
+  if (typeof watchlistItemsLoaded !== 'undefined' && !watchlistItemsLoaded && !renderDailySetupsCard._loading) {
+    renderDailySetupsCard._loading = true;
+    loadAllWatchlistItems().then(() => { renderDailySetupsCard._loading = false; renderDailySetupsCard(); }).catch(() => { renderDailySetupsCard._loading = false; });
+  }
+  const idx = dailySetupIndex();
+  const now = new Date();
+  const todayYmd = dateToYMD(now);
+  const dow = now.getDay();
+  const emails = Object.keys(AUTHOR_BADGES);
+  let togetherSetups = 0;
+  let togetherExec = 0;
+  const personRows = emails.map((email) => {
+    const c = dailySetupCounts(idx, email, todayYmd);
+    togetherSetups += c.setups;
+    togetherExec += c.executed;
+    const st = dailySetupStatus(c, dow);
+    const parts = [];
+    if (c.newTrades) parts.push(c.newTrades + (c.newTrades === 1 ? ' trade' : ' trades'));
+    if (c.ideas) parts.push(c.ideas + (c.ideas === 1 ? ' idea' : ' ideas'));
+    return '<div class="dsc-row">' +
+      '<span class="dsc-name">' + escapeHtml(AUTHOR_BADGES[email].name) + '</span>' +
+      '<span class="dsc-count mono">' + c.setups + '</span>' +
+      '<span class="dsc-detail">' + (parts.length ? escapeHtml(parts.join(' + ')) : 'nothing yet') +
+        '<br><span class="' + (st.over ? 'loss' : '') + '">executed ' + c.executed + ' of max ' + dailyTargets.max + (st.over ? ' — over the max' : '') + '</span></span>' +
+      '<span class="dsc-status ' + st.cls + '">' + st.text + '</span></div>';
+  }).join('');
+  const togetherRow = '<div class="dsc-row dsc-together"><span class="dsc-name">Together</span>' +
+    '<span class="dsc-count mono">' + togetherSetups + '</span><span class="dsc-detail">executed ' + togetherExec + '</span><span class="dsc-status"></span></div>';
+
+  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
+  const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+  const periods = [
+    { label: 'This week', from: dateToYMD(weekStart), to: dateToYMD(weekEnd) },
+    { label: 'This month', from: dateToYMD(new Date(now.getFullYear(), now.getMonth(), 1)), to: dateToYMD(new Date(now.getFullYear(), now.getMonth() + 1, 0)) },
+    { label: 'All time', from: '', to: '' },
+  ];
+  const pick = (t) => (dailySetupsMetric === 'trades' ? t.executed : t.setups);
+  const tableRows = emails.map((email) =>
+    '<tr><td>' + escapeHtml(AUTHOR_BADGES[email].name) + '</td>' +
+    periods.map((p) => '<td class="mono">' + pick(dailySetupTotals(idx, email, p.from, p.to)) + '</td>').join('') + '</tr>'
+  ).join('') +
+  '<tr class="dsc-total-row"><td>Together</td>' + periods.map((p) =>
+    '<td class="mono">' + emails.reduce((sum, email) => sum + pick(dailySetupTotals(idx, email, p.from, p.to)), 0) + '</td>').join('') + '</tr>';
+  const seg = (id, label) => '<button type="button" class="plc-seg-btn' + (dailySetupsMetric === id ? ' active' : '') + '" onclick="setDailySetupsMetric(\'' + id + '\')">' + label + '</button>';
+
+  host.innerHTML = '<div class="card dsc-card">' +
+    '<div class="dsc-head"><div><h2 class="dsc-title">Daily setups</h2>' +
+      '<div class="dsc-sub">At least ' + dailyTargets.min + ' each per weekday · at most ' + dailyTargets.max + ' trades executed</div></div>' +
+      '<button type="button" class="plc-target-edit" onclick="editDailyTargets()" aria-label="Edit daily targets">✎</button></div>' +
+    '<div class="dsc-today-label">Today</div>' + personRows + togetherRow +
+    '<div class="dsc-table-head"><span class="dsc-today-label">Totals</span><div class="plc-seg">' + seg('setups', 'Setups') + seg('trades', 'Trades') + '</div></div>' +
+    '<table class="dsc-table"><thead><tr><th></th>' + periods.map((p) => '<th>' + p.label + '</th>').join('') + '</tr></thead><tbody>' + tableRows + '</tbody></table>' +
+    '<div class="dsc-hint">A setup is a trade taken or an idea added — a trade taken from an idea counts once. “Trades” counts executed trades only.</div>' +
+  '</div>';
+}
+
+// Calendar day card: each person's setups for that day.
+function dailySetupDayRowsHtml(ymd) {
+  const day = parseLocalDate(ymd);
+  if (isNaN(day.getTime()) || day.getTime() > Date.now()) return '';
+  const idx = dailySetupIndex();
+  const dow = day.getDay();
+  const rows = Object.keys(AUTHOR_BADGES).map((email) => {
+    const c = dailySetupCounts(idx, email, ymd);
+    const st = dailySetupStatus(c, dow);
+    return '<div class="plc-detail-trade-row"><span class="plc-detail-trade-pair">' + escapeHtml(AUTHOR_BADGES[email].name) + '</span>' +
+      '<span class="plc-detail-trade-result mono ' + (st.cls === 'muted' ? 'muted' : st.cls) + '">' + c.setups + ' ' + (c.setups === 1 ? 'setup' : 'setups') + '</span>' +
+      '<span class="plc-detail-trade-who">' + (st.over ? '⚠ ' + c.executed + ' executed (max ' + dailyTargets.max + ')' : st.text) + '</span></div>';
+  }).join('');
+  return '<div class="plc-detail-trades"><div class="plc-detail-trades-label">Daily setups</div>' + rows + '</div>';
+}
+// Insights ledger: per person across the period — weekdays the minimum was
+// met, missed, and days over the max. Today is left out until it has ended
+// (it can still be met); Sunday counts toward "over max" but is never owed.
+function pnlCalendarSetupLedger(range) {
+  const idx = dailySetupIndex();
+  const rows = {};
+  Object.keys(AUTHOR_BADGES).forEach((email) => { rows[email] = { name: AUTHOR_BADGES[email].name, days: 0, met: 0, missed: 0, over: 0 }; });
+  const now = new Date();
+  const todayYmd = dateToYMD(now);
+  for (let d = new Date(range.start.getFullYear(), range.start.getMonth(), range.start.getDate());
+       d <= range.end && d.getTime() <= now.getTime();
+       d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+    const ymd = dateToYMD(d);
+    const dow = d.getDay();
+    Object.keys(rows).forEach((email) => {
+      const c = dailySetupCounts(idx, email, ymd);
+      if (c.executed > dailyTargets.max) rows[email].over++;
+      if (dow === 0 || dow === 6) return;                      // minimum is owed Mon-Fri only
+      if (ymd === todayYmd && c.setups < dailyTargets.min) return; // today isn't over yet
+      rows[email].days++;
+      if (c.setups >= dailyTargets.min) rows[email].met++; else rows[email].missed++;
+    });
+  }
+  return Object.values(rows).filter((r) => r.days > 0 || r.over > 0);
+}
+
 function renderPnlCalendarInsights(range, trades) {
   const host = document.getElementById('pnlCalendarInsights');
   if (!host) return;
@@ -6599,6 +6813,13 @@ function renderPnlCalendarInsights(range, trades) {
     '<span class="plc-ins-val mono ' + (r.missed ? 'loss' : 'win') + '">' + (r.missed ? r.missed + ' missed' : 'all done') + '</span></div>'
   ).join('');
 
+  const setupLedger = pnlCalendarSetupLedger(range);
+  const setupLedgerHtml = setupLedger.map((r) =>
+    '<div class="plc-ins-row"><span class="plc-ins-name">' + escapeHtml(r.name) + '</span>' +
+    '<span class="plc-ins-meta">' + r.met + ' of ' + r.days + (r.days === 1 ? ' day' : ' days') + (r.over ? ' · over max ' + r.over + (r.over === 1 ? ' day' : ' days') : '') + '</span>' +
+    '<span class="plc-ins-val mono ' + (r.missed ? 'loss' : 'win') + '">' + (r.missed ? r.missed + ' missed' : 'all met') + '</span></div>'
+  ).join('');
+
   host.innerHTML = head +
     section('Equity curve', pnlCalendarEquityHtml(trades)) +
     section('Pairs', boardHtml) +
@@ -6606,6 +6827,7 @@ function renderPnlCalendarInsights(range, trades) {
     section('News effect', newsHtml) +
     (daysHtml ? section('Days and streak', daysHtml) : '') +
     (ledgerHtml ? section('Daily updates', ledgerHtml + '<div class="plc-ins-hint">Watchlist updates owed on weekdays; weekends are free.</div>') : '') +
+    (setupLedgerHtml ? section('Daily setups', setupLedgerHtml + '<div class="plc-ins-hint">At least ' + dailyTargets.min + ' setups per weekday each (trade taken or idea added); Sunday counts but is never owed.</div>') : '') +
     section(isWeek ? 'Vs the previous week' : 'Vs last month', vsHtml);
 }
 
@@ -6832,6 +7054,7 @@ function renderPnlCalendarDayDetail() {
         '<div>Avg R<b>' + (avgR !== null ? (avgR >= 0 ? '+' : '') + avgR.toFixed(2) + 'R' : '—') + '</b></div>' +
       '</div>' +
       tradeRowsHtml +
+      dailySetupDayRowsHtml(ymd) +
       updatesHtml +
       newsSectionHtml +
       (dayTrades.length
@@ -14920,6 +15143,10 @@ function rowToWatchlistItem(r) {
     ltf: r.ltf || '',
     order: r.sort_order != null ? r.sort_order : 0,
     trail: r.trail || [],
+    // Ids of the updates this copy has already seen — lets a save tell "the
+    // other phone added this since I loaded" (keep it) from "I deleted this"
+    // (leave it deleted). See mergeRemoteWatchlistTrail().
+    trailIdsSeen: new Set((r.trail || []).map((e) => e && e.id).filter(Boolean)),
     // Watchlist → Trade handoff roadmap, Phase 1. Rows saved before this
     // column existed have no value yet — default to 'idea' so old cards
     // behave exactly as they always have (still-open ideas, not linked to
@@ -14935,6 +15162,30 @@ function rowToWatchlistItem(r) {
 // Plain-words version of the last database refusal for the watchlist, so the
 // red "not saved" messages can say WHY (e.g. a permissions rule) instead of
 // just "server refused".
+// WHY THIS EXISTS: each phone loads the watchlist once and keeps its own copy
+// (there is no live sync). Every watchlist save writes the WHOLE row, trail
+// included. So if one of you posted an update and the other — still holding the
+// older copy — then saved ANYTHING on that idea (a comment, a "Seen" mark, a
+// reorder, an edit), the older trail overwrote the newer one and the update
+// vanished from the database. Telegram then asked for an update that had
+// already been posted. Before saving, fetch the stored trail and keep every
+// update in it that this copy has never seen; updates this copy deliberately
+// deleted stay deleted (they are in trailIdsSeen but no longer in the trail).
+async function mergeRemoteWatchlistTrail(item) {
+  try {
+    const { data, error } = await supabaseClient.from('watchlist_items').select('trail').eq('id', item.id).maybeSingle();
+    if (error || !data || !Array.isArray(data.trail)) return; // new idea, or offline: save as before
+    const seen = item.trailIdsSeen instanceof Set ? item.trailIdsSeen : new Set();
+    const local = Array.isArray(item.trail) ? item.trail : [];
+    const localIds = new Set(local.map((e) => e && e.id));
+    const fresh = data.trail.filter((e) => e && e.id && !localIds.has(e.id) && !seen.has(e.id));
+    if (fresh.length) {
+      item.trail = local.concat(fresh).sort((a, b) => ((a && a.timestamp) || 0) - ((b && b.timestamp) || 0));
+    }
+    (item.trail || []).forEach((e) => { if (e && e.id) seen.add(e.id); });
+    item.trailIdsSeen = seen;
+  } catch (e) { /* network trouble: the save proceeds exactly as it used to */ }
+}
 let lastWatchlistSaveErrorText = '';
 function describeDbError(error) {
   if (!error) return '';
@@ -14943,6 +15194,7 @@ function describeDbError(error) {
 }
 async function persistWatchlistItem(item) {
   setSyncState('saving');
+  await mergeRemoteWatchlistTrail(item);
   const { error } = await supabaseClient.from('watchlist_items').upsert(watchlistItemToRow(item));
   if (error) {
     console.error('Failed to save watchlist item ' + item.id + ':', error);
@@ -15249,6 +15501,9 @@ async function createWatchlistItem(fields) {
 async function updateWatchlistItem(id, patch) {
   const item = allWatchlistItems.find((it) => it.id === id);
   if (!item) { console.error('updateWatchlistItem: no local item for id', id); return null; }
+  // Everything in the trail BEFORE this edit counts as seen (so deleting an
+  // update in this very save isn't undone by the merge).
+  if (!(item.trailIdsSeen instanceof Set)) item.trailIdsSeen = new Set((item.trail || []).map((e) => e && e.id).filter(Boolean));
   const updated = Object.assign({}, item, patch, { id: item.id, createdAt: item.createdAt, updatedAt: Date.now() });
   const ok = await persistWatchlistItem(updated);
   if (!ok) return null;
@@ -19605,6 +19860,8 @@ function updateOnboardingBanner() {
 
 async function refreshDashboardTradeSummary() {
   await loadAllTrades();
+  renderDailySetupsCard(); // Phase 5: draw now with the defaults / last known targets…
+  loadDailyTargets().then(renderDailySetupsCard); // …then again with the shared ones
   updateTabUnseenBadge('trade'); // Tab-Badge Login Preload Roadmap, Phase 1: data was already being fetched here on every login — this just adds the missing dot-check on it
   updateOnboardingBanner();
   renderDashboardStrategySelectOptions();
