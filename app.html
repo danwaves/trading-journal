@@ -748,6 +748,11 @@
   .comment-bubble-row.theirs .comment-bubble { background: var(--surface2); border: 1px solid var(--border); color: var(--light, #E7E9F3); border-bottom-left-radius: 4px; }
   /* P&L Calendar Roadmap Phase 1: Month | Week tally + trades-taken list */
   .dsc-card { margin-bottom: var(--space-4); }
+  .dsc-toggle { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .dsc-head-main { flex: 1; min-width: 0; }
+  .dsc-chev { color: var(--muted); font-size: 12px; margin-left: 4px; }
+  .dsc-sub b { color: var(--light); }
+  .dsc-sub .loss { color: var(--loss, #FF5C5C); }
   .dsc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
   .dsc-title { margin: 0; }
   .dsc-sub { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
@@ -2425,7 +2430,7 @@
   <button class="app-tab is-hidden" onclick="showScreen('dashboard', this); refreshDashboardTradeSummary();">Dashboard</button>
   <button class="app-tab is-hidden" id="tabTrades" onclick="showScreen('trades', this); renderTradeList();">Trades<span class="tab-unseen-dot" id="tabDot_trade"></span></button>
   <button class="app-tab is-hidden" onclick="openNewTradeTab();" id="tabEntry">New Trade</button>
-  <button class="app-tab is-hidden" id="tabWatchlist" onclick="showScreen('watchlist', this); renderWatchlistList();">Watchlist<span class="tab-unseen-dot" id="tabDot_watchlist"></span></button>
+  <button class="app-tab is-hidden" id="tabWatchlist" onclick="showScreen('watchlist', this); renderWatchlistList(); loadDailyTargets().then(renderDailySetupsCard);">Watchlist<span class="tab-unseen-dot" id="tabDot_watchlist"></span></button>
   <div class="sync-indicator is-hidden" id="syncIndicator" title="Data sync status">
     <span class="sync-dot"></span><span class="sync-label" id="syncLabel">Synced</span>
   </div>
@@ -2532,11 +2537,6 @@
       <p class="sub" id="onboardingBannerText" style="margin-bottom: var(--space-3);"></p>
       <button class="btn-primary" id="onboardingBannerBtn" style="width:auto; padding: var(--space-2) var(--space-4);"></button>
     </div>
-
-    <!-- DAILY SETUPS (P&L Calendar Roadmap Phase 5): today's setups per person
-         against the shared daily target, plus Week / Month / All-time totals.
-         Filled by renderDailySetupsCard(). -->
-    <div id="dailySetupsCard"></div>
 
     <!-- STICKY TOOLBAR: Filters, Strategy, Risk (Standard/Conservative) & Share
          together in one row, pinned under the tab bar for the whole page —
@@ -3798,6 +3798,10 @@
   <h1>Watchlist</h1>
   <p class="sub" style="margin-bottom:20px;">Pair ideas you're watching, before any trade is taken.</p>
   <div id="watchlistQuoteCard"></div>
+  <!-- DAILY SETUPS (P&L Calendar Roadmap Phase 5): a dropdown. Closed, it is one
+       line (today's setups per person); open, the full card with the Week /
+       Month / All-time table. Filled by renderDailySetupsCard(). -->
+  <div id="dailySetupsCard"></div>
   <div class="card">
     <div style="padding-top:0;">
       <!-- Phase 2: basic add form, same "nested-card create form above a
@@ -6603,10 +6607,20 @@ function dailySetupStatus(c, dow) {
 
 let dailySetupsMetric = 'setups';
 function setDailySetupsMetric(m) { dailySetupsMetric = m === 'trades' ? 'trades' : 'setups'; renderDailySetupsCard(); }
+// Dropdown: closed by default (remembered per device) — the closed line still
+// shows today's numbers, so the information is there without taking space.
+let dailySetupsOpen = (() => {
+  try { return localStorage.getItem('danwaves_daily_setups_open') === '1'; } catch (e) { return false; }
+})();
+function toggleDailySetupsCard() {
+  dailySetupsOpen = !dailySetupsOpen;
+  try { localStorage.setItem('danwaves_daily_setups_open', dailySetupsOpen ? '1' : '0'); } catch (e) { /* storage unavailable */ }
+  renderDailySetupsCard();
+}
 function renderDailySetupsCard() {
   const host = document.getElementById('dailySetupsCard');
   if (!host) return;
-  // Ideas load in the background at sign-in; if the Dashboard is drawn first,
+  // Ideas load in the background at sign-in; if this page is drawn first,
   // fetch them once and redraw so the idea counts appear.
   if (typeof watchlistItemsLoaded !== 'undefined' && !watchlistItemsLoaded && !renderDailySetupsCard._loading) {
     renderDailySetupsCard._loading = true;
@@ -6619,16 +6633,21 @@ function renderDailySetupsCard() {
   const emails = Object.keys(AUTHOR_BADGES);
   let togetherSetups = 0;
   let togetherExec = 0;
+  const summaryParts = [];
   const personRows = emails.map((email) => {
     const c = dailySetupCounts(idx, email, todayYmd);
     togetherSetups += c.setups;
     togetherExec += c.executed;
     const st = dailySetupStatus(c, dow);
+    const name = AUTHOR_BADGES[email].name;
+    // the closed one-liner: "Dan 2 ✓", "Ako 1 (1 to go)", "⚠" if over the max
+    const short = dow === 6 ? '' : (c.setups >= dailyTargets.min ? ' ✓' : (dow === 0 ? '' : ' (' + (dailyTargets.min - c.setups) + ' to go)'));
+    summaryParts.push(escapeHtml(name) + ' <b class="mono">' + c.setups + '</b>' + short + (st.over ? ' <span class="loss">⚠</span>' : ''));
     const parts = [];
     if (c.newTrades) parts.push(c.newTrades + (c.newTrades === 1 ? ' trade' : ' trades'));
     if (c.ideas) parts.push(c.ideas + (c.ideas === 1 ? ' idea' : ' ideas'));
     return '<div class="dsc-row">' +
-      '<span class="dsc-name">' + escapeHtml(AUTHOR_BADGES[email].name) + '</span>' +
+      '<span class="dsc-name">' + escapeHtml(name) + '</span>' +
       '<span class="dsc-count mono">' + c.setups + '</span>' +
       '<span class="dsc-detail">' + (parts.length ? escapeHtml(parts.join(' + ')) : 'nothing yet') +
         '<br><span class="' + (st.over ? 'loss' : '') + '">executed ' + c.executed + ' of max ' + dailyTargets.max + (st.over ? ' — over the max' : '') + '</span></span>' +
@@ -6653,14 +6672,24 @@ function renderDailySetupsCard() {
     '<td class="mono">' + emails.reduce((sum, email) => sum + pick(dailySetupTotals(idx, email, p.from, p.to)), 0) + '</td>').join('') + '</tr>';
   const seg = (id, label) => '<button type="button" class="plc-seg-btn' + (dailySetupsMetric === id ? ' active' : '') + '" onclick="setDailySetupsMetric(\'' + id + '\')">' + label + '</button>';
 
+  const closedLine = dow === 6
+    ? 'Market closed today · ' + togetherSetups + ' together'
+    : 'Today: ' + summaryParts.join(' · ') + ' · ' + togetherSetups + ' together';
+  const body = dailySetupsOpen
+    ? '<div class="dsc-today-label">Today</div>' + personRows + togetherRow +
+      '<div class="dsc-table-head"><span class="dsc-today-label">Totals</span><div class="plc-seg">' + seg('setups', 'Setups') + seg('trades', 'Trades') + '</div></div>' +
+      '<table class="dsc-table"><thead><tr><th></th>' + periods.map((p) => '<th>' + p.label + '</th>').join('') + '</tr></thead><tbody>' + tableRows + '</tbody></table>' +
+      '<div class="dsc-hint">A setup is a trade taken or an idea added — a trade taken from an idea counts once. “Trades” counts executed trades only.</div>'
+    : '';
+
   host.innerHTML = '<div class="card dsc-card">' +
-    '<div class="dsc-head"><div><h2 class="dsc-title">Daily setups</h2>' +
-      '<div class="dsc-sub">At least ' + dailyTargets.min + ' each per weekday · at most ' + dailyTargets.max + ' trades executed</div></div>' +
-      '<button type="button" class="plc-target-edit" onclick="editDailyTargets()" aria-label="Edit daily targets">✎</button></div>' +
-    '<div class="dsc-today-label">Today</div>' + personRows + togetherRow +
-    '<div class="dsc-table-head"><span class="dsc-today-label">Totals</span><div class="plc-seg">' + seg('setups', 'Setups') + seg('trades', 'Trades') + '</div></div>' +
-    '<table class="dsc-table"><thead><tr><th></th>' + periods.map((p) => '<th>' + p.label + '</th>').join('') + '</tr></thead><tbody>' + tableRows + '</tbody></table>' +
-    '<div class="dsc-hint">A setup is a trade taken or an idea added — a trade taken from an idea counts once. “Trades” counts executed trades only.</div>' +
+    '<div class="dsc-head dsc-toggle" onclick="toggleDailySetupsCard()" role="button" aria-expanded="' + (dailySetupsOpen ? 'true' : 'false') + '">' +
+      '<div class="dsc-head-main"><h2 class="dsc-title">Daily setups <span class="dsc-chev">' + (dailySetupsOpen ? '▾' : '▸') + '</span></h2>' +
+      '<div class="dsc-sub">' + (dailySetupsOpen
+        ? 'At least ' + dailyTargets.min + ' each per weekday · at most ' + dailyTargets.max + ' trades executed'
+        : closedLine) + '</div></div>' +
+      '<button type="button" class="plc-target-edit" onclick="event.stopPropagation(); editDailyTargets()" aria-label="Edit daily targets">✎</button></div>' +
+    body +
   '</div>';
 }
 
@@ -15998,6 +16027,7 @@ async function renderWatchlistList() {
   populateWlPoiTypeSelect();
   populateWlModelSelect();
   updateWatchlistAuthorChips();
+  renderDailySetupsCard(); // counts change the moment an idea is added or a trade is saved
   if (!watchlistItemsLoaded) await loadAllWatchlistItems();
   // Phase B3: same non-blocking background load as renderTradeList().
   ensureForexNewsForBadges(renderWatchlistList);
@@ -19860,8 +19890,7 @@ function updateOnboardingBanner() {
 
 async function refreshDashboardTradeSummary() {
   await loadAllTrades();
-  renderDailySetupsCard(); // Phase 5: draw now with the defaults / last known targets…
-  loadDailyTargets().then(renderDailySetupsCard); // …then again with the shared ones
+  loadDailyTargets(); // shared daily-setup targets (used by the P&L Calendar's ledger and the Watchlist card)
   updateTabUnseenBadge('trade'); // Tab-Badge Login Preload Roadmap, Phase 1: data was already being fetched here on every login — this just adds the missing dot-check on it
   updateOnboardingBanner();
   renderDashboardStrategySelectOptions();
