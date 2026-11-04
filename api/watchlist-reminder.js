@@ -24,6 +24,12 @@
 //       &dry=1    show who would be messaged and what it would say — sends nothing
 //       &force=1  run even on a weekend (for testing)
 //
+// Daily setup target (optional, add &setups=1 — the evening run does):
+//   Also nudges whoever has fewer SETUPS today than the minimum (a setup = a
+//   trade taken or an idea added to the watchlist; a trade taken from an idea
+//   counts once, as that idea). The minimum is read from the shared
+//   `app_settings` table (row 'daily_targets'), default 2. Weekdays only.
+//
 // Environment variables (all but the last two already exist for the other
 // notification functions):
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -77,26 +83,49 @@ function reminderStatus(item, nowTs, tz) {
   const today = localDay(nowTs, tz);
   const last = localDay(ts, tz);
   if (last >= today) return { state: 'ok' };
+  const lastText = new Date(ts).toLocaleString('en-US', { timeZone: tz, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
   let missed = 0;
   for (let d = last + 1; d < today && d - last < 400; d++) {
     if (isWeekdayNum(d)) missed++;
   }
   return missed > 0
-    ? { state: 'missed', missed, lastDay: last }
-    : { state: 'due', missed: 0, lastDay: last };
+    ? { state: 'missed', missed, lastDay: last, lastText }
+    : { state: 'due', missed: 0, lastDay: last, lastText };
 }
 
-function buildMessage(name, due, missed) {
-  const lines = [`⏰ ${name}, your watchlist needs an update`];
+// Shared daily-setup targets (same row the app reads); defaults if the table
+// is missing or empty.
+async function loadTargets(supabase) {
+  const out = { min: 2, max: 5 };
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'daily_targets').maybeSingle();
+    if (!error && data && data.value) {
+      const mn = Number(data.value.min);
+      const mx = Number(data.value.max);
+      if (Number.isInteger(mn) && mn >= 0) out.min = mn;
+      if (Number.isInteger(mx) && mx >= Math.max(1, out.min)) out.max = mx;
+    }
+  } catch (e) { /* defaults */ }
+  return out;
+}
+
+function buildMessage(name, due, missed, setupInfo) {
+  const hasUpdates = due.length > 0 || missed.length > 0;
+  const lines = [hasUpdates ? `⏰ ${name}, your watchlist needs an update` : `📈 ${name}, daily target check`];
   if (missed.length) {
     lines.push('', 'Missed days:');
-    missed.forEach((m) => lines.push(`• ${m.label} — missed ${m.missed} ${m.missed === 1 ? 'day' : 'days'} (last update ${dayLabel(m.lastDay)})`));
+    missed.forEach((m) => lines.push(`• ${m.label} — missed ${m.missed} ${m.missed === 1 ? 'day' : 'days'} (last update we see: ${m.lastText})`));
   }
   if (due.length) {
     lines.push('', 'Due today:');
-    due.forEach((d) => lines.push(`• ${d.label}`));
+    due.forEach((d) => lines.push(`• ${d.label} — last update we see: ${d.lastText}`));
   }
-  lines.push('', 'Post an update on each one (even just "still valid") before the day ends.', APP_URL);
+  if (setupInfo) {
+    const left = setupInfo.min - setupInfo.setups;
+    lines.push('', `Setups today: ${setupInfo.setups} of ${setupInfo.min} (a trade taken or an idea added) — ${left} more to go.`);
+  }
+  if (hasUpdates) lines.push('', 'Post an update on each one (even just "still valid") before the day ends.');
+  lines.push('', APP_URL);
   return lines.join('\n');
 }
 
@@ -123,7 +152,7 @@ module.exports = async function handler(req, res) {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   const { data, error } = await supabase
     .from('watchlist_items')
-    .select('id, pair, direction, created_by, created_at, status, trail');
+    .select('id, pair, direction, created_by, created_at, status, trail, linked_trade_id');
   if (error) {
     console.error('watchlist-reminder: could not load watchlist_items:', error);
     res.status(500).json({ error: error.message });
@@ -139,15 +168,36 @@ module.exports = async function handler(req, res) {
     if (!info || info.state === 'ok') return;
     const label = `${item.pair || 'Idea'} (${String(item.direction || '').toUpperCase()})`;
     const bucket = byOwner[item.created_by] || (byOwner[item.created_by] = { due: [], missed: [] });
-    if (info.state === 'missed') bucket.missed.push({ label, missed: info.missed, lastDay: info.lastDay });
-    else bucket.due.push({ label });
+    if (info.state === 'missed') bucket.missed.push({ label, missed: info.missed, lastDay: info.lastDay, lastText: info.lastText });
+    else bucket.due.push({ label, lastText: info.lastText });
   });
 
-  const plan = Object.keys(byOwner).map((email) => ({
+  // Daily setup nudge (evening run): who is still under the minimum today.
+  const setupInfo = {};
+  if (query.setups === '1') {
+    const targets = await loadTargets(supabase);
+    const todayNum = localDay(now, tz);
+    const todayYmd = new Date(todayNum * 86400000).toISOString().slice(0, 10);
+    const tradesRes = await supabase.from('trades').select('id, created_by, trade_date').eq('trade_date', todayYmd);
+    if (tradesRes.error) {
+      console.error('watchlist-reminder: could not load today\'s trades:', tradesRes.error);
+    } else {
+      const linked = new Set((data || []).map((it) => it.linked_trade_id).filter(Boolean));
+      Object.keys(roster).forEach((email) => {
+        const newTrades = (tradesRes.data || []).filter((t) => t.created_by === email && !linked.has(t.id)).length;
+        const ideasToday = (data || []).filter((it) => it.created_by === email && it.created_at && localDay(Number(it.created_at), tz) === todayNum).length;
+        const setups = newTrades + ideasToday;
+        if (setups < targets.min) setupInfo[email] = { setups, min: targets.min };
+      });
+    }
+  }
+
+  const emailsToMessage = Object.keys(roster).filter((email) => byOwner[email] || setupInfo[email]);
+  const plan = emailsToMessage.map((email) => ({
     email,
     name: roster[email].name,
     chatId: roster[email].chatId,
-    message: buildMessage(roster[email].name, byOwner[email].due, byOwner[email].missed),
+    message: buildMessage(roster[email].name, byOwner[email] ? byOwner[email].due : [], byOwner[email] ? byOwner[email].missed : [], setupInfo[email] || null),
   }));
 
   if (dry) {

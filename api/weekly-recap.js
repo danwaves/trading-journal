@@ -1,9 +1,14 @@
 // Danwaves — weekly recap (Telegram).
 // Deploy path: /api/weekly-recap.js (Vercel serverless function).
 //
-// One message, sent to BOTH accounts, summarising Monday–Friday of the week:
+// One message, sent to BOTH accounts, summarising the trading week (Sunday
+// night to Friday — Sunday's trades and ideas are included):
 //   - trades: won / lost / open, net P&L, win rate, per person, best and worst pair
 //   - watchlist ideas closed that week as Missed or Invalidated
+//   - the daily SETUP target per person: setups (a trade taken or an idea added,
+//     counted once), weekdays the minimum was met or missed, days over the
+//     max executed trades. Minimum / maximum come from the shared
+//     `app_settings` table (default 2 and 5). Sunday counts but is never owed.
 //   - the daily-update record per person (the same rule the P&L Calendar uses:
 //     each weekday every open idea is owed one update from its OWNER; posting
 //     the idea counts as that day's update; weekends owe nothing)
@@ -19,7 +24,8 @@
 //   /api/weekly-recap?secret=<NOTIFY_SECRET>        (what GitHub Actions does)
 //   or Authorization: Bearer <CRON_SECRET>
 //   Options:  &dry=1            show the message(s) without sending anything
-//             &week=YYYY-MM-DD  recap the week containing that date (default: this week)
+//             &week=YYYY-MM-DD  recap the week containing that date (default: this week;
+//                               a week runs Sunday-Saturday, so a run ON a Sunday is the new week)
 //
 // Environment variables (all already exist for the other functions):
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TELEGRAM_BOT_TOKEN,
@@ -81,10 +87,10 @@ function stats(rows) {
 }
 
 // Same rule as pnlCalendarDailyUpdateInfo() in app.html, on day numbers.
-function dailyUpdateRecord(ideas, roster, monNum, friNum, todayNum, tz) {
+function dailyUpdateRecord(ideas, roster, startNum, friNum, todayNum, tz) {
   const rows = {};
   Object.keys(roster).forEach((email) => { rows[email] = { name: roster[email].name, days: 0, done: 0, missedDays: [], dueToday: false }; });
-  for (let D = monNum; D <= friNum && D <= todayNum; D++) {
+  for (let D = startNum; D <= friNum && D <= todayNum; D++) {
     if (!(dayOfWeek(D) >= 1 && dayOfWeek(D) <= 5)) continue;
     const perPerson = {};
     ideas.forEach((it) => {
@@ -115,8 +121,59 @@ function dailyUpdateRecord(ideas, roster, monNum, friNum, todayNum, tz) {
   return Object.values(rows).filter((r) => r.days > 0 || r.dueToday);
 }
 
-function buildMessage({ monNum, friNum, tradeRows, closedMissed, closedInvalid, record, roster, todayNum }) {
-  const lines = [`📊 Weekly recap — ${dayLabel(monNum)} – ${dayLabel(friNum)}`, ''];
+async function loadTargets(supabase) {
+  const out = { min: 2, max: 5 };
+  try {
+    const { data, error } = await supabase.from('app_settings').select('value').eq('key', 'daily_targets').maybeSingle();
+    if (!error && data && data.value) {
+      const mn = Number(data.value.min);
+      const mx = Number(data.value.max);
+      if (Number.isInteger(mn) && mn >= 0) out.min = mn;
+      if (Number.isInteger(mx) && mx >= Math.max(1, out.min)) out.max = mx;
+    }
+  } catch (e) { /* defaults */ }
+  return out;
+}
+
+// Setups per person per day over the week: a setup = a trade taken OR an idea
+// added, counted once (a trade taken from an idea is that idea's setup).
+function setupRecord(tradeRows, ideas, roster, startNum, satNum, todayNum, tz, targets) {
+  const linked = new Set(ideas.map((it) => it.linked_trade_id).filter(Boolean));
+  const perDay = {}; // email -> dayNum -> { executed, newTrades, ideas }
+  Object.keys(roster).forEach((e) => { perDay[e] = {}; });
+  const slot = (email, D) => (perDay[email] ? (perDay[email][D] || (perDay[email][D] = { executed: 0, newTrades: 0, ideas: 0 })) : null);
+  tradeRows.forEach((t) => {
+    const sl = slot(t.created_by, ymdToDay(String(t.trade_date).slice(0, 10)));
+    if (!sl) return;
+    sl.executed++;
+    if (!linked.has(t.id)) sl.newTrades++;
+  });
+  ideas.forEach((it) => {
+    if (!it.created_at) return;
+    const D = localDay(Number(it.created_at), tz);
+    if (D < startNum || D > satNum) return;
+    const sl = slot(it.created_by, D);
+    if (sl) sl.ideas++;
+  });
+  return Object.keys(roster).map((email) => {
+    const row = { name: roster[email].name, setups: 0, days: 0, met: 0, missedDays: [], overDays: [], dueToday: false };
+    for (let D = startNum; D <= satNum && D <= todayNum; D++) {
+      const sl = perDay[email][D] || { executed: 0, newTrades: 0, ideas: 0 };
+      const setups = sl.newTrades + sl.ideas;
+      row.setups += setups;
+      if (sl.executed > targets.max) row.overDays.push(DAY_NAMES[dayOfWeek(D)]);
+      const dow = dayOfWeek(D);
+      if (dow === 0 || dow === 6) continue; // the minimum is owed Mon-Fri only
+      if (D === todayNum && setups < targets.min) { row.dueToday = true; continue; }
+      row.days++;
+      if (setups >= targets.min) row.met++; else row.missedDays.push(DAY_NAMES[dow]);
+    }
+    return row;
+  });
+}
+
+function buildMessage({ startNum, friNum, tradeRows, closedMissed, closedInvalid, record, setups, targets, roster, todayNum }) {
+  const lines = [`📊 Weekly recap — ${dayLabel(startNum)} – ${dayLabel(friNum)}`, ''];
   const st = stats(tradeRows);
   if (!st.trades) {
     lines.push('Trades: none this week.');
@@ -139,6 +196,19 @@ function buildMessage({ monNum, friNum, tradeRows, closedMissed, closedInvalid, 
     }
   }
   lines.push('', `Ideas closed: Missed ${closedMissed} · Invalidated ${closedInvalid}`);
+  if (setups && setups.length) {
+    lines.push('', `Daily setups (at least ${targets.min} each weekday):`);
+    setups.forEach((r) => {
+      let line = `• ${r.name}: ${r.setups} ${r.setups === 1 ? 'setup' : 'setups'}`;
+      if (r.days) line += ` · target met ${r.met} of ${r.days} ${r.days === 1 ? 'day' : 'days'}`;
+      if (r.missedDays.length) line += ` — missed ${r.missedDays.join(', ')}`;
+      lines.push(line);
+    });
+    const over = setups.filter((r) => r.overDays.length).map((r) => `${r.name} (${r.overDays.join(', ')})`);
+    if (over.length) lines.push(`Over the ${targets.max}-trade max: ${over.join(' · ')}`);
+    const dueSetups = setups.filter((r) => r.dueToday).map((r) => r.name);
+    if (dueSetups.length) lines.push(`(${DAY_NAMES[dayOfWeek(todayNum)]} isn't over yet — still under the minimum for ${dueSetups.join(' and ')}.)`);
+  }
   if (record.length) {
     lines.push('', 'Daily updates (weekdays):');
     record.forEach((r) => {
@@ -167,15 +237,16 @@ module.exports = async function handler(req, res) {
   const now = Date.now();
   const todayNum = localDay(now, tz);
   const anchor = query.week && /^\d{4}-\d{2}-\d{2}$/.test(query.week) ? ymdToDay(query.week) : todayNum;
-  const monNum = anchor - ((dayOfWeek(anchor) + 6) % 7);
-  const friNum = monNum + 4;
-  const sunNum = monNum + 6;
+  // The trading week runs Sunday (market opens that night) to Saturday.
+  const startNum = anchor - dayOfWeek(anchor);
+  const friNum = startNum + 5;
+  const satNum = startNum + 6;
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
   const [tradesRes, ideasRes] = await Promise.all([
     supabase.from('trades').select('id, pair, direction, result, rr_outcome, created_by, trade_date')
-      .gte('trade_date', dayToYmd(monNum)).lte('trade_date', dayToYmd(sunNum)),
-    supabase.from('watchlist_items').select('id, pair, created_by, created_at, updated_at, status, trail'),
+      .gte('trade_date', dayToYmd(startNum)).lte('trade_date', dayToYmd(satNum)),
+    supabase.from('watchlist_items').select('id, pair, created_by, created_at, updated_at, status, trail, linked_trade_id'),
   ]);
   if (tradesRes.error || ideasRes.error) {
     const msg = (tradesRes.error || ideasRes.error).message;
@@ -187,11 +258,13 @@ module.exports = async function handler(req, res) {
   const roster = people();
   const tradeRows = tradesRes.data || [];
   const ideas = ideasRes.data || [];
-  const inWeek = (ts) => { if (!ts) return false; const d = localDay(Number(ts), tz); return d >= monNum && d <= sunNum; };
+  const inWeek = (ts) => { if (!ts) return false; const d = localDay(Number(ts), tz); return d >= startNum && d <= satNum; };
   const closedMissed = ideas.filter((it) => it.status === 'missed' && inWeek(it.updated_at)).length;
   const closedInvalid = ideas.filter((it) => it.status === 'invalidated' && inWeek(it.updated_at)).length;
-  const record = dailyUpdateRecord(ideas, roster, monNum, friNum, todayNum, tz);
-  const message = buildMessage({ monNum, friNum, tradeRows, closedMissed, closedInvalid, record, roster, todayNum });
+  const record = dailyUpdateRecord(ideas, roster, startNum, friNum, todayNum, tz);
+  const dailyTargets = await loadTargets(supabase);
+  const setups = setupRecord(tradeRows, ideas, roster, startNum, satNum, todayNum, tz, dailyTargets);
+  const message = buildMessage({ startNum, friNum, tradeRows, closedMissed, closedInvalid, record, setups, targets: dailyTargets, roster, todayNum });
 
   if (query.dry === '1') {
     res.status(200).json({ ok: true, dry: true, timezone: tz, message });
