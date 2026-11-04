@@ -4,8 +4,12 @@ name: Watchlist Update Reminder
 # whether anyone needs a message (it only sends if someone has open watchlist
 # ideas that haven't had today's update) and skips weekends, so a run that
 # finds nothing owed simply does nothing.
+# The EVENING run (18:00 UTC) also checks the daily SETUP target: whoever has
+# fewer setups today than the shared minimum (a setup = a trade taken or an
+# idea added) gets a nudge too.
 # Times below are UTC — 11:00 and 19:00 in Lagos (UTC+1). Edit the hours to
-# move them.
+# move them (if you move the evening one, change the matching text in the
+# 'if' line below as well).
 
 on:
   schedule:
@@ -17,6 +21,10 @@ on:
         description: 'Run even on a weekend (testing only)'
         type: boolean
         default: false
+      setups:
+        description: 'Also check the daily setup target (the evening run always does)'
+        type: boolean
+        default: false
 
 jobs:
   remind:
@@ -25,6 +33,7 @@ jobs:
       - name: Call watchlist reminder endpoint
         run: |
           EXTRA=""
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then EXTRA="&force=1"; fi
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then EXTRA="${EXTRA}&force=1"; fi
+          if [ "${{ github.event.inputs.setups }}" = "true" ] || [ "${{ github.event.schedule }}" = "0 18 * * 1-5" ]; then EXTRA="${EXTRA}&setups=1"; fi
           curl -f -s -o /dev/null -w "%{http_code}" \
             "https://danfxt.vercel.app/api/watchlist-reminder?secret=${{ secrets.NOTIFY_SECRET }}${EXTRA}"
