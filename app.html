@@ -15777,7 +15777,9 @@ async function markWatchlistInvalidated(id) {
       type: 'watchlist_item',
       sourceTable: 'watchlist_items',
       sourceId: id,
-      message: `${currentAccountName()} marked ${item && item.pair ? item.pair : 'a watchlist idea'} as Invalidated`,
+      message: wlIsRecipientsPost(item)
+        ? `${currentAccountName()} marked your ${item.pair || 'watchlist'} post as Invalidated`
+        : `${currentAccountName()} marked ${item && item.pair ? item.pair : 'a watchlist idea'} as Invalidated`,
       deepLink,
     });
   } else {
@@ -15807,7 +15809,9 @@ async function markWatchlistMissed(id) {
       type: 'watchlist_item',
       sourceTable: 'watchlist_items',
       sourceId: id,
-      message: `${currentAccountName()} marked ${item && item.pair ? item.pair : 'a watchlist idea'} as Missed${trimmedReason ? `: "${trimmedReason}"` : ''}`,
+      message: wlIsRecipientsPost(item)
+        ? `${currentAccountName()} marked your ${item.pair || 'watchlist'} post as Missed${trimmedReason ? `: "${trimmedReason}"` : ''}`
+        : `${currentAccountName()} marked ${item && item.pair ? item.pair : 'a watchlist idea'} as Missed${trimmedReason ? `: "${trimmedReason}"` : ''}`,
       deepLink,
     });
   } else {
@@ -15859,7 +15863,9 @@ async function restoreWatchlistIdea(id) {
     type: 'watchlist_item',
     sourceTable: 'watchlist_items',
     sourceId: id,
-    message: `${currentAccountName()} restored ${item.pair ? item.pair : 'a watchlist idea'} to the watchlist (it had been marked ${word})`,
+    message: wlIsRecipientsPost(item)
+      ? `${currentAccountName()} restored your ${item.pair || 'watchlist'} post to the watchlist (it had been marked ${word})`
+      : `${currentAccountName()} restored ${item.pair ? item.pair : 'a watchlist idea'} to the watchlist (it had been marked ${word})`,
     deepLink,
   });
 }
@@ -15984,7 +15990,9 @@ async function toggleWatchlistPoiTapped(id) {
       type: 'poi_tapped',
       sourceTable: 'watchlist_items',
       sourceId: id,
-      message: `${currentAccountName()}: ${item.pair || 'an idea'} (${String(item.direction || '').toUpperCase()}) tapped its POI — price is in the zone`,
+      message: wlIsRecipientsPost(item)
+        ? `📍 ${currentAccountName()} marked your ${item.pair || 'idea'} (${String(item.direction || '').toUpperCase()}) post POI Tapped — price is in the zone`
+        : `${currentAccountName()}: ${item.pair || 'an idea'} (${String(item.direction || '').toUpperCase()}) tapped its POI — price is in the zone`,
       deepLink,
     });
   }
@@ -16931,16 +16939,50 @@ async function removeWlTrailDraftVoice(itemId, idx) {
 // (plain text, trimmed) plus a one-line summary of anything attached, so the
 // other account sees what was actually written rather than just "posted an
 // update". rtToText() flattens the rich-text HTML the composer saves.
-function wlNotifyNoteLines(text, images, video, voices) {
+function wlNotifyNoteLines(text, images, video, voices, opts) {
   const lines = [];
   const plain = rtToText(text);
-  if (plain) lines.push('Note: ' + (plain.length > 300 ? plain.slice(0, 300) + '…' : plain));
+  if (plain) {
+    // "commented on your post" alerts show the words in quotes; the plain
+    // owner-updated-their-own-idea alert keeps the "Note:" label.
+    if (opts && opts.quote) lines.push('"' + (plain.length > 200 ? plain.slice(0, 200) + '…' : plain) + '"');
+    else lines.push('Note: ' + (plain.length > 300 ? plain.slice(0, 300) + '…' : plain));
+  }
   const bits = [];
   if (images && images.length) bits.push(images.length + (images.length > 1 ? ' images' : ' image'));
   if (video) bits.push('video');
   if (voices && voices.length) bits.push(voices.length + (voices.length > 1 ? ' voice notes' : ' voice note'));
   if (bits.length) lines.push('Attached: ' + bits.join(', '));
   return lines.length ? '\n' + lines.join('\n') : '';
+}
+
+// ================= WATCHLIST ALERT WORDING =================
+// Alerts always go to the OTHER account, so whose idea it is decides the
+// words. If the idea belongs to the person receiving the alert it says so —
+// "commented on your post" — and if the sender is just acting on their own
+// idea the plain wording stays (saying "your post" there would be untrue).
+function wlIsRecipientsPost(item) {
+  return !!(item && item.createdBy && item.createdBy === otherAccountEmail());
+}
+function wlIdeaLine(pair, direction, poiType, htf) {
+  return `${pair || 'Idea'} (${String(direction || '').toUpperCase()}) · POI: ${poiType || '—'} (${htf || '—'})`;
+}
+// A new update (or an edited one) posted on a watchlist idea.
+function wlPostAlertMessage({ actor, yours, edited, item, text, images, video, voices, tagAsEntry }) {
+  const pair = item.pair;
+  const dir = String(item.direction || '').toUpperCase();
+  if (yours) {
+    return `💬 ${actor} ${edited ? 'edited a comment on' : 'commented on'} your post${tagAsEntry ? ' — Entry taken, now Pending' : ''}\n` +
+      wlIdeaLine(item.pair, item.direction, item.poiType, item.htf) + wlNotifyNoteLines(text, images, video, voices, { quote: true });
+  }
+  return `${actor} ${edited ? 'edited an update on' : 'posted an update on'} ${pair} (${dir})${tagAsEntry ? ' — Entry taken, now Pending' : ''}\n` +
+    `POI: ${item.poiType || '—'} (${item.htf || '—'})${wlNotifyNoteLines(text, images, video, voices)}`;
+}
+// A comment (or a note, which is now sent as a comment) on a watchlist image.
+function wlImageCommentAlertMessage({ actor, yours, contextLine, text }) {
+  const clipped = text.length > 200 ? text.slice(0, 200) + '…' : text;
+  if (yours) return `💬 ${actor} commented on your post${contextLine}${clipped ? '\n"' + clipped + '"' : ''}`;
+  return `${actor} commented: "${clipped}"${contextLine}`;
 }
 
 async function addWatchlistTrailEntry(itemId) {
@@ -17026,7 +17068,7 @@ async function addWatchlistTrailEntry(itemId) {
     type: 'watchlist_trail',
     sourceTable: 'watchlist_items',
     sourceId: itemId,
-    message: `${currentAccountName()} posted an update on ${item.pair} (${(item.direction || '').toUpperCase()})${tagAsEntry ? ' — Entry taken, now Pending' : ''}\nPOI: ${item.poiType || '—'} (${item.htf || '—'})${wlNotifyNoteLines(text, images, video, voices)}`,
+    message: wlPostAlertMessage({ actor: currentAccountName(), yours: wlIsRecipientsPost(item), edited: false, item, text, images, video, voices, tagAsEntry }),
     deepLink: trailDeepLink,
   });
 
@@ -17199,7 +17241,7 @@ async function saveWatchlistTrailEditEntry(itemId, entryId) {
     type: 'watchlist_trail_edit',
     sourceTable: 'watchlist_items',
     sourceId: itemId,
-    message: `${currentAccountName()} edited an update on ${item.pair} (${(item.direction || '').toUpperCase()})\nPOI: ${item.poiType || '—'} (${item.htf || '—'})${wlNotifyNoteLines(text, images, video, voices)}`,
+    message: wlPostAlertMessage({ actor: currentAccountName(), yours: wlIsRecipientsPost(item), edited: true, item, text, images, video, voices, tagAsEntry: false }),
     deepLink: editDeepLink,
   });
 }
@@ -18556,11 +18598,11 @@ function resolveMediaCommentContext(tag) {
   const [type, id] = tag.split(':');
   if (type === 'trade') {
     const t = allTrades.find((x) => x.id === id);
-    return t ? { pair: t.pair, direction: t.direction, poiType: t.poiType, htf: t.htf } : null;
+    return t ? { kind: 'trade', ownerEmail: t.createdBy, pair: t.pair, direction: t.direction, poiType: t.poiType, htf: t.htf } : null;
   }
   if (type === 'wl') {
     const it = allWatchlistItems.find((x) => x.id === id);
-    return it ? { pair: it.pair, direction: it.direction, poiType: it.poiType, htf: it.htf } : null;
+    return it ? { kind: 'wl', ownerEmail: it.createdBy, pair: it.pair, direction: it.direction, poiType: it.poiType, htf: it.htf } : null;
   }
   return null;
 }
@@ -18769,7 +18811,9 @@ async function notifyViewerNote(imgId, tag, plain) {
       type: 'note',
       sourceTable: mediaNotifySourceTable(tag, 'media_notes'),
       sourceId: imgId,
-      message: `${currentAccountName()} updated a note on an image/video${contextLine}${preview}`,
+      message: (ctx && ctx.kind === 'wl' && ctx.ownerEmail && ctx.ownerEmail === otherAccountEmail())
+        ? wlImageCommentAlertMessage({ actor: currentAccountName(), yours: true, contextLine, text: plain || '' })
+        : `${currentAccountName()} updated a note on an image/video${contextLine}${preview}`,
       deepLink,
     });
   } catch (e) {
@@ -19071,7 +19115,12 @@ async function postViewerCommentText(text, opts) {
     type: 'comment',
     sourceTable: mediaNotifySourceTable(tag, 'media_comments'),
     sourceId: imgId,
-    message: `${currentAccountName()} commented: "${text.length > 200 ? text.slice(0, 200) + '…' : text}"${contextLine}`,
+    message: wlImageCommentAlertMessage({
+      actor: currentAccountName(),
+      // "commented on your post" only for an idea on the watchlist that belongs to the person being alerted
+      yours: !!(ctx && ctx.kind === 'wl' && ctx.ownerEmail && ctx.ownerEmail === otherAccountEmail()),
+      contextLine, text,
+    }),
     deepLink,
   });
 }
